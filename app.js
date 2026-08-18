@@ -169,7 +169,18 @@
     survivor:{icon:'❤️',title:'Sobrevivente',desc:'Acerte 10 jogos numa partida Survival.',reward:150},
     blitzMaster:{icon:'⏱️',title:'Mestre do Blitz',desc:'Acerte 10 jogos numa única partida Blitz.',reward:150},
     pureGuess:{icon:'🔮',title:'Instinto Gamer',desc:'Acerte sem usar pistas nem comprar ajuda.',reward:100},
-    rich:{icon:'🪙',title:'Colecionador',desc:'Tenha 1.000 moedas ao mesmo tempo.',reward:100}
+    rich:{icon:'🪙',title:'Colecionador',desc:'Tenha 1.000 moedas ao mesmo tempo.',reward:100},
+    challenger:{icon:'⚔️',title:'Challenger',desc:'Acerte 20 campeões de League of Legends.',reward:160},
+    pokemonMaster:{icon:'🔴',title:'Mestre Pokémon',desc:'Acerte 50 Pokémon.',reward:220},
+    digichosen:{icon:'🔵',title:'DigiEscolhido',desc:'Acerte 20 Digimon.',reward:160},
+    cartoonMemory:{icon:'📺',title:'Memória de Elefante',desc:'Acerte 20 personagens de desenhos clássicos.',reward:160},
+    globinhoKid:{icon:'☀️',title:'Filho da Globinho',desc:'Acerte 15 personagens do especial TV Globinho.',reward:180},
+    zWarrior:{icon:'🐉',title:'Guerreiro Z',desc:'Acerte 20 personagens do universo Dragon Ball.',reward:180},
+    duelKing:{icon:'🃏',title:'Rei dos Duelos',desc:'Acerte 20 personagens de Yu-Gi-Oh!.',reward:180},
+    hokage:{icon:'🍥',title:'Caminho do Hokage',desc:'Acerte 20 personagens de Naruto.',reward:180},
+    wordsmith:{icon:'🔤',title:'Mestre das Palavras',desc:'Resolva 10 palavras no Termo Arcade.',reward:140},
+    termoStreak:{icon:'♾️',title:'Sequência Infinita',desc:'Acerte 5 palavras seguidas no Termo Arcade.',reward:190},
+    multiverse:{icon:'🌌',title:'Viajante do Multiverso',desc:'Acerte ao menos um desafio em cada universo de personagens.',reward:300}
   };
 
   const DEFAULT_PROFILE = {
@@ -714,6 +725,11 @@
     window.addEventListener('keydown',e=>{if(e.key==='Escape'){if($('confirmOverlay').classList.contains('active'))closeOverlay('confirmOverlay');else if($('achievementsOverlay').classList.contains('active'))closeOverlay('achievementsOverlay');else if($('tutorialOverlay').classList.contains('active'))closeOverlay('tutorialOverlay');}});
   }
 
+  window.GameGuessCore={
+    showScreen, toast, spawnConfetti, playSound,
+    syncProfile(){profile=loadProfile();updatePersistentUI();},
+    getProfile(){return JSON.parse(JSON.stringify(profile));}
+  };
   function init(){renderModes();createParticles();bindEvents();updatePersistentUI();setApiStatus('','Pronto para jogar');if(!profile.tutorialSeen)setTimeout(()=>openOverlay('tutorialOverlay'),450);}
   init();
 })();
