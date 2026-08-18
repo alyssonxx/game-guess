@@ -23,7 +23,7 @@ async function fetchWithTimeout(url, timeoutMs = 8000) {
       signal: controller.signal,
       headers: {
         'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
-        'User-Agent': 'GameGuess/4.2 image-proxy'
+        'User-Agent': 'GameGuess/4.3 image-proxy'
       }
     });
   } finally {

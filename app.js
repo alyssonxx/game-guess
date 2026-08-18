@@ -54,6 +54,7 @@
 
   const CATEGORIES = {
     all:{title:'Todos',icon:'🎲',kind:'all'},
+    brazil:{title:'Famosos no Brasil',icon:'🇧🇷',kind:'brazil'},
     horror:{title:'Terror',icon:'👻',kind:'semantic'},
     racing:{title:'Corrida',icon:'🏎️',kind:'semantic'},
     rpg:{title:'RPG',icon:'⚔️',kind:'semantic'},
@@ -298,9 +299,12 @@
     $('categoryChoices').innerHTML='';
     Object.entries(CATEGORIES).forEach(([key,c])=>{
       if(setupConfig.mode==='classic' && ['playstation','xbox','nintendo','pc'].includes(key)) return;
-      const b=document.createElement('button'); b.className='choice-btn'+(setupConfig.category===key?' active':''); b.innerHTML=`<b>${c.icon} ${escapeHTML(c.title)}</b>`;
+      const b=document.createElement('button'); b.className='choice-btn'+(setupConfig.category===key?' active':'');
+      const extra=key==='brazil'?'<small>Curadoria por console</small>':'';
+      b.innerHTML=`<b>${c.icon} ${escapeHTML(c.title)}</b>${extra}`;
       b.onclick=()=>{setupConfig.category=key;if(c.kind==='family')setupConfig.platform='all';if(c.kind==='retro')setupConfig.decade='all';renderSetup();}; $('categoryChoices').appendChild(b);
     });
+    $('platformHelp').textContent=setupConfig.category==='brazil'?'Escolha um console para jogar seus clássicos mais lembrados no Brasil':'Escolha uma ou misture todas';
 
     $('timerCard').classList.toggle('hidden',setupConfig.mode==='blitz');
     $('timerToggle').checked=setupConfig.timed;
@@ -312,7 +316,7 @@
     const platform=setupConfig.platform==='all'?'Todas':CONSOLES[setupConfig.platform]?.name;
     const decade=DECADES[setupConfig.decade]?.title || 'Todas'; const cat=CATEGORIES[setupConfig.category]?.title || 'Todos';
     const timer=setupConfig.mode==='blitz'?'2 min globais':setupConfig.timed?'30s por jogo':'Sem limite';
-    $('summaryList').innerHTML=`<div><span>Dificuldade</span><b>${d.icon} ${d.title}</b></div><div><span>Plataforma</span><b>${escapeHTML(['mystery','decades'].includes(setupConfig.mode)?'Misturada':platform)}</b></div><div><span>Época</span><b>${escapeHTML(decade)}</b></div><div><span>Tema</span><b>${escapeHTML(cat)}</b></div><div><span>Tempo</span><b>${escapeHTML(timer)}</b></div>`;
+    $('summaryList').innerHTML=`<div><span>Dificuldade</span><b>${d.icon} ${d.title}</b></div><div><span>Plataforma</span><b>${escapeHTML(['mystery','decades'].includes(setupConfig.mode)?'Misturada':platform)}</b></div><div><span>Época</span><b>${escapeHTML(decade)}</b></div><div><span>Categoria</span><b>${escapeHTML(cat)}</b></div><div><span>Tempo</span><b>${escapeHTML(timer)}</b></div>`;
     $('startButton').textContent=setupConfig.mode==='blitz'?'INICIAR BLITZ ▶':'JOGAR AGORA ▶';
     $('setupIcon').textContent=mode.icon;
   }
@@ -327,7 +331,7 @@
     keys=keys.filter(k=>CONSOLES[k].years[1]>=startYear && CONSOLES[k].years[0]<=endYear);
     return {
       platformIds:[...new Set(keys.map(k=>CONSOLES[k].id))],startYear,endYear,
-      apiCategory:cat.kind==='semantic'?config.category:'all'
+      apiCategory:['semantic','brazil'].includes(cat.kind)?config.category:'all'
     };
   }
 
@@ -347,7 +351,7 @@
     const limit=config.mode==='quick'?35:['survival','blitz'].includes(config.mode)?160:120;
     const data=await apiPost({action:'session',platformIds:q.platformIds,startYear:q.startYear,endYear:q.endYear,category:q.apiCategory,limit},22000);
     if(!Array.isArray(data.games)) return [];
-    setApiStatus('online',`IGDB online • ${data.games.length} jogos sorteados`);
+    setApiStatus('online',config.category==='brazil'?`🇧🇷 Brasil • ${data.games.length} clássicos encontrados`:`IGDB online • ${data.games.length} jogos sorteados`);
     const recent=new Set(profile.recentGameIds.map(Number));
     const fresh=shuffle(data.games.filter(g=>!recent.has(Number(g.id))));
     const repeated=shuffle(data.games.filter(g=>recent.has(Number(g.id))));
@@ -359,7 +363,7 @@
     const finalConfig={...config};
     showScreen('loadingScreen'); setApiStatus('','Conectando à IGDB...');
     $('loadingTitle').textContent=MODES[finalConfig.mode].title;
-    $('loadingText').textContent='Sorteando jogos, screenshots e posições para esta sessão...';
+    $('loadingText').textContent=finalConfig.category==='brazil'?'Montando uma seleção de jogos muito lembrados no Brasil para o console escolhido...':'Sorteando jogos, screenshots e posições para esta sessão...';
     qsa('.loading-steps span').forEach((el,i)=>el.classList.toggle('active',i===0));
     try {
       const games=await fetchSessionGames(finalConfig);
@@ -654,8 +658,9 @@
     if(!session)return; const mode=MODES[session.config.mode],diff=DIFFICULTIES[session.currentDifficulty];
     $('modeBadge').textContent=mode.title.toUpperCase(); $('roundMetric').textContent=`🎮 ${session.index+1} / ${session.config.mode==='survival'||session.config.mode==='blitz'?'∞':session.totalRounds}`;
     $('livesMetric').classList.toggle('hidden',session.config.mode!=='survival'); if(session.config.mode==='survival')$('livesMetric').textContent='❤️'.repeat(session.lives)+'🖤'.repeat(3-session.lives);
-    $('scoreMetric').textContent=session.score; $('coinsMetric').textContent=profile.coins; $('difficultyLabel').textContent=diff.title.toUpperCase(); $('roundEyebrow').textContent=session.config.mode==='mystery'?'CONSOLE DESCONHECIDO • QUE JOGO É ESSE?':'QUE JOGO É ESSE?';
-    $('roundTitle').textContent=session.config.mode==='blitz'?'Seja rápido. O relógio não para.':'Observe a imagem e arrisque';
+    $('scoreMetric').textContent=session.score; $('coinsMetric').textContent=profile.coins; $('difficultyLabel').textContent=diff.title.toUpperCase();
+    $('roundEyebrow').textContent=session.config.category==='brazil'?'🇧🇷 CLÁSSICO DO BRASIL • QUE JOGO É ESSE?':session.config.mode==='mystery'?'CONSOLE DESCONHECIDO • QUE JOGO É ESSE?':'QUE JOGO É ESSE?';
+    $('roundTitle').textContent=session.config.mode==='blitz'?'Seja rápido. O relógio não para.':session.config.category==='brazil'?'Um jogo muito lembrado pelos brasileiros':'Observe a imagem e arrisque';
     const mult=comboMultiplier(session.streak); $('streakMetric').textContent=`🔥 x${mult}`; $('comboChip').textContent=`🔥 COMBO x${mult}`; $('comboChip').className='combo-chip'+(mult>=3?' combo-3':mult>=2?' combo-2':mult>=1.5?' combo-15':'');
     updateAttempts();updateImageStatus();const potential=currentPotentialPoints();$('roundScorePreview').querySelector('b').textContent=`+${potential}`;
     qsa('.assist-btn').forEach(b=>{const t=b.dataset.assist;if(t==='piece')b.disabled=session.revealed.size>=6;else b.disabled=session.assistsUsed.has(t);});

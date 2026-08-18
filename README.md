@@ -1,4 +1,4 @@
-# Game Guess V4.2 — Arcade Edition PT-BR
+# Game Guess V4.3 — Brasil Edition PT-BR
 
 Versão completa do Game Guess para Vercel + IGDB.
 
@@ -39,7 +39,7 @@ Versão completa do Game Guess para Vercel + IGDB.
 - Survival com 3 vidas.
 - Conquistas locais com recompensas em moedas.
 - Recordes e estatísticas salvos em `localStorage`.
-- Categorias: Terror, Corrida, RPG, Tiro/FPS, Plataforma, Aventura, PlayStation Classics, Xbox Classics, Nintendo, PC e Retrô.
+- Categorias: 🇧🇷 Famosos no Brasil, Terror, Corrida, RPG, Tiro/FPS, Plataforma, Aventura, PlayStation Classics, Xbox Classics, Nintendo, PC e Retrô.
 - Filtro por décadas.
 - Histórico recente para diminuir repetição entre sessões.
 - Layout responsivo para PC e celular.
@@ -74,7 +74,7 @@ Você já tem um projeto conectado ao GitHub. Então:
 
 ```bash
 git add .
-git commit -m "Game Guess V4 Arcade"
+git commit -m "Adiciona Famosos no Brasil"
 git push
 ```
 
@@ -92,7 +92,7 @@ IGDB_CLIENT_SECRET=...
 ## Estrutura
 
 ```text
-game-guess-v4-arcade/
+game-guess-v4-3-brasil/
 ├── index.html
 ├── styles.css
 ├── app.js
@@ -125,3 +125,14 @@ Não há banco de dados nem login. Moedas, conquistas, recordes e estatísticas 
 - O proxy aceita apenas IDs de imagem da IGDB e tamanhos pré-aprovados, evitando uso como proxy aberto.
 - Há fallback automático entre tamanhos de screenshot/capa e cache agressivo na Vercel.
 - Avisos de imagem indisponível não ficam mais empilhando na tela.
+
+
+## V4.3 — 🇧🇷 Famosos no Brasil
+
+- Nova categoria **Famosos no Brasil** disponível junto aos filtros de plataforma.
+- Há uma curadoria separada para PS1, PS2, PS3, PS4, PS5, Xbox, Xbox 360, Xbox One, Xbox Series, PC, NES, SNES, Nintendo 64, GameCube, Wii, Wii U e Switch.
+- A seleção inclui jogos associados à cultura de locadoras, futebol, lan houses, multiplayer local e grandes sucessos de cada geração no país.
+- A lista é uma **curadoria cultural**, não um ranking oficial de vendas brasileiras.
+- Ao escolher um console + 🇧🇷 Famosos no Brasil, a API busca a biblioteca daquele console na IGDB e filtra somente os títulos da curadoria; depois embaralha a sessão normalmente.
+- Também funciona com **Todas as plataformas**, misturando clássicos brasileiros de vários consoles.
+- Screenshots, fragmentos e ordem das pistas continuam randomizados.

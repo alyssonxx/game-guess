@@ -9,7 +9,7 @@
 
 ```bash
 git add .
-git commit -m "Game Guess V4 Arcade"
+git commit -m "Adiciona Famosos no Brasil"
 git push
 ```
 
@@ -20,3 +20,7 @@ git push
 
 ### V4.2
 A pasta `api` agora contém `igdb.js` e `image.js`. Suba os dois arquivos. Nenhuma nova variável de ambiente é necessária.
+
+
+### V4.3
+Inclui a categoria 🇧🇷 Famosos no Brasil. Substitua também `api/igdb.js` e `app.js`; não há novas variáveis de ambiente.
