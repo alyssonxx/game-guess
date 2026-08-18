@@ -16,3 +16,7 @@ git push
 5. Aguarde o deploy ficar `Ready`.
 6. Abra o site e teste primeiro **Jogo Rápido**.
 7. Depois teste **Survival**, **Blitz** e um filtro temático.
+
+
+### V4.2
+A pasta `api` agora contém `igdb.js` e `image.js`. Suba os dois arquivos. Nenhuma nova variável de ambiente é necessária.

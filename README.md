@@ -1,4 +1,4 @@
-# Game Guess V4.1 — Arcade Edition PT-BR
+# Game Guess V4.2 — Arcade Edition PT-BR
 
 Versão completa do Game Guess para Vercel + IGDB.
 
@@ -115,3 +115,13 @@ Não há banco de dados nem login. Moedas, conquistas, recordes e estatísticas 
 - As pistas de contexto são geradas localmente em PT-BR a partir de gêneros, temas, perspectiva e época.
 - Gêneros, temas e perspectivas da IGDB são traduzidos antes de aparecerem para o jogador.
 - A tela de resultado também mostra gêneros e temas em português.
+
+
+## V4.2 — imagens compatíveis em qualquer PC
+
+- Screenshots e capas não são mais carregados diretamente de `images.igdb.com` pelo navegador.
+- Nova rota `/api/image` faz proxy seguro das imagens pela própria Vercel.
+- Isso evita falhas em PCs ou redes que bloqueiam o CDN da IGDB.
+- O proxy aceita apenas IDs de imagem da IGDB e tamanhos pré-aprovados, evitando uso como proxy aberto.
+- Há fallback automático entre tamanhos de screenshot/capa e cache agressivo na Vercel.
+- Avisos de imagem indisponível não ficam mais empilhando na tela.

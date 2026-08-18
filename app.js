@@ -369,7 +369,7 @@
         config:finalConfig,games,index:0,score:0,wins:0,losses:0,streak:0,lives:finalConfig.mode==='survival'?3:null,
         currentGame:null,currentDifficulty:null,attemptsLeft:0,hintsUsed:new Set(),assistsUsed:new Set(),revealed:new Set(),pieceOrder:[],
         roundResolved:false,roundStart:0,roundDeadline:null,blitzEndsAt:null,blitzStarted:false,roundErrors:0,purchases:0,
-        lastHotCold:null,ended:false,totalRounds:finalConfig.mode==='quick'?1:['survival','blitz'].includes(finalConfig.mode)?games.length:Math.min(30,games.length)
+        lastHotCold:null,ended:false,imageSkips:0,totalRounds:finalConfig.mode==='quick'?1:['survival','blitz'].includes(finalConfig.mode)?games.length:Math.min(30,games.length)
       };
       showScreen('gameScreen'); await loadRound(); startTicker();
     } catch(e) {
@@ -394,8 +394,16 @@
 
     if(!game._puzzleImage) game._puzzleImage=await choosePuzzleImage(game);
     if(!game._puzzleImage) {
-      session.index++; toast('Imagem indisponível','Pulei um registro da IGDB que não tinha imagem carregável.'); return loadRound();
+      session.index++; session.imageSkips=(session.imageSkips||0)+1;
+      // Não empilha dezenas de avisos se um lote raro da IGDB vier com mídia quebrada.
+      if(session.imageSkips===1) toast('Procurando outra imagem','Encontrei um registro sem mídia utilizável e já estou tentando o próximo.');
+      if(session.imageSkips>=12) {
+        toast('Não consegui carregar as imagens','A API encontrou jogos, mas as imagens não responderam. Tente atualizar a página ou iniciar outra sessão.','error');
+        return endSession('images');
+      }
+      return loadRound();
     }
+    session.imageSkips=0;
     setupImageGrid(game._puzzleImage,diff.zoom);
     for(let i=0;i<diff.initialPieces;i++) revealNextPiece(false);
     setupHints();
@@ -416,8 +424,16 @@
   }
 
   function igdbImage(image,size) {
-    const id=image?.image_id; if(id) return `https://images.igdb.com/igdb/image/upload/t_${size}/${id}.jpg`;
-    let url=String(image?.url||''); if(!url) return ''; if(url.startsWith('//'))url='https:'+url; return url.replace(/\/t_[^/]+\//,`/t_${size}/`);
+    // As imagens também passam pela Vercel. Isso evita depender de o PC do
+    // jogador conseguir acessar diretamente o CDN images.igdb.com.
+    let id=String(image?.image_id||'').trim();
+    if(!id) {
+      const raw=String(image?.url||'').split('?')[0];
+      const match=raw.match(/\/([^/]+)\.(?:jpg|jpeg|png|webp)$/i);
+      if(match) id=match[1];
+    }
+    if(!/^[A-Za-z0-9_-]{3,120}$/.test(id)) return '';
+    return `/api/image?id=${encodeURIComponent(id)}&size=${encodeURIComponent(size)}`;
   }
 
   function preloadImage(url,timeoutMs=5000) {
@@ -429,7 +445,7 @@
     const candidates=[];
     for(const shot of shots.slice(0,8)) { candidates.push(igdbImage(shot,'screenshot_huge')); candidates.push(igdbImage(shot,'screenshot_big')); }
     if(game?.cover) candidates.push(igdbImage(game.cover,'cover_big_2x'));
-    for(const url of [...new Set(candidates.filter(Boolean))]) if(await preloadImage(url,4200)) return url;
+    for(const url of [...new Set(candidates.filter(Boolean))]) if(await preloadImage(url,7500)) return url;
     return '';
   }
 
