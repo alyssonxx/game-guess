@@ -1,4 +1,4 @@
-# Game Guess V4 — Arcade Edition
+# Game Guess V4.1 — Arcade Edition PT-BR
 
 Versão completa do Game Guess para Vercel + IGDB.
 
@@ -107,3 +107,11 @@ game-guess-v4-arcade/
 ## Observação
 
 Não há banco de dados nem login. Moedas, conquistas, recordes e estatísticas ficam no navegador do dispositivo usando `localStorage`, conforme solicitado.
+
+
+## V4.1 — pistas em português
+
+- A descrição original (`summary`) da IGDB não é mais enviada ao frontend nem exibida como dica.
+- As pistas de contexto são geradas localmente em PT-BR a partir de gêneros, temas, perspectiva e época.
+- Gêneros, temas e perspectivas da IGDB são traduzidos antes de aparecerem para o jogador.
+- A tela de resultado também mostra gêneros e temas em português.

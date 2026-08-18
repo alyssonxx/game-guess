@@ -135,7 +135,7 @@ function normalizePlatformIds(raw) {
 }
 
 const GAME_FIELDS = [
-  'id','name','url','summary','first_release_date','rating','total_rating','total_rating_count',
+  'id','name','url','first_release_date','rating','total_rating','total_rating_count',
   'cover.url','cover.image_id','screenshots.url','screenshots.image_id',
   'platforms.id','platforms.name','genres.name','themes.name','player_perspectives.name',
   'involved_companies.company.name','involved_companies.developer'

@@ -3,7 +3,7 @@
 
   const API_URL = '/api/igdb';
   const CURRENT_YEAR = new Date().getFullYear();
-  const STORAGE_KEY = 'gameGuessArcadeV4';
+  const STORAGE_KEY = 'gameGuessArcadeV4'; // mantido para preservar progresso da V4
 
   const CONSOLES = {
     ps1:{name:'PlayStation 1',short:'PS1',icon:'🎮',id:7,years:[1994,2000],family:'playstation'},
@@ -66,6 +66,96 @@
     pc:{title:'PC',icon:'💻',kind:'family'},
     retro:{title:'Retrô',icon:'🕹️',kind:'retro'}
   };
+
+  // Traduções dos metadados da IGDB. As pistas nunca exibem a summary original em inglês.
+  const GENRE_PT = {
+    'point-and-click':'Apontar e clicar','fighting':'Luta','shooter':'Tiro','music':'Musical','platform':'Plataforma',
+    'puzzle':'Quebra-cabeça','racing':'Corrida','real time strategy (rts)':'Estratégia em tempo real','role-playing (rpg)':'RPG',
+    'simulator':'Simulação','sport':'Esporte','strategy':'Estratégia','turn-based strategy (tbs)':'Estratégia por turnos',
+    'tactical':'Tático','hack and slash/beat \'em up':'Ação corpo a corpo','quiz/trivia':'Perguntas e respostas','pinball':'Pinball',
+    'adventure':'Aventura','indie':'Independente','arcade':'Arcade','visual novel':'Novela visual','card & board game':'Cartas e tabuleiro',
+    'moba':'Arena de batalha online'
+  };
+  const THEME_PT = {
+    'action':'Ação','fantasy':'Fantasia','science fiction':'Ficção científica','horror':'Terror','thriller':'Suspense','survival':'Sobrevivência',
+    'historical':'Histórico','stealth':'Furtividade','comedy':'Comédia','business':'Negócios','drama':'Drama','non-fiction':'Não ficção',
+    'sandbox':'Mundo livre','educational':'Educacional','kids':'Infantil','open world':'Mundo aberto','warfare':'Guerra','party':'Festa',
+    '4x (explore, expand, exploit, and exterminate)':'Estratégia 4X','erotic':'Adulto','mystery':'Mistério','romance':'Romance'
+  };
+  const PERSPECTIVE_PT = {
+    'first person':'Primeira pessoa','third person':'Terceira pessoa','bird view / isometric':'Visão aérea / isométrica','side view':'Visão lateral',
+    'text':'Baseado em texto','auditory':'Foco em áudio','virtual reality':'Realidade virtual'
+  };
+
+  const labelKey = value => String(value || '').trim().toLowerCase();
+  function translateGenre(value) { return GENRE_PT[labelKey(value)] || 'Outro estilo'; }
+  function translateTheme(value) { return THEME_PT[labelKey(value)] || 'Tema variado'; }
+  function translatePerspective(value) { return PERSPECTIVE_PT[labelKey(value)] || 'Perspectiva variável'; }
+  function translatedGenres(game) { return [...new Set((game?.genres||[]).map(g=>translateGenre(g?.name)).filter(Boolean))]; }
+  function translatedThemes(game) { return [...new Set((game?.themes||[]).map(t=>translateTheme(t?.name)).filter(x=>x&&x!=='Tema variado'))]; }
+  function translatedPerspectives(game) { return [...new Set((game?.player_perspectives||[]).map(p=>translatePerspective(p?.name)).filter(x=>x&&x!=='Perspectiva variável'))]; }
+
+  function decadePhrase(ts) {
+    if(!ts) return 'uma época não informada';
+    const y=new Date(ts*1000).getUTCFullYear(), dec=Math.floor(y/10)*10, pos=y-dec;
+    const phase=pos<=2?'início':pos<=6?'meados':'fim';
+    return `${phase} dos anos ${dec}`;
+  }
+
+  function mechanicFlavor(game) {
+    const keys=(game?.genres||[]).map(g=>labelKey(g?.name));
+    const options=[];
+    const add=(test,text)=>{ if(keys.some(k=>test(k))) options.push(text); };
+    add(k=>k.includes('platform'),'movimentação precisa, saltos e domínio dos cenários');
+    add(k=>k.includes('shooter'),'combate à distância, mira e posicionamento');
+    add(k=>k.includes('role-playing')||k==='rpg'||k.includes('rpg'),'progressão, evolução de habilidades e escolhas de equipamento');
+    add(k=>k.includes('adventure'),'exploração, descoberta e avanço por ambientes variados');
+    add(k=>k.includes('puzzle'),'observação, raciocínio e resolução de desafios');
+    add(k=>k.includes('racing'),'velocidade, trajetórias e disputa por tempo ou posição');
+    add(k=>k.includes('fighting'),'confrontos diretos, leitura do adversário e execução de golpes');
+    add(k=>k.includes('strategy')||k.includes('tactical'),'planejamento, posicionamento e decisões táticas');
+    add(k=>k.includes('simulator'),'sistemas que simulam ou reinterpretam uma atividade');
+    add(k=>k.includes('sport'),'competição inspirada em modalidades esportivas');
+    add(k=>k.includes('hack and slash')||k.includes("beat 'em up"),'combate corpo a corpo veloz contra vários adversários');
+    add(k=>k.includes('visual novel'),'narrativa, diálogos e escolhas do jogador');
+    add(k=>k.includes('arcade'),'partidas diretas, resposta rápida e busca por desempenho');
+    add(k=>k.includes('moba'),'batalhas em equipe, controle de mapa e objetivos');
+    add(k=>k.includes('card & board'),'combinações, cartas e planejamento');
+    add(k=>k.includes('music'),'ritmo, precisão e ações sincronizadas à música');
+    add(k=>k.includes('point-and-click'),'exploração de cenários e interação cuidadosa com objetos');
+    return options.length?randomChoice(options):'exploração e domínio gradual de suas mecânicas';
+  }
+
+  function atmosphereFlavor(game) {
+    const keys=(game?.themes||[]).map(t=>labelKey(t?.name));
+    const options=[];
+    const add=(test,text)=>{ if(keys.some(k=>test(k))) options.push(text); };
+    add(k=>k==='fantasy','um universo de fantasia e elementos fora do cotidiano');
+    add(k=>k==='science fiction','tecnologia, futuro ou ficção científica');
+    add(k=>k==='horror','tensão, ameaça e uma atmosfera sombria');
+    add(k=>k==='thriller','suspense e sensação constante de perigo');
+    add(k=>k==='survival','sobrevivência, risco e administração de recursos');
+    add(k=>k==='historical','referências a períodos e acontecimentos históricos');
+    add(k=>k==='stealth','furtividade, observação e evitar confrontos desnecessários');
+    add(k=>k==='comedy','humor e situações menos sérias');
+    add(k=>k==='drama','conflitos pessoais e uma narrativa mais dramática');
+    add(k=>k==='sandbox'||k==='open world','liberdade para explorar e escolher caminhos');
+    add(k=>k==='warfare','conflitos armados e cenários de guerra');
+    add(k=>k==='mystery','mistério, pistas e descoberta gradual de informações');
+    add(k=>k==='romance','relações e vínculos entre personagens');
+    add(k=>k==='action','ritmo de ação e situações de confronto');
+    return options.length?randomChoice(options):'uma ambientação que depende mais da experiência do que de um tema único';
+  }
+
+  function perspectiveFlavor(game) {
+    const keys=(game?.player_perspectives||[]).map(p=>labelKey(p?.name));
+    if(keys.some(k=>k==='first person')) return 'a ação é vista pelos olhos do personagem';
+    if(keys.some(k=>k==='third person')) return 'a câmera acompanha o personagem por fora';
+    if(keys.some(k=>k.includes('bird view')||k.includes('isometric'))) return 'a visão privilegia leitura de área e posicionamento';
+    if(keys.some(k=>k==='side view')) return 'a ação é apresentada principalmente de lado';
+    if(keys.some(k=>k==='virtual reality')) return 'a apresentação foi pensada para realidade virtual';
+    return 'a câmera não é a principal pista desta rodada';
+  }
 
   const ASSIST_COSTS = { piece:100, letters:150, first:200, platform:250 };
 
@@ -368,37 +458,42 @@
     shuffle(defs).forEach(h=>{const b=document.createElement('button');b.className='hint-btn';b.dataset.hint=h.id;b.innerHTML=`<span>${h.icon}</span>${h.name}`;b.onclick=()=>useHint(h.id,b);$('hintsContainer').appendChild(b);});
   }
 
-  const SAFE_CAPS=new Set(['The','A','An','In','On','At','After','Before','When','While','As','This','That','Players','Player','You','Your','Game','It','Its','With','From','To','For','During','Set','Explore','Discover','Fight','Battle','Build','Take','Become','Travel','Use','Featuring','Based','Through']);
-
   function mysteryDescription(game) {
-    let text=String(game?.summary||'').replace(/\s+/g,' ').trim(); if(!text)return 'Os arquivos da IGDB não trazem uma sinopse útil para este jogo.';
     const diff=DIFFICULTIES[session.currentDifficulty];
-    const sensitive=new Set();
-    normalizeStr(game.name).split(' ').filter(w=>w.length>=3).forEach(w=>sensitive.add(w));
-    getDevelopers(game).forEach(n=>normalizeStr(n).split(' ').filter(w=>w.length>=4).forEach(w=>sensitive.add(w)));
-    text=text.split(/(\b)/).map(part=>sensitive.has(normalizeStr(part))?'████':part).join('');
-    if(diff.redaction>.4) {
-      text=text.replace(/\b[A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-Za-zÀ-ÿ'’-]{2,}(?:\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-Za-zÀ-ÿ'’-]{2,}){0,2}/g,m=>{
-        const first=m.split(/\s+/)[0]; return SAFE_CAPS.has(first)?m:(Math.random()<diff.redaction?'████':m);
-      });
-    }
-    const sentences=text.split(/(?<=[.!?])\s+/).filter(s=>s.length>28);
-    let chosen='';
-    if(diff.clueLevel===0) chosen=sentences.slice(0,2).join(' ')||text.slice(0,320);
-    else if(diff.clueLevel===1) chosen=randomChoice(sentences.slice(0,4))||text.slice(0,240);
-    else if(diff.clueLevel===2) chosen=(randomChoice(sentences)||text).slice(0,190);
-    else chosen=(randomChoice(sentences)||text).slice(0,135);
-    const frames=['Um registro parcialmente corrompido descreve este jogo assim:','Sem citar personagens nem locais, a aventura pode ser resumida assim:','Trecho recuperado de uma descrição misteriosa:','Pense mais na situação do que nos nomes:'];
-    return `<strong>${randomChoice(frames)}</strong><br>${escapeHTML(chosen)}`;
+    const mechanics=mechanicFlavor(game);
+    const atmosphere=atmosphereFlavor(game);
+    const perspective=perspectiveFlavor(game);
+    const period=decadePhrase(game?.first_release_date);
+    const genres=translatedGenres(game);
+    const themes=translatedThemes(game);
+
+    const easy=[
+      `Este jogo combina <strong>${escapeHTML(genres.slice(0,2).join(' e ')||'mecânicas variadas')}</strong>. A experiência envolve ${escapeHTML(mechanics)}, com ${escapeHTML(atmosphere)}. Ele surgiu no <strong>${escapeHTML(period)}</strong>.`,
+      `Pense em um título de <strong>${escapeHTML(genres[0]||'estilo variado')}</strong> em que a experiência gira em torno de ${escapeHTML(mechanics)}. ${escapeHTML(perspective)} e o clima remete a ${escapeHTML(atmosphere)}.`
+    ];
+    const normal=[
+      `Sem citar nomes, a melhor pista é a estrutura do jogo: ${escapeHTML(mechanics)}. O clima gira em torno de ${escapeHTML(atmosphere)}. ${escapeHTML(perspective)}. Ele pertence ao <strong>${escapeHTML(period)}</strong>.`,
+      `Observe a imagem pensando em ${escapeHTML(mechanics)}. A ambientação traz ${escapeHTML(atmosphere)}; quanto à apresentação, ${escapeHTML(perspective)}. A época é <strong>${escapeHTML(period)}</strong>.`
+    ];
+    const hard=[
+      `A identidade deste título está menos nos personagens e mais em ${escapeHTML(mechanics)}. Como pano de fundo, há ${escapeHTML(atmosphere)}. A geração aproximada é <strong>${escapeHTML(period)}</strong>.`,
+      `Pista de design: ${escapeHTML(mechanics)}. Pista de atmosfera: ${escapeHTML(atmosphere)}. O restante precisa vir da imagem e da sua memória gamer.`
+    ];
+    const insane=[
+      `Pense apenas na sensação de jogo: ${escapeHTML(mechanics)}. O tom geral sugere ${escapeHTML(atmosphere)}.`,
+      `Duas pistas abstratas: ${escapeHTML(mechanics)}; ${escapeHTML(atmosphere)}. Nenhum nome próprio foi usado.`
+    ];
+    const pools=[easy,normal,hard,insane];
+    return `<strong>🧩 Contexto misterioso</strong><br>${randomChoice(pools[diff.clueLevel]||normal)}`;
   }
 
   function genreClue(game) {
-    const list=shuffle((game?.genres||[]).map(g=>g?.name).filter(Boolean)); if(!list.length)return 'A IGDB não informou gêneros.';
+    const list=shuffle(translatedGenres(game)); if(!list.length)return 'A IGDB não informou estilos para este jogo.';
     const lvl=DIFFICULTIES[session.currentDifficulty].clueLevel;
-    if(lvl===0)return `<strong>Os estilos registrados são:</strong><br>${escapeHTML(list.slice(0,3).join(' • '))}`;
-    if(lvl===1)return `<strong>Uma das categorias principais:</strong> ${escapeHTML(list[0])}${list.length>1?` <small>+${list.length-1} oculta(s)</small>`:''}`;
-    if(lvl===2)return `<strong>Categoria cifrada:</strong> ${escapeHTML(list[0].split(/\s+/).map(w=>w[0]+'•'.repeat(Math.max(1,w.length-1))).join(' '))}`;
-    return `<strong>Assinatura de gênero:</strong> ${escapeHTML(list.map(x=>x[0]?.toUpperCase()).filter(Boolean).slice(0,3).join(' / '))} — ${list.length} categoria(s) na IGDB.`;
+    if(lvl===0)return `<strong>Estilos principais:</strong><br>${escapeHTML(list.slice(0,3).join(' • '))}`;
+    if(lvl===1)return `<strong>Uma categoria importante:</strong> ${escapeHTML(list[0])}${list.length>1?` <small>+${list.length-1} categoria(s) oculta(s)</small>`:''}`;
+    if(lvl===2)return `<strong>Categoria cifrada:</strong> ${escapeHTML(list[0].split(/\s+/).map(w=>w[0]+'•'.repeat(Math.max(1,[...w].length-1))).join(' '))}`;
+    return `<strong>Assinatura de estilo:</strong> ${escapeHTML(list.map(x=>x[0]?.toUpperCase()).filter(Boolean).slice(0,3).join(' / '))} — ${list.length} categoria(s).`;
   }
 
   function getDevelopers(game) {
@@ -509,8 +604,8 @@
 
   function getCover(game){return igdbImage(game?.cover,'cover_big_2x')||game?._puzzleImage||'';}
   function gameInfoHTML(game) {
-    const genres=(game.genres||[]).map(x=>x.name).filter(Boolean),dev=getDevelopers(game),plats=(game.platforms||[]).map(x=>x.name).filter(Boolean),year=game.first_release_date?new Date(game.first_release_date*1000).toLocaleDateString('pt-BR',{year:'numeric',month:'long',day:'numeric'}):'Não informado',rating=Number(game.total_rating||game.rating||0);
-    return `${genres.length?`<div>🎭 ${escapeHTML(genres.join(', '))}</div>`:''}${dev.length?`<div>🏢 ${escapeHTML(dev.join(', '))}</div>`:''}<div>📅 ${escapeHTML(year)}</div>${plats.length?`<div>🎮 ${escapeHTML(plats.join(', '))}</div>`:''}${rating?`<div>⭐ Avaliação IGDB: ${Math.round(rating)}/100</div>`:''}`;
+    const genres=translatedGenres(game),themes=translatedThemes(game),dev=getDevelopers(game),plats=(game.platforms||[]).map(x=>x.name).filter(Boolean),year=game.first_release_date?new Date(game.first_release_date*1000).toLocaleDateString('pt-BR',{year:'numeric',month:'long',day:'numeric'}):'Não informado',rating=Number(game.total_rating||game.rating||0);
+    return `${genres.length?`<div>🎭 ${escapeHTML(genres.join(', '))}</div>`:''}${themes.length?`<div>🌌 ${escapeHTML(themes.slice(0,3).join(', '))}</div>`:''}${dev.length?`<div>🏢 ${escapeHTML(dev.join(', '))}</div>`:''}<div>📅 ${escapeHTML(year)}</div>${plats.length?`<div>🎮 ${escapeHTML(plats.join(', '))}</div>`:''}${rating?`<div>⭐ Avaliação IGDB: ${Math.round(rating)}/100</div>`:''}`;
   }
 
   function showRoundResult(won,data) {
