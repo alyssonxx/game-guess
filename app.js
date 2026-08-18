@@ -178,9 +178,11 @@
     zWarrior:{icon:'🐉',title:'Guerreiro Z',desc:'Acerte 20 personagens do universo Dragon Ball.',reward:180},
     duelKing:{icon:'🃏',title:'Rei dos Duelos',desc:'Acerte 20 personagens de Yu-Gi-Oh!.',reward:180},
     hokage:{icon:'🍥',title:'Caminho do Hokage',desc:'Acerte 20 personagens de Naruto.',reward:180},
+    cosmoBurning:{icon:'♈',title:'Queime o Cosmo',desc:'Acerte 20 personagens de Cavaleiros do Zodíaco.',reward:200},
+    chaosWalker:{icon:'🎲',title:'Senhor do Caos',desc:'Acerte 20 personagens no Caos Multiverso.',reward:220},
     wordsmith:{icon:'🔤',title:'Mestre das Palavras',desc:'Resolva 10 palavras no Termo Arcade.',reward:140},
     termoStreak:{icon:'♾️',title:'Sequência Infinita',desc:'Acerte 5 palavras seguidas no Termo Arcade.',reward:190},
-    multiverse:{icon:'🌌',title:'Viajante do Multiverso',desc:'Acerte ao menos um desafio em cada universo de personagens.',reward:300}
+    multiverse:{icon:'🌌',title:'Viajante do Multiverso',desc:'Acerte ao menos um desafio em cada universo de personagens.',reward:350}
   };
 
   const DEFAULT_PROFILE = {

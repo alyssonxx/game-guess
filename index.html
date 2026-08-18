@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#090b18">
-  <title>Game Guess V6 — Multiverso</title>
+  <title>Game Guess V7 — Multiverso Caos</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -21,7 +21,7 @@
     <header class="topbar">
       <button class="brand" id="brandButton" aria-label="Voltar ao menu principal">
         <span class="brand-icon">🎮</span>
-        <span><b>GAME GUESS</b><small>MULTIVERSO V6</small></span>
+        <span><b>GAME GUESS</b><small>MULTIVERSO V7</small></span>
       </button>
       <div class="top-actions">
         <span class="status-pill" id="apiStatus"><i></i> Pronto</span>
@@ -222,6 +222,10 @@
             <div class="setup-card-title"><span id="universeFilterTitle">🧩 Filtro</span><small id="universeFilterHelp">Opcional</small></div>
             <div class="choice-grid" id="universeFilterChoices"></div>
           </div>
+          <div class="setup-card" id="universeChallengeCard">
+            <div class="setup-card-title"><span>🎲 Tipo de desafio</span><small>Imagem, habilidade, origem, dossiê ou só pistas</small></div>
+            <div class="choice-grid" id="universeChallengeChoices"></div>
+          </div>
         </div>
         <aside class="setup-summary universe-summary">
           <div class="summary-icon" id="universeSetupIcon">🌌</div>
@@ -241,7 +245,8 @@
           <span class="source-badge" id="universeSourceBadge">API</span>
         </div>
         <div class="game-metrics">
-          <span id="universeRoundMetric">🎯 1 / 20</span>
+          <span id="universeRoundMetric">🎯 1 / 25</span>
+          <span id="universeChallengeMetric">🧩 Mosaico</span>
           <span id="universeLivesMetric" class="hidden">❤️❤️❤️</span>
           <span id="universeTimerMetric" class="timer-metric hidden">⏱️ 120</span>
           <span>⭐ <b id="universeScoreMetric">0</b></span>

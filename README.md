@@ -1,30 +1,41 @@
-# Game Guess V6 — Multiverso
+# Game Guess V7 — Multiverso Caos
 
-Versão completa para Vercel. Mantém todos os modos de games/IGDB e o Multiverso da V5, acrescentando:
+Jogo web para Vercel com videogames via IGDB e um multiverso de personagens.
 
-- 🐉 Dragon Ball: Clássico, Z, GT e Super.
-- 🃏 Yu-Gi-Oh!: Clássico/Duel Monsters e GX.
-- 🍥 Naruto: Clássico e Shippuden.
-- 🔤 Termo Arcade ∞: palavras de 5 letras, 6 tentativas e rodadas ilimitadas.
+## Universos
+- Videogames / IGDB + Famosos no Brasil
+- League of Legends
+- Pokémon
+- Digimon
+- Dragon Ball — 109 personagens/variações
+- Yu-Gi-Oh! — 69 personagens/variações
+- Naruto — 104 personagens/variações
+- Cavaleiros do Zodíaco — 101 personagens
+- Desenhos clássicos
+- TV Globinho
+- Caos Multiverso
+- Termo Arcade ∞
 
-## Deploy
+## Desafios de personagem
+- 🧩 Mosaico
+- 💥 Habilidade / técnica
+- 🌍 Origem / nação / vila / universo
+- 🕵️ Dossiê
+- 🧠 Só pistas
+- 🎲 Aleatório
 
-1. Substitua os arquivos do projeto atual por esta pasta.
-2. Mantenha `IGDB_CLIENT_ID` e `IGDB_CLIENT_SECRET` nas Environment Variables da Vercel.
-3. Rode:
+## Modos
+- Clássico
+- Survival
+- Blitz
+- Caos
 
-```bash
-git add .
-git commit -m "Game Guess V6 Multiverso"
-git push origin main
-```
+## Compatibilidade
+As imagens externas passam por `/api/asset`. Se uma fonte externa falhar, a API devolve uma imagem de fallback do próprio Game Guess, então a rodada continua jogável por pistas. Progresso e conquistas ficam em `localStorage`.
 
-A Vercel fará o novo deploy automaticamente. Nenhuma chave adicional é necessária para os universos novos ou para o Termo Arcade.
+## Vercel
+Mantenha:
+- `IGDB_CLIENT_ID`
+- `IGDB_CLIENT_SECRET`
 
-## Imagens
-
-As imagens de personagens continuam passando por `/api/asset`. Para Dragon Ball, Yu-Gi-Oh! e Naruto, o servidor tenta Wikipedia e, como alternativa, as wikis Fandom correspondentes.
-
-## Termo Arcade
-
-O modo usa uma lista local de soluções PT-BR e aceita qualquer tentativa de exatamente cinco letras. Acentos são ignorados na comparação. O tabuleiro informa: posição correta, letra presente em outra posição ou letra ausente. Ao terminar, uma nova palavra pode ser sorteada imediatamente.
+Nenhuma chave nova é necessária para os universos de personagens.
