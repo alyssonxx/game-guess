@@ -1,1091 +1,255 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Game Guess - Adivinha o Jogo!</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>">
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        *{margin:0;padding:0;box-sizing:border-box}
-        body{font-family:'Rajdhani',sans-serif;background:linear-gradient(135deg,#0a0a1a 0%,#1a0a2e 50%,#0a1a2e 100%);min-height:100vh;color:#fff;overflow-x:hidden}
-        .particles{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0}
-        .particle{position:absolute;width:4px;height:4px;background:rgba(0,255,255,0.5);border-radius:50%;animation:float 15s infinite}
-        @keyframes float{0%,100%{transform:translateY(100vh) rotate(0deg);opacity:0}10%{opacity:1}90%{opacity:1}100%{transform:translateY(-100vh) rotate(720deg);opacity:0}}
-        .container{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:20px}
-        header{text-align:center;padding:40px 0 20px}
-        h1{font-family:'Orbitron',sans-serif;font-size:3.5rem;font-weight:900;background:linear-gradient(45deg,#00f5ff,#ff00ff,#00ff00,#ffaa00);background-size:300% 300%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:gradientShift 3s ease infinite}
-        @keyframes gradientShift{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
-        .subtitle{font-size:1.3rem;color:#888;margin-top:10px}
-        .console-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:15px;margin:30px 0}
-        .console-card{background:linear-gradient(145deg,#1a1a2e,#16213e);border:2px solid #333;border-radius:15px;padding:22px 12px;text-align:center;cursor:pointer;transition:all .3s ease;position:relative;overflow:hidden}
-        .console-card::before{content:'';position:absolute;top:0;left:-100%;width:100%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.1),transparent);transition:left .5s}
-        .console-card:hover::before{left:100%}
-        .console-card:hover{transform:translateY(-5px);border-color:#00f5ff;box-shadow:0 10px 30px rgba(0,245,255,0.3)}
-        .console-card.selected{border-color:#ff00ff;box-shadow:0 0 30px rgba(255,0,255,0.5)}
-        .console-icon{font-size:2.2rem;margin-bottom:8px}
-        .console-name{font-family:'Orbitron',sans-serif;font-size:.85rem;font-weight:700;line-height:1.2}
-        .year-selector{display:none;background:rgba(26,26,46,0.9);border:2px solid #444;border-radius:15px;padding:25px;margin:20px 0;animation:slideDown .3s ease}
-        @keyframes slideDown{from{opacity:0;transform:translateY(-20px)}to{opacity:1;transform:translateY(0)}}
-        .year-selector.active{display:block}
-        .year-selector h3{font-family:'Orbitron',sans-serif;font-size:1.3rem;margin-bottom:20px;color:#00f5ff}
-        .year-grid{display:flex;flex-wrap:wrap;gap:10px}
-        .year-btn{background:linear-gradient(145deg,#2a2a4e,#1a1a3e);border:2px solid #555;border-radius:10px;padding:12px 20px;color:#fff;font-family:'Rajdhani',sans-serif;font-size:1rem;font-weight:600;cursor:pointer;transition:all .3s ease}
-        .year-btn:hover{border-color:#00ff88;transform:scale(1.05)}
-        .year-btn.selected{background:linear-gradient(145deg,#00ff88,#00cc66);border-color:#00ff88;color:#000}
-        .year-btn.all-years{background:linear-gradient(145deg,#ff00ff,#aa00cc);border-color:#ff00ff;color:#fff;font-weight:700}
-        .year-btn.all-years.selected{background:linear-gradient(145deg,#ff00ff,#cc00ff);color:#fff}
-        .game-area{display:none;margin-top:20px}
-        .game-area.active{display:block;animation:fadeIn .5s ease}
-        @keyframes fadeIn{from{opacity:0}to{opacity:1}}
-        .game-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:15px}
-        .game-info{display:flex;gap:20px;align-items:center;flex-wrap:wrap}
-        .game-counter{font-family:'Orbitron',sans-serif;font-size:1rem;color:#888}
-        .attempts{display:flex;gap:8px}
-        .attempt-dot{width:22px;height:22px;border-radius:50%;background:#333;border:2px solid #555;transition:all .3s ease;display:flex;align-items:center;justify-content:center;font-size:.7rem}
-        .attempt-dot.used{background:#ff4444;border-color:#ff4444;animation:pulse .5s ease}
-        .attempt-dot.correct{background:#00ff88;border-color:#00ff88}
-        @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.3)}}
-        .score-display{font-family:'Orbitron',sans-serif;font-size:1.1rem;color:#ffaa00}
-        .streak-display{font-family:'Orbitron',sans-serif;font-size:1rem;color:#ff6600}
-        .image-container{position:relative;width:100%;max-width:420px;margin:0 auto 25px;aspect-ratio:1;border-radius:20px;overflow:hidden;border:3px solid #444;background:#111}
-        .image-grid{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(2,1fr);width:100%;height:100%;gap:3px;padding:3px}
-        .image-piece{background:linear-gradient(145deg,#1a1a2e,#16213e);border-radius:8px;overflow:hidden;position:relative;transition:all .5s ease;cursor:pointer}
-        .image-piece img{width:100%;height:100%;object-fit:cover;display:none;filter:blur(8px) brightness(0.6);transition:filter .5s}
-        .image-piece.revealed img{display:block;filter:blur(0) brightness(1);animation:revealPiece .6s ease}
-        @keyframes revealPiece{0%{opacity:0;filter:blur(15px) brightness(2)}100%{opacity:1;filter:blur(0) brightness(1)}}
-        .image-piece .question-mark{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:2.5rem;color:#2a2a4e;font-family:'Orbitron',sans-serif;transition:opacity .3s}
-        .image-piece.revealed .question-mark{opacity:0}
-        .hints-container{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:20px}
-        .hint-btn{background:linear-gradient(145deg,#2a2a4e,#1a1a3e);border:2px solid #555;border-radius:12px;padding:14px 16px;color:#fff;font-family:'Rajdhani',sans-serif;font-size:.95rem;font-weight:600;cursor:pointer;transition:all .3s ease;display:flex;align-items:center;gap:10px}
-        .hint-btn:hover:not(.used){border-color:#ffaa00;transform:translateY(-2px)}
-        .hint-btn.used{opacity:.4;cursor:not-allowed;border-color:#333;transform:none}
-        .hint-btn .hint-icon{font-size:1.4rem}
-        .hint-display{background:rgba(26,26,46,0.9);border:2px solid #444;border-radius:15px;padding:20px;margin-bottom:20px;min-height:70px;display:flex;align-items:center;justify-content:center;font-size:1.05rem;color:#ccc;text-align:center;line-height:1.6;transition:border-color .3s}
-        .hint-display.active{border-color:#ffaa00}
-        .hint-display.error{border-color:#ff4444}
-        .hint-display.success{border-color:#00ff88}
-        .guess-section{display:flex;gap:12px;flex-wrap:wrap}
-        .input-wrapper{position:relative;flex:1;min-width:250px}
-        .guess-input{width:100%;padding:15px 25px;background:rgba(26,26,46,0.9);border:2px solid #555;border-radius:12px;color:#fff;font-family:'Rajdhani',sans-serif;font-size:1.2rem;outline:none;transition:border-color .3s}
-        .guess-input:focus{border-color:#00f5ff}
-        .guess-input::placeholder{color:#555}
-        .guess-btn{padding:15px 35px;background:linear-gradient(145deg,#00f5ff,#0088aa);border:none;border-radius:12px;color:#000;font-family:'Orbitron',sans-serif;font-size:1rem;font-weight:700;cursor:pointer;transition:all .3s ease}
-        .guess-btn:hover{transform:scale(1.05);box-shadow:0 5px 20px rgba(0,245,255,0.4)}
-        .skip-btn{padding:15px 25px;background:linear-gradient(145deg,#555,#333);border:none;border-radius:12px;color:#fff;font-family:'Rajdhani',sans-serif;font-size:1rem;font-weight:600;cursor:pointer;transition:all .3s ease}
-        .skip-btn:hover{background:linear-gradient(145deg,#ff4444,#aa2222);transform:scale(1.05)}
-        .suggestions{position:absolute;top:calc(100% + 5px);left:0;right:0;background:#1a1a2e;border:2px solid #444;border-radius:12px;max-height:200px;overflow-y:auto;z-index:100;display:none}
-        .suggestions.active{display:block}
-        .suggestion-item{padding:12px 20px;cursor:pointer;transition:background .2s;border-bottom:1px solid #333;font-size:1rem}
-        .suggestion-item:last-child{border-bottom:none}
-        .suggestion-item:hover{background:rgba(0,245,255,0.1)}
-        .stats-bar{display:flex;justify-content:center;gap:30px;margin-top:30px;flex-wrap:wrap;padding:20px;background:rgba(26,26,46,0.6);border-radius:15px;border:1px solid #333}
-        .stat-item{text-align:center}
-        .stat-value{font-family:'Orbitron',sans-serif;font-size:1.8rem;color:#00f5ff}
-        .stat-label{font-size:.85rem;color:#888;margin-top:2px}
-        .back-btn{padding:10px 25px;background:transparent;border:2px solid #555;border-radius:10px;color:#aaa;font-family:'Rajdhani',sans-serif;font-size:1rem;cursor:pointer;transition:all .3s ease}
-        .back-btn:hover{border-color:#fff;color:#fff}
-        .modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.92);z-index:1000;justify-content:center;align-items:center;animation:fadeIn .3s ease}
-        .modal.active{display:flex}
-        .modal-content{background:linear-gradient(145deg,#1a1a2e,#16213e);border:3px solid #444;border-radius:25px;padding:40px;text-align:center;max-width:520px;width:90%;animation:bounceIn .5s ease;position:relative;overflow:hidden}
-        @keyframes bounceIn{0%{transform:scale(0.5);opacity:0}100%{transform:scale(1);opacity:1}}
-        .modal-content.success{border-color:#00ff88;box-shadow:0 0 60px rgba(0,255,136,0.3)}
-        .modal-content.fail{border-color:#ff4444;box-shadow:0 0 60px rgba(255,68,68,0.3)}
-        .modal-icon{font-size:4rem;margin-bottom:15px}
-        .modal-title{font-family:'Orbitron',sans-serif;font-size:2rem;margin-bottom:12px}
-        .modal-text{font-size:1.15rem;color:#aaa;margin-bottom:20px}
-        .modal-game-name{font-family:'Orbitron',sans-serif;font-size:1.4rem;color:#00f5ff;margin-bottom:10px}
-        .modal-game-cover{width:160px;height:160px;object-fit:cover;border-radius:15px;margin:15px auto;border:3px solid #444;display:block}
-        .modal-game-info{font-size:.95rem;color:#999;margin:10px 0;line-height:1.5}
-        .modal-btn{padding:15px 40px;background:linear-gradient(145deg,#00f5ff,#0088aa);border:none;border-radius:12px;color:#000;font-family:'Orbitron',sans-serif;font-size:1rem;font-weight:700;cursor:pointer;transition:all .3s ease;margin:8px}
-        .modal-btn:hover{transform:scale(1.05)}
-        .modal-btn.secondary{background:linear-gradient(145deg,#555,#333);color:#fff}
-        .modal-btn.secondary:hover{background:linear-gradient(145deg,#666,#444)}
-        .loading{display:none;text-align:center;padding:50px}
-        .loading.active{display:block}
-        .spinner{width:60px;height:60px;border:4px solid #333;border-top-color:#00f5ff;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 20px}
-        @keyframes spin{to{transform:rotate(360deg)}}
-        .loading-text{color:#888;font-size:1.1rem}
-        .error-message{color:#ff4444;text-align:center;padding:20px;font-size:1.1rem;background:rgba(255,68,68,0.1);border-radius:10px;margin:10px 0;border:1px solid rgba(255,68,68,0.3)}
-        .tutorial-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:2000;display:none;justify-content:center;align-items:center}
-        .tutorial-overlay.active{display:flex}
-        .tutorial-card{background:linear-gradient(145deg,#1a1a2e,#16213e);border:2px solid #00f5ff;border-radius:20px;padding:35px;max-width:550px;width:90%;text-align:center;animation:bounceIn .5s ease}
-        .tutorial-card h2{font-family:'Orbitron',sans-serif;font-size:1.5rem;color:#00f5ff;margin-bottom:20px}
-        .tutorial-steps{text-align:left;margin:20px 0}
-        .tutorial-step{display:flex;gap:15px;align-items:flex-start;margin-bottom:18px;padding:12px;background:rgba(0,0,0,0.3);border-radius:10px}
-        .tutorial-step-num{background:#00f5ff;color:#000;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Orbitron',sans-serif;font-weight:700;font-size:.9rem;flex-shrink:0}
-        .tutorial-step-text{font-size:1rem;color:#ccc;line-height:1.4}
-        .tutorial-step-text strong{color:#fff}
-        .tutorial-close{margin-top:20px;padding:14px 40px;background:linear-gradient(145deg,#00f5ff,#0088aa);border:none;border-radius:12px;color:#000;font-family:'Orbitron',sans-serif;font-size:1rem;font-weight:700;cursor:pointer;transition:all .3s}
-        .tutorial-close:hover{transform:scale(1.05)}
-        .help-btn{position:fixed;bottom:20px;right:20px;width:50px;height:50px;border-radius:50%;background:linear-gradient(145deg,#00f5ff,#0088aa);border:none;color:#000;font-size:1.5rem;cursor:pointer;z-index:500;box-shadow:0 4px 15px rgba(0,245,255,0.4);transition:all .3s;display:flex;align-items:center;justify-content:center}
-        .help-btn:hover{transform:scale(1.1)}
-        .confetti-container{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:999;overflow:hidden}
-        .confetti{position:absolute;width:10px;height:10px;top:-10px;animation:confettiFall 3s linear forwards}
-        @keyframes confettiFall{0%{transform:translateY(0) rotate(0deg);opacity:1}100%{transform:translateY(100vh) rotate(720deg);opacity:0}}
-        .share-btn{padding:12px 25px;background:linear-gradient(145deg,#1DA1F2,#0d8ecf);border:none;border-radius:10px;color:#fff;font-family:'Rajdhani',sans-serif;font-size:.95rem;font-weight:600;cursor:pointer;transition:all .3s;display:inline-flex;align-items:center;gap:8px;margin-top:10px}
-        .share-btn:hover{transform:scale(1.05);opacity:.9}
-        .api-status{display:inline-flex;align-items:center;gap:8px;margin-top:14px;padding:7px 12px;border-radius:999px;border:1px solid #444;background:rgba(10,10,26,.72);font-size:.9rem;color:#aaa;backdrop-filter:blur(8px)}
-        .api-status::before{content:'';width:8px;height:8px;border-radius:50%;background:#777;box-shadow:0 0 10px rgba(255,255,255,.15)}
-        .api-status.online{border-color:rgba(0,255,136,.45);color:#9dffd1}.api-status.online::before{background:#00ff88;box-shadow:0 0 12px rgba(0,255,136,.75)}
-        .api-status.fallback{border-color:rgba(255,170,0,.45);color:#ffd27a}.api-status.fallback::before{background:#ffaa00;box-shadow:0 0 12px rgba(255,170,0,.75)}
-        .api-status.error{border-color:rgba(255,68,68,.45);color:#ff9c9c}.api-status.error::before{background:#ff4444;box-shadow:0 0 12px rgba(255,68,68,.75)}
-        .source-badge{display:inline-flex;align-items:center;padding:5px 9px;border-radius:999px;font-size:.78rem;font-weight:700;letter-spacing:.03em;background:rgba(0,245,255,.09);border:1px solid rgba(0,245,255,.25);color:#79f9ff}
-        .source-badge.local{background:rgba(255,170,0,.1);border-color:rgba(255,170,0,.3);color:#ffd27a}
-        .guess-btn:disabled,.skip-btn:disabled,.hint-btn:disabled{opacity:.45;cursor:not-allowed;transform:none!important;box-shadow:none!important}
-        .error-message{white-space:pre-line}
-        .loading-subtext{display:block;color:#555;font-size:.9rem;margin-top:7px}
-        .console-card{isolation:isolate}
-        .console-card::after{content:'';position:absolute;inset:0;background:radial-gradient(circle at 50% 0%,rgba(0,245,255,.08),transparent 55%);opacity:0;transition:opacity .3s;z-index:-1}
-        .console-card:hover::after,.console-card.selected::after{opacity:1}
-        @media(max-width:768px){
-            h1{font-size:2rem}
-            .console-grid{grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:10px}
-            .console-card{padding:15px 8px}
-            .console-icon{font-size:1.8rem}
-            .console-name{font-size:.75rem}
-            .game-header{flex-direction:column;align-items:flex-start}
-            .hints-container{grid-template-columns:1fr 1fr}
-            .modal-content{padding:25px}
-            .stats-bar{gap:15px;padding:15px}
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#090b18">
+  <title>Game Guess V4 — Arcade Edition</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-    <div class="particles" id="particles"></div>
-    <div class="confetti-container" id="confettiContainer"></div>
+  <div class="bg-grid"></div>
+  <div class="particles" id="particles"></div>
+  <div class="confetti-container" id="confettiContainer"></div>
+  <div class="toast-stack" id="toastStack"></div>
 
-    <div class="container">
-        <header>
-            <h1>GAME GUESS</h1>
-            <p class="subtitle">Advinhe o jogo pelas dicas!</p>
-            <div class="api-status" id="apiStatus" role="status" aria-live="polite">API ainda não consultada</div>
-        </header>
+  <main class="shell">
+    <header class="topbar">
+      <button class="brand" id="brandButton" aria-label="Voltar ao menu principal">
+        <span class="brand-icon">🎮</span>
+        <span><b>GAME GUESS</b><small>ARCADE EDITION</small></span>
+      </button>
+      <div class="top-actions">
+        <span class="status-pill" id="apiStatus"><i></i> Pronto</span>
+        <button class="mini-pill" id="coinsTop" title="Moedas">🪙 <b>0</b></button>
+        <button class="mini-pill" id="recordTop" title="Recorde">🏆 <b>0</b></button>
+        <button class="icon-btn" id="achievementsButton" title="Conquistas">🏅</button>
+        <button class="icon-btn" id="soundButton" title="Som">🔊</button>
+      </div>
+    </header>
 
-        <div id="mainMenu">
-            <div class="console-grid" id="consoleGrid"></div>
-            <div class="year-selector" id="yearSelector">
-                <h3 id="yearTitle">Selecione o período:</h3>
-                <div class="year-grid" id="yearGrid"></div>
+    <section class="screen active" id="homeScreen">
+      <div class="hero">
+        <p class="eyebrow">ADIVINHE. ARRISQUE. FAÇA COMBO.</p>
+        <h1>Quanto você conhece de <span>videogame?</span></h1>
+        <p>Imagens aleatórias da IGDB, pistas misteriosas, modos arcade, moedas, conquistas e desafios diferentes a cada sessão.</p>
+        <div class="hero-stats">
+          <div><b id="homeBestStreak">0</b><span>Melhor sequência</span></div>
+          <div><b id="homeAccuracy">0%</b><span>Taxa de acerto</span></div>
+          <div><b id="homeAchievements">0</b><span>Conquistas</span></div>
+        </div>
+      </div>
+
+      <div class="mode-grid" id="modeGrid"></div>
+      <div class="home-footer">
+        <button class="secondary-btn" id="tutorialButton">❔ Como jogar</button>
+        <span>Dados de jogos e imagens fornecidos pela IGDB.</span>
+      </div>
+    </section>
+
+    <section class="screen" id="setupScreen">
+      <div class="section-heading">
+        <button class="back-link" data-go-home>← Voltar</button>
+        <div>
+          <p class="eyebrow">CONFIGURAR PARTIDA</p>
+          <h2 id="setupTitle">Clássico</h2>
+          <p id="setupDescription"></p>
+        </div>
+      </div>
+
+      <div class="setup-layout">
+        <div class="setup-main">
+          <div class="setup-card" id="difficultyCard">
+            <div class="setup-card-title"><span>🎯 Dificuldade</span><small>Muda tentativas, fragmentos e pistas</small></div>
+            <div class="choice-grid four" id="difficultyChoices"></div>
+          </div>
+
+          <div class="setup-card" id="platformCard">
+            <div class="setup-card-title"><span>🎮 Plataforma</span><small id="platformHelp">Escolha uma ou misture todas</small></div>
+            <div class="select-grid" id="platformChoices"></div>
+          </div>
+
+          <div class="setup-card" id="periodCard">
+            <div class="setup-card-title"><span>📅 Época</span><small>Filtre por década</small></div>
+            <div class="choice-grid" id="decadeChoices"></div>
+          </div>
+
+          <div class="setup-card" id="categoryCard">
+            <div class="setup-card-title"><span>🧩 Tema</span><small>Opcional: restrinja o tipo de jogo</small></div>
+            <div class="choice-grid" id="categoryChoices"></div>
+          </div>
+
+          <div class="setup-card" id="timerCard">
+            <div class="toggle-row">
+              <div><b>⏱️ Cronômetro por rodada</b><span>30 segundos para acertar cada jogo</span></div>
+              <label class="switch"><input id="timerToggle" type="checkbox"><span></span></label>
             </div>
+          </div>
         </div>
 
-        <div class="game-area" id="gameArea">
-            <div class="game-header">
-                <button class="back-btn" onclick="backToMenu()">← Voltar</button>
-                <div class="game-info">
-                    <span class="game-counter" id="gameCounter"></span>
-                    <span class="source-badge" id="sourceBadge">IGDB</span>
-                    <div class="attempts" id="attempts"></div>
-                    <span class="score-display">⭐ <span id="score">0</span></span>
-                    <span class="streak-display" id="streakDisplay" style="display:none">🔥 <span id="streak">0</span></span>
-                </div>
-            </div>
+        <aside class="setup-summary">
+          <div class="summary-icon" id="setupIcon">🧠</div>
+          <h3 id="summaryMode">Clássico</h3>
+          <div class="summary-list" id="summaryList"></div>
+          <button class="primary-btn huge" id="startButton">JOGAR AGORA ▶</button>
+          <small>O jogo monta uma nova seleção aleatória da IGDB a cada sessão.</small>
+        </aside>
+      </div>
+    </section>
 
-            <div class="image-container" id="imageContainer">
-                <div class="image-grid" id="imageGrid"></div>
-            </div>
+    <section class="screen" id="loadingScreen">
+      <div class="loading-card">
+        <div class="arcade-loader"><span></span><span></span><span></span></div>
+        <h2 id="loadingTitle">Montando a partida...</h2>
+        <p id="loadingText">Buscando jogos e screenshots na IGDB.</p>
+        <div class="loading-steps">
+          <span class="active">🎲 Randomizando biblioteca</span>
+          <span>🖼️ Validando imagens</span>
+          <span>🧩 Preparando pistas</span>
+        </div>
+      </div>
+    </section>
 
-            <div class="hints-container" id="hintsContainer"></div>
-            <div class="hint-display" id="hintDisplay">Clique em uma dica para revelar informações sobre o jogo</div>
+    <section class="screen" id="gameScreen">
+      <div class="game-toolbar">
+        <button class="back-link" id="quitButton">← Sair</button>
+        <div class="session-badges">
+          <span class="mode-badge" id="modeBadge">CLÁSSICO</span>
+          <span class="source-badge">IGDB</span>
+        </div>
+        <div class="game-metrics">
+          <span id="roundMetric">🎮 1 / 20</span>
+          <span id="livesMetric" class="hidden">❤️❤️❤️</span>
+          <span id="timerMetric" class="timer-metric hidden">⏱️ 30</span>
+          <span>⭐ <b id="scoreMetric">0</b></span>
+          <span>🪙 <b id="coinsMetric">0</b></span>
+          <span id="streakMetric">🔥 x1</span>
+        </div>
+      </div>
 
-            <div class="guess-section">
-                <div class="input-wrapper">
-                    <input type="text" class="guess-input" id="guessInput" placeholder="Digite o nome do jogo..." autocomplete="off">
-                    <div class="suggestions" id="suggestions"></div>
-                </div>
-                <button class="guess-btn" onclick="makeGuess()">ADIVINHAR</button>
-                <button class="skip-btn" onclick="skipGame()">PULAR</button>
-            </div>
+      <div class="game-layout">
+        <div class="visual-column">
+          <div class="image-shell" id="imageShell">
+            <div class="image-grid" id="imageGrid"></div>
+            <div class="image-label"><span id="imageStatus">1 fragmento revelado</span><span id="difficultyLabel">NORMAL</span></div>
+          </div>
 
-            <div class="stats-bar">
-                <div class="stat-item"><div class="stat-value" id="gamesPlayed">0</div><div class="stat-label">Jogados</div></div>
-                <div class="stat-item"><div class="stat-value" id="gamesWon">0</div><div class="stat-label">Acertou</div></div>
-                <div class="stat-item"><div class="stat-value" id="winRate">0%</div><div class="stat-label">Taxa</div></div>
-                <div class="stat-item"><div class="stat-value" id="bestStreak">0</div><div class="stat-label">Melhor Sequência</div></div>
-            </div>
+          <div class="attempt-panel">
+            <span>Tentativas</span>
+            <div class="attempts" id="attempts"></div>
+          </div>
+
+          <div class="hotcold" id="hotColdPanel">
+            <b>🌡️ Quente ou frio</b>
+            <span>Erre um jogo conhecido e eu comparo console, gênero e época.</span>
+          </div>
         </div>
 
-        <div class="loading" id="loading">
-            <div class="spinner"></div>
-            <p class="loading-text">Buscando jogos na IGDB...<span class="loading-subtext">Isso pode levar alguns segundos na primeira consulta.</span></p>
+        <div class="play-column">
+          <div class="round-headline">
+            <div>
+              <p class="eyebrow" id="roundEyebrow">QUE JOGO É ESSE?</p>
+              <h2 id="roundTitle">Observe a imagem e arrisque</h2>
+            </div>
+            <div class="combo-chip" id="comboChip">🔥 COMBO x1</div>
+          </div>
+
+          <div class="hint-display" id="hintDisplay">
+            <span class="hint-placeholder">💡 Use uma pista apenas quando precisar. Menos pistas = mais pontos.</span>
+          </div>
+
+          <div class="hints-container" id="hintsContainer"></div>
+
+          <div class="assist-panel">
+            <div class="assist-head"><b>🪙 Loja de ajuda</b><span>Gaste moedas para escapar de uma rodada difícil</span></div>
+            <div class="assist-grid">
+              <button class="assist-btn" data-assist="piece"><span>🧩</span><b>Revelar fragmento</b><small>100 🪙</small></button>
+              <button class="assist-btn" data-assist="letters"><span>🔤</span><b>Eliminar letras</b><small>150 🪙</small></button>
+              <button class="assist-btn" data-assist="first"><span>🔎</span><b>Primeira letra</b><small>200 🪙</small></button>
+              <button class="assist-btn" data-assist="platform"><span>🎮</span><b>Mostrar console</b><small>250 🪙</small></button>
+            </div>
+            <div class="assist-result hidden" id="assistResult"></div>
+          </div>
+
+          <div class="guess-box">
+            <div class="input-wrapper">
+              <input id="guessInput" class="guess-input" type="text" placeholder="Digite o nome completo do jogo..." autocomplete="off" maxlength="100">
+              <div class="suggestions" id="suggestions"></div>
+            </div>
+            <button class="primary-btn" id="guessButton">ADIVINHAR</button>
+            <button class="skip-btn" id="skipButton">PULAR</button>
+          </div>
+
+          <div class="round-score-preview" id="roundScorePreview">
+            <span>Valor atual da rodada</span><b>+600</b><small>Evite pistas e erros para preservar os pontos.</small>
+          </div>
         </div>
-        <div class="error-message" id="errorMessage" style="display:none"></div>
+      </div>
+    </section>
+  </main>
+
+  <div class="overlay" id="resultOverlay" aria-hidden="true">
+    <div class="result-modal" id="resultModal">
+      <button class="modal-close" id="resultClose" aria-label="Fechar">×</button>
+      <div class="result-icon" id="resultIcon">✅</div>
+      <p class="eyebrow" id="resultEyebrow">VOCÊ ACERTOU!</p>
+      <h2 id="resultGameName"></h2>
+      <div class="result-body">
+        <img id="resultImage" alt="Imagem do jogo">
+        <div class="result-info" id="resultInfo"></div>
+      </div>
+      <div class="reward-line" id="rewardLine"></div>
+      <div class="modal-actions">
+        <button class="primary-btn" id="nextButton">PRÓXIMO ▶</button>
+        <button class="secondary-btn" id="shareButton">📤 Compartilhar</button>
+        <button class="secondary-btn hidden" id="learnButton">🔎 Conheça o jogo</button>
+      </div>
     </div>
+  </div>
 
-    <div class="modal" id="modal">
-        <div class="modal-content" id="modalContent">
-            <div class="modal-icon" id="modalIcon"></div>
-            <div class="modal-title" id="modalTitle"></div>
-            <div class="modal-text" id="modalText"></div>
-            <div class="modal-game-name" id="modalGameName"></div>
-            <img class="modal-game-cover" id="modalGameCover" src="" alt="">
-            <div class="modal-game-info" id="modalGameInfo"></div>
-            <button class="modal-btn" onclick="nextGame()">Próximo Jogo →</button>
-            <button class="modal-btn secondary" onclick="shareResult()">📤 Compartilhar</button>
-        </div>
+  <div class="overlay" id="achievementsOverlay" aria-hidden="true">
+    <div class="panel-modal wide">
+      <button class="modal-close" data-close-achievements>×</button>
+      <p class="eyebrow">CONQUISTAS LOCAIS</p>
+      <h2>🏅 Sala de Troféus</h2>
+      <p class="modal-subtitle">Ficam salvas neste navegador. Não é necessário criar conta.</p>
+      <div class="achievement-grid" id="achievementGrid"></div>
     </div>
+  </div>
 
-    <div class="tutorial-overlay" id="tutorialOverlay">
-        <div class="tutorial-card">
-            <h2>Como Jogar</h2>
-            <div class="tutorial-steps">
-                <div class="tutorial-step">
-                    <div class="tutorial-step-num">1</div>
-                    <div class="tutorial-step-text"><strong>Escolha um console</strong> e um período de anos para jogar.</div>
-                </div>
-                <div class="tutorial-step">
-                    <div class="tutorial-step-num">2</div>
-                    <div class="tutorial-step-text"><strong>Use as 4 dicas disponíveis:</strong> Descrição, Gêneros, Desenvolvedora e Data de Lançamento. Cada dica revela 1 parte da imagem.</div>
-                </div>
-                <div class="tutorial-step">
-                    <div class="tutorial-step-num">3</div>
-                    <div class="tutorial-step-text"><strong>Adivinhe o jogo</strong> digitando o nome. Você tem <strong>6 tentativas</strong>. A cada erro, mais 1 parte da imagem é revelada.</div>
-                </div>
-                <div class="tutorial-step">
-                    <div class="tutorial-step-num">4</div>
-                    <div class="tutorial-step-text"><strong>Pontuação:</strong> Quanto menos dicas/erros usar, mais pontos ganha. Acertar de primeira = 600 pontos!</div>
-                </div>
-                <div class="tutorial-step">
-                    <div class="tutorial-step-num">5</div>
-                    <div class="tutorial-step-text"><strong>Sequências:</strong> Acerte jogos seguidos para aumentar sua streak e ganhar bônus de pontos!</div>
-                </div>
-            </div>
-            <button class="tutorial-close" onclick="closeTutorial()">ENTENDER!</button>
-        </div>
+  <div class="overlay" id="tutorialOverlay" aria-hidden="true">
+    <div class="panel-modal wide tutorial-modal">
+      <button class="modal-close" data-close-tutorial>×</button>
+      <p class="eyebrow">COMO JOGAR</p>
+      <h2>🎮 Game Guess Arcade</h2>
+      <div class="tutorial-grid">
+        <div><b>1</b><span>Uma parte da imagem pode começar aberta, dependendo da dificuldade.</span></div>
+        <div><b>2</b><span>Erros e pistas revelam novos fragmentos, mas diminuem o valor da rodada.</span></div>
+        <div><b>3</b><span>Acertos em sequência aumentam o multiplicador de combo.</span></div>
+        <div><b>4</b><span>Use moedas para comprar ajuda quando estiver travado.</span></div>
+        <div><b>5</b><span>No Quente ou Frio, um chute errado pode virar uma pista útil.</span></div>
+        <div><b>6</b><span>Survival usa vidas; Blitz desafia você a acertar o máximo em 2 minutos.</span></div>
+      </div>
+      <button class="primary-btn" data-close-tutorial>ENTENDER!</button>
     </div>
-
-    <button class="help-btn" onclick="showTutorial()" title="Como jogar">?</button>
-
-    <script>
-        const IGDB_API_URL = '/api/igdb';
-        let apiSource = 'unknown';
-
-        const CONSOLES = {
-            ps1: {name:'PlayStation 1', icon:'🎮', igdbId:7, years:[1994,2000], color:'#8B0000'},
-            ps2: {name:'PlayStation 2', icon:'🎮', igdbId:8, years:[2000,2006], color:'#00008B'},
-            ps3: {name:'PlayStation 3', icon:'🎮', igdbId:9, years:[2006,2013], color:'#4B0082'},
-            ps4: {name:'PlayStation 4', icon:'🎮', igdbId:48, years:[2013,2020], color:'#191970'},
-            ps5: {name:'PlayStation 5', icon:'🎮', igdbId:167, years:[2020,2026], color:'#0D1B2A'},
-            xbox: {name:'Xbox', icon:'🟢', igdbId:11, years:[2001,2006], color:'#107C10'},
-            xbox360: {name:'Xbox 360', icon:'🟢', igdbId:12, years:[2005,2013], color:'#107C10'},
-            xboxone: {name:'Xbox One', icon:'🟢', igdbId:49, years:[2013,2020], color:'#107C10'},
-            xsx: {name:'Xbox Series X|S', icon:'🟢', igdbId:169, years:[2020,2026], color:'#107C10'},
-            pc: {name:'PC (Windows)', icon:'💻', igdbId:6, years:[1990,2026], color:'#0078D4'},
-            nes: {name:'NES', icon:'🔴', igdbId:18, years:[1983,1995], color:'#E4000F'},
-            snes: {name:'Super Nintendo', icon:'🟣', igdbId:19, years:[1990,1998], color:'#7B3F9E'},
-            n64: {name:'Nintendo 64', icon:'🟣', igdbId:4, years:[1996,2002], color:'#4A0E78'},
-            gamecube: {name:'GameCube', icon:'🟣', igdbId:21, years:[2001,2007], color:'#6B3FA0'},
-            wii: {name:'Wii', icon:'⚪', igdbId:5, years:[2006,2013], color:'#8B8B8B'},
-            wiiu: {name:'Wii U', icon:'⚪', igdbId:41, years:[2012,2017], color:'#333'},
-            switch: {name:'Nintendo Switch', icon:'🔴', igdbId:130, years:[2017,2026], color:'#E60012'}
-        };
-
-        let selectedConsole = null;
-        let selectedYearRange = null;
-        let currentGame = null;
-        let attemptsLeft = 6;
-        let score = 0;
-        let streak = 0;
-        let bestStreak = 0;
-        let gamesPlayed = 0;
-        let gamesWon = 0;
-        let hintsUsed = [];
-        let revealedPieces = 0;
-        let allGames = [];
-        let currentGameIndex = 0;
-        let totalGamesInSession = 0;
-        let lastGuessResult = '';
-
-        function loadStats() {
-            try {
-                const s = JSON.parse(localStorage.getItem('gameGuessStats') || '{}');
-                score = s.score || 0;
-                streak = 0;
-                bestStreak = s.bestStreak || 0;
-                gamesPlayed = s.gamesPlayed || 0;
-                gamesWon = s.gamesWon || 0;
-            } catch(e) {}
-        }
-
-        function saveStats() {
-            try {
-                localStorage.setItem('gameGuessStats', JSON.stringify({
-                    score, bestStreak, gamesPlayed, gamesWon
-                }));
-            } catch(e) {}
-        }
-
-        function createParticles() {
-            const c = document.getElementById('particles');
-            for (let i = 0; i < 40; i++) {
-                const p = document.createElement('div');
-                p.className = 'particle';
-                p.style.left = Math.random()*100+'%';
-                p.style.animationDelay = Math.random()*15+'s';
-                p.style.animationDuration = (10+Math.random()*20)+'s';
-                p.style.background = `rgba(${Math.random()>0.5?'0,245,255':'255,0,255'},0.4)`;
-                c.appendChild(p);
-            }
-        }
-
-        function initConsoleGrid() {
-            const grid = document.getElementById('consoleGrid');
-            Object.entries(CONSOLES).forEach(([key, con]) => {
-                const card = document.createElement('div');
-                card.className = 'console-card';
-                card.dataset.key = key;
-                card.innerHTML = `<div class="console-icon">${con.icon}</div><div class="console-name">${con.name}</div>`;
-                card.onclick = () => selectConsole(key);
-                grid.appendChild(card);
-            });
-        }
-
-        function selectConsole(key) {
-            document.querySelectorAll('.console-card').forEach(c => c.classList.remove('selected'));
-            document.querySelector(`.console-card[data-key="${key}"]`).classList.add('selected');
-            selectedConsole = key;
-            const con = CONSOLES[key];
-            const ys = document.getElementById('yearSelector');
-            const yg = document.getElementById('yearGrid');
-            document.getElementById('yearTitle').textContent = `${con.name} — Selecione o período:`;
-            yg.innerHTML = '';
-
-            const allBtn = document.createElement('button');
-            allBtn.className = 'year-btn all-years';
-            allBtn.textContent = 'Todos os anos';
-            allBtn.onclick = (e) => {
-                document.querySelectorAll('.year-btn').forEach(b => b.classList.remove('selected'));
-                e.currentTarget.classList.add('selected');
-                selectedYearRange = {start: con.years[0], end: con.years[1]};
-                startGame();
-            };
-            yg.appendChild(allBtn);
-
-            const [s, en] = con.years;
-            for (let y = s; y <= en; y += 2) {
-                const btn = document.createElement('button');
-                btn.className = 'year-btn';
-                const endY = Math.min(y+1, en);
-                btn.textContent = `${y}–${endY}`;
-                btn.onclick = (e) => {
-                    document.querySelectorAll('.year-btn').forEach(b => b.classList.remove('selected'));
-                    e.currentTarget.classList.add('selected');
-                    selectedYearRange = {start: y, end: endY};
-                    startGame();
-                };
-                yg.appendChild(btn);
-            }
-            ys.classList.add('active');
-        }
-
-        function setApiStatus(mode, text) {
-            const el = document.getElementById('apiStatus');
-            if (!el) return;
-            el.className = `api-status ${mode || ''}`.trim();
-            el.textContent = text;
-        }
-
-        function getCoverUrl(game, size = 'cover_big') {
-            let url = game?.cover?.url || '';
-            if (!url) return '';
-            if (url.startsWith('//')) url = `https:${url}`;
-            else if (url.startsWith('/')) url = `https://images.igdb.com${url}`;
-            return url.replace(/t_(thumb|micro|cover_small|cover_big|720p|1080p)/, `t_${size}`);
-        }
-
-        function escapeHTML(value) {
-            return String(value ?? '')
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#039;');
-        }
-
-        function getDevelopers(game) {
-            const companies = game?.involved_companies || [];
-            const explicit = companies.filter(c => c?.developer).map(c => c.company?.name).filter(Boolean);
-            if (explicit.length) return explicit;
-            return companies.map(c => c.company?.name).filter(Boolean);
-        }
-
-        async function fetchGames(platformId, startYear, endYear) {
-            const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 15000);
-            try {
-                setApiStatus('', 'Conectando à IGDB...');
-                const res = await fetch(IGDB_API_URL, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({platformId, startYear, endYear}),
-                    signal: controller.signal
-                });
-
-                let payload = null;
-                try { payload = await res.json(); } catch (_) {}
-
-                if (!res.ok) {
-                    const reason = payload?.error || `HTTP ${res.status}`;
-                    throw new Error(reason);
-                }
-                if (!payload || !Array.isArray(payload.games)) {
-                    throw new Error('Resposta inválida da API do site.');
-                }
-
-                apiSource = 'igdb';
-                setApiStatus('online', `IGDB online • ${payload.games.length} jogos encontrados`);
-                return payload.games.filter(g => g?.cover?.url && g?.name?.trim());
-            } catch (e) {
-                console.error('Falha ao consultar /api/igdb:', e);
-                apiSource = 'fallback';
-                const reason = e?.name === 'AbortError' ? 'tempo limite excedido' : (e?.message || 'erro desconhecido');
-                setApiStatus('fallback', `IGDB indisponível • usando modo local (${reason})`);
-                return [];
-            } finally {
-                clearTimeout(timeout);
-            }
-        }
-
-        function getFallbackGames(platformKey, startYear, endYear) {
-            const FALLBACK = {
-                ps1: [
-                    {name:'Crash Bandicoot',summary:'Um bandicoot chamado Crash deve salvar sua namorada da bruxa Neo Cortex.',genres:[{name:'Platform'}],involved_companies:[{company:{name:'Naughty Dog'}}],first_release_date:836256000,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co2heu.jpg'},platforms:[{name:'PlayStation'}]},
-                    {name:'Spyro the Dragon',summary:'O dragão laranja Spyro deve salvar seus amigos do gnomo Gnasty Gnorc.',genres:[{name:'Platform'}],involved_companies:[{company:{name:'Insomniac Games'}}],first_release_date:867792000,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co2jf3.jpg'},platforms:[{name:'PlayStation'}]},
-                    {name:'Final Fantasy VII',summary:'Cloud Strife se junta a um grupo eco-terroristas contra a corporação Shinra.',genres:[{name:'Role-playing (RPG)'}],involved_companies:[{company:{name:'Square'}}],first_release_date:854822400,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co1zi0.jpg'},platforms:[{name:'PlayStation'}]},
-                    {name:'Resident Evil 2',summary:'Leon S. Kennedy e Claire Redfield sobrevivem a um surto de zombies em Raccoon City.',genres:[{name:'Survival horror'}],involved_companies:[{company:{name:'Capcom'}}],first_release_date:886329600,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co1t0o.jpg'},platforms:[{name:'PlayStation'}]},
-                    {name:'Metal Gear Solid',summary:'Solid Snake deve impedir a Metal Gear e o plano de nuclear alerta.',genres:[{name:'Tactical',name:'Stealth'}],involved_companies:[{company:{name:'Konami'}}],first_release_date:872889600,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co1tmu.jpg'},platforms:[{name:'PlayStation'}]},
-                    {name:'Tomb Raider',summary:'Lara Croft explora tumbas antigas em busca de artefatos poderosos.',genres:[{name:'Adventure'}],involved_companies:[{company:{name:'Core Design'}}],first_release_date:824515200,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co22x1.jpg'},platforms:[{name:'PlayStation'}]},
-                    {name:'Gran Turismo',summary:'O simulador de corrida realista da Polyphony Digital para PlayStation.',genres:[{name:'Racing'}],involved_companies:[{company:{name:'Polyphony Digital'}}],first_release_date:852057600,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co2nlz.jpg'},platforms:[{name:'PlayStation'}]},
-                    {name:'Castlevania: Symphony of the Night',summary:'Alucard explora o castelo de Drácula neste clássico side-scroller.',genres:[{name:'Platform'}],involved_companies:[{company:{name:'Konami'}}],first_release_date:872889600,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co1u5.jpg'},platforms:[{name:'PlayStation'}]}
-                ],
-                ps2: [
-                    {name:'Grand Theft Auto: San Andreas',summary:'Carl Johnson retorna a Los Santos e se envolve com gangues, policiais e corrupção.',genres:[{name:'Action-adventure'}],involved_companies:[{company:{name:'Rockstar North'}}],first_release_date:1098307200,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co2byk.jpg'},platforms:[{name:'PlayStation 2'}]},
-                    {name:'Shadow of the Colossus',summary:'Wander viaja por um mundo vazio para derrotar 16 colossos e resgatar Mono.',genres:[{name:'Action-adventure'}],involved_companies:[{company:{name:'Team Ico'}}],first_release_date:1138761600,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co2q4e.jpg'},platforms:[{name:'PlayStation 2'}]},
-                    {name:'God of War',summary:'Kratos, um guerreiro espartano, busca vingança contra os deuses do Olimpo.',genres:[{name:'Hack and slash'}],involved_companies:[{company:{name:'Santa Monica Studio'}}],first_release_date:1144118400,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co2l7i.jpg'},platforms:[{name:'PlayStation 2'}]},
-                    {name:'Final Fantasy XII',summary:'Vaan sonha ser pirata e se envolve em uma guerra entre nações em Ivalice.',genres:[{name:'Role-playing (RPG)'}],involved_companies:[{company:{name:'Square Enix'}}],first_release_date:1161465600,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co2q6b.jpg'},platforms:[{name:'PlayStation 2'}]},
-                    {name:'Devil May Cry',summary:'Dante caça demônios para vingar a morte de sua mãe e irmã gêmea.',genres:[{name:'Hack and slash'}],involved_companies:[{company:{name:'Capcom'}}],first_release_date:1017600000,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co1x8.jpg'},platforms:[{name:'PlayStation 2'}]},
-                    {name:'Kingdom Hearts',summary:'Sora, Donald e Goofy viajam entre mundos de Disney para encontrar seus amigos.',genres:[{name:'Action RPG'}],involved_companies:[{company:{name:'Square Enix'}}],first_release_date:1009843200,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co3f8k.jpg'},platforms:[{name:'PlayStation 2'}]},
-                    {name:'Metal Gear Solid 3: Snake Eater',summary:'Naked Snake deve sobreviver na selva soviética durante a Guerra Fria.',genres:[{name:'Stealth'}],involved_companies:[{company:{name:'Konami'}}],first_release_date:1090358400,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co1v6.jpg'},platforms:[{name:'PlayStation 2'}]},
-                    {name:'Okami',summary:'Amaterasu, a deusa sol em forma de loba, restaura a beleza ao mundo.',genres:[{name:'Action-adventure'}],involved_companies:[{company:{name:'Clover Studio'}}],first_release_date:1139971200,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co216r.jpg'},platforms:[{name:'PlayStation 2'}]},
-                    {name:'Jak and Daxter: The Precursor Legacy',summary:'Jak e Daxter exploram um mundo cheio de mistérios e inimigos.',genres:[{name:'Platform'}],involved_companies:[{company:{name:'Naughty Dog'}}],first_release_date:1009411200,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co1xq.jpg'},platforms:[{name:'PlayStation 2'}]},
-                    {name:'Ratchet & Clank',summary:'O mecânico Ratchet e o robô Clank viajam entre planetas para impedir um plano maligno.',genres:[{name:'Platform'}],involved_companies:[{company:{name:'Insomniac Games'}}],first_release_date:988761600,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co1zk.jpg'},platforms:[{name:'PlayStation 2'}]}
-                ],
-                ps3: [
-                    {name:'The Last of Us',summary:'Joel e Ellie viajam por um EUA pós-apocalíptico cheio de infectados.',genres:[{name:'Action-adventure'}],involved_companies:[{company:{name:'Naughty Dog'}}],first_release_date:1369987200,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co1vbi.jpg'},platforms:[{name:'PlayStation 3'}]},
-                    {name:'Uncharted 2: Among Thieves',summary:' Nathan Drake busca a Pedra Cintilante em uma aventura global.',genres:[{name:'Third-person shooter'}],involved_companies:[{company:{name:'Naughty Dog'}}],first_release_date:1256265600,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co1o6.jpg'},platforms:[{name:'PlayStation 3'}]},
-                    {name:'God of War III',summary:'Kratos escala o Monte Olimpo para derrubar Zeus e os deuses gregos.',genres:[{name:'Hack and slash'}],involved_companies:[{company:{name:'Santa Monica Studio'}}],first_release_date:1268553600,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co2l7k.jpg'},platforms:[{name:'PlayStation 3'}]},
-                    {name:'Red Dead Redemption',summary:'John Marston é forçado a castrar seus antigos aliados no Velho Oeste.',genres:[{name:'Action-adventure'}],involved_companies:[{company:{name:'Rockstar San Diego'}}],first_release_date:1272441600,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co1q8.jpg'},platforms:[{name:'PlayStation 3'}]},
-                    {name:'Demon\'s Souls',summary:'Um guerreiro nas trevas deve derrotar demônios em um reino sombrio.',genres:[{name:'Action RPG'}],involved_companies:[{company:{name:'FromSoftware'}}],first_release_date:1253846400,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co2fkm.jpg'},platforms:[{name:'PlayStation 3'}]},
-                    {name:'Journey',summary:'Um viajante misterioso percorre um deserto vasto em direção a uma montanha distante.',genres:[{name:'Adventure'}],involved_companies:[{company:{name:'thatgamecompany'}}],first_release_date:1332076800,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co1xj.jpg'},platforms:[{name:'PlayStation 3'}]}
-                ],
-                ps4: [
-                    {name:'God of War',summary:'Kratos e seu filho Atreus viajam pela mitologia nórdica em uma jornada épica.',genres:[{name:'Action-adventure'}],involved_companies:[{company:{name:'Santa Monica Studio'}}],first_release_date:1523472000,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co2l7n.jpg'},platforms:[{name:'PlayStation 4'}]},
-                    {name:'Spider-Man',summary:'Peter Parker luta contra vilões icônicos de Spider-Man em Nova York aberta.',genres:[{name:'Action-adventure'}],involved_companies:[{company:{name:'Insomniac Games'}}],first_release_date:1536211200,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co1z56.jpg'},platforms:[{name:'PlayStation 4'}]},
-                    {name:'The Last of Us Part II',summary:'Ellie busca vingança em um mundo pós-apocalíptico cinco anos depois dos eventos originais.',genres:[{name:'Action-adventure'}],involved_companies:[{company:{name:'Naughty Dog'}}],first_release_date:1592697600,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co5s5w.jpg'},platforms:[{name:'PlayStation 4'}]},
-                    {name:'Bloodborne',summary:'Um caçador explora a cidade de Yharnam e enfrenta monstros lovecraftianos.',genres:[{name:'Action RPG'}],involved_companies:[{company:{name:'FromSoftware'}}],first_release_date:1427846400,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co1re.jpg'},platforms:[{name:'PlayStation 4'}]},
-                    {name:'Horizon Zero Dawn',summary:'Aloy caça máquinas em um mundo pós-apocalíptico dominado por robôs.',genres:[{name:'Action RPG'}],involved_companies:[{company:{name:'Guerrilla Games'}}],first_release_date:1487500800,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co1u0.jpg'},platforms:[{name:'PlayStation 4'}]},
-                    {name:'Uncharted 4: A Thief\'s End',summary:'Nathan Drake sai da aposentadoria para encontrar um tesouro pirata perdido.',genres:[{name:'Third-person shooter'}],involved_companies:[{company:{name:'Naughty Dog'}}],first_release_date:1462752000,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co1u2.jpg'},platforms:[{name:'PlayStation 4'}]},
-                    {name:'Ghost of Tsushima',summary:'Jin Sakai luta contra a invasão mongol na ilha de Tsushima no Japão feudal.',genres:[{name:'Action-adventure'}],involved_companies:[{company:{name:'Sucker Punch Productions'}}],first_release_date:1594684800,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co6bkf.jpg'},platforms:[{name:'PlayStation 4'}]},
-                    {name:'Persona 5',summary:'Joker e os Phantom Thieves combatem a corrupção no mundo dos sonhos.',genres:[{name:'Role-playing (RPG)'}],involved_companies:[{company:{name:'Atlus'}}],first_release_date:1492675200,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co1z9d.jpg'},platforms:[{name:'PlayStation 4'}]}
-                ],
-                ps5: [
-                    {name:'Demon\'s Souls',summary:'O remake completo do clássico soulsborne para PlayStation 5.',genres:[{name:'Action RPG'}],involved_companies:[{company:{name:'Bluepoint Games'}}],first_release_date:1604985600,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co2fko.jpg'},platforms:[{name:'PlayStation 5'}]},
-                    {name:'Returnal',summary:'Selene invade um planeta alienígena em um loop temporal infinito.',genres:[{name:'Third-person shooter'}],involved_companies:[{company:{name:'Housemarque'}}],first_release_date:1618272000,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co2abt.jpg'},platforms:[{name:'PlayStation 5'}]},
-                    {name:'Ratchet & Clank: Rift Apart',summary:'Ratchet e Clank viajam entre dimensões para impedir o Imperator Nefarious.',genres:[{name:'Platform'}],involved_companies:[{company:{name:'Insomniac Games'}}],first_release_date:1622764800,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co2abv.jpg'},platforms:[{name:'PlayStation 5'}]},
-                    {name:'Astro Bot',summary:'Astro viaja pelo espaço para resgatar os bots perdidos da nave PS5.',genres:[{name:'Platform'}],involved_companies:[{company:{name:'Team Asobi'}}],first_release_date:1725408000,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co9fsn.jpg'},platforms:[{name:'PlayStation 5'}]}
-                ],
-                pc: [
-                    {name:'The Witcher 3: Wild Hunt',summary:'Geralt de Rive procura sua filha adotiva Ciri enquanto monstros invadem os reinos.',genres:[{name:'Action RPG'}],involved_companies:[{company:{name:'CD Projekt Red'}}],first_release_date:1431974400,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co1t83.jpg'},platforms:[{name:'PC (Microsoft Windows)'}]},
-                    {name:'Half-Life 2',summary:'Gordon Freeman retorna para libertar a Terra da ocupação da Combine.',genres:[{name:'Shooter'}],involved_companies:[{company:{name:'Valve'}}],first_release_date:1099363200,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co1op.jpg'},platforms:[{name:'PC (Microsoft Windows)'}]},
-                    {name:'Minecraft',summary:'Construa, mine e explore mundos infinitos neste sandbox definitivo.',genres:[{name:'Sandbox'}],involved_companies:[{company:{name:'Mojang Studios'}}],first_release_date:1296480000,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co49x5.jpg'},platforms:[{name:'PC (Microsoft Windows)'}]},
-                    {name:'Stardew Valley',summary:'Herde uma fazenda e construa sua vida no campo neste RPG de simulação.',genres:[{name:'Simulator'}],involved_companies:[{company:{name:'ConcernedApe'}}],first_release_date:1456790400,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co1vd.jpg'},platforms:[{name:'PC (Microsoft Windows)'}]},
-                    {name:'Hollow Knight',summary:'Um cavaleiro explorando o reino subterrâneo de Hallownest cheio de insetos.',genres:[{name:'Metroidvania'}],involved_companies:[{company:{name:'Team Cherry'}}],first_release_date:1495872000,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co1rg.jpg'},platforms:[{name:'PC (Microsoft Windows)'}]},
-                    {name:'Cyberpunk 2077',summary:'V, um mercenário de Night City, busca um implante que contém o segredo da imortalidade.',genres:[{name:'Action RPG'}],involved_companies:[{company:{name:'CD Projekt Red'}}],first_release_date:1607558400,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co4hb3.jpg'},platforms:[{name:'PC (Microsoft Windows)'}]},
-                    {name:'Portal 2',summary:'Chell resolve puzzles com uma arma de portais em um teste da Aperture Science.',genres:[{name:'Puzzle'}],involved_companies:[{company:{name:'Valve'}}],first_release_date:1303449600,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co1vp.jpg'},platforms:[{name:'PC (Microsoft Windows)'}]},
-                    {name:'DOOM Eternal',summary:'O Doom Slayer enfrenta hordas de demônios em dimensões infernais.',genres:[{name:'Shooter'}],involved_companies:[{company:{name:'id Software'}}],first_release_date:1584326400,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co2gf1.jpg'},platforms:[{name:'PC (Microsoft Windows)'}]}
-                ],
-                xbox: [
-                    {name:'Halo: Combat Evolved',summary:'O Master Chief luta contra os Covenant em um mundo alienígena.',genres:[{name:'Shooter'}],involved_companies:[{company:{name:'Bungie'}}],first_release_date:1005427200,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co1re.jpg'},platforms:[{name:'Xbox'}]},
-                    {name:'Fable',summary:'Um herói cresce em uma terra de fantasia onde suas escolhas moldam o mundo.',genres:[{name:'Action RPG'}],involved_companies:[{company:{name:'Lionhead Studios'}}],first_release_date:1095897600,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co2226.jpg'},platforms:[{name:'Xbox'}]},
-                    {name:'Star Wars: Knights of the Old Republic',summary:'Um Jedi explora a galáxia para derrotar o Lorde Sith Malak.',genres:[{name:'Role-playing (RPG)'}],involved_companies:[{company:{name:'BioWare'}}],first_release_date:1058016000,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co1n0.jpg'},platforms:[{name:'Xbox'}]}
-                ],
-                xbox360: [
-                    {name:'Halo 3',summary:'O Master Chief retorna para defender a Terra contra a invasão Covenant.',genres:[{name:'Shooter'}],involved_companies:[{company:{name:'Bungie'}}],first_release_date:1190649600,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co1re.jpg'},platforms:[{name:'Xbox 360'}]},
-                    {name:'Gears of War',summary:'Marcus Fenix e a Coalizão lutam contra os Locust em Sera.',genres:[{name:'Third-person shooter'}],involved_companies:[{company:{name:'Epic Games'}}],first_release_date:1163961600,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co1ui.jpg'},platforms:[{name:'Xbox 360'}]},
-                    {name:'Mass Effect',summary:'O Comandante Shepard deve unir a galáxia para impedir uma ameaça ancestrais.',genres:[{name:'Action RPG'}],involved_companies:[{company:{name:'BioWare'}}],first_release_date:1174416000,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co1re.jpg'},platforms:[{name:'Xbox 360'}]},
-                    {name:'Red Dead Redemption',summary:'John Marston castra seus antigos aliados no Velho Oeste americano.',genres:[{name:'Action-adventure'}],involved_companies:[{company:{name:'Rockstar San Diego'}}],first_release_date:1272441600,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co1q8.jpg'},platforms:[{name:'Xbox 360'}]}
-                ],
-                xboxone: [
-                    {name:'Forza Horizon 4',summary:'Corridas de rua no Reino Unido com estações do ano dinâmicas.',genres:[{name:'Racing'}],involved_companies:[{company:{name:'Playground Games'}}],first_release_date:1538803200,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co24gs.jpg'},platforms:[{name:'Xbox One'}]},
-                    {name:'Halo 5: Guardians',summary:'Master Chief e Locke perseguem cortanas por galáxias distantes.',genres:[{name:'Shooter'}],involved_companies:[{company:{name:'343 Industries'}}],first_release_date:1445625600,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co2g65.jpg'},platforms:[{name:'Xbox One'}]},
-                    {name:'Ori and the Will of the Wisps',summary:'Ori explora um mundo encantado para encontrar sua família.',genres:[{name:'Platform'}],involved_companies:[{company:{name:'Moon Studios'}}],first_release_date:1584412800,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co24h7.jpg'},platforms:[{name:'Xbox One'}]}
-                ],
-                xsx: [
-                    {name:'Halo Infinite',summary:'Master Chief retorna para derrotar a Esquadra Banished em Zeta Halo.',genres:[{name:'Shooter'}],involved_companies:[{company:{name:'343 Industries'}}],first_release_date:1638316800,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co4s2o.jpg'},platforms:[{name:'Xbox Series X|S'}]},
-                    {name:'Forza Horizon 5',summary:'Corridas no México aberto com gráficos de nova geração.',genres:[{name:'Racing'}],involved_companies:[{company:{name:'Playground Games'}}],first_release_date:1635724800,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co4s39.jpg'},platforms:[{name:'Xbox Series X|S'}]}
-                ],
-                nes: [
-                    {name:'Super Mario Bros.',summary:'Mario deve salvar a Princesa Peach do Rei Koopa.',genres:[{name:'Platform'}],involved_companies:[{company:{name:'Nintendo'}}],first_release_date:464448000,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co1tcp.jpg'},platforms:[{name:'Nintendo Entertainment System'}]},
-                    {name:'The Legend of Zelda',summary:'Link explora Hyrule para derrotar Ganon e resgatar a Princesa Zelda.',genres:[{name:'Action-adventure'}],involved_companies:[{company:{name:'Nintendo'}}],first_release_date:499104000,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co29on.jpg'},platforms:[{name:'Nintendo Entertainment System'}]},
-                    {name:'Metroid',summary:'Samus Aran explora planetas infestados de alienígenas.',genres:[{name:'Action-adventure'}],involved_companies:[{company:{name:'Nintendo'}}],first_release_date:481785600,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co3gr5.jpg'},platforms:[{name:'Nintendo Entertainment System'}]}
-                ],
-                snes: [
-                    {name:'Super Mario World',summary:'Mario e Luigi exploram Dinosaur Land para salvar a Princesa Peach.',genres:[{name:'Platform'}],involved_companies:[{company:{name:'Nintendo'}}],first_release_date:654230400,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co218a.jpg'},platforms:[{name:'Super Nintendo Entertainment System'}]},
-                    {name:'The Legend of Zelda: A Link to the Past',summary:'Link viaja entre mundos para derrotar Ganon e salvar Hyrule.',genres:[{name:'Action-adventure'}],involved_companies:[{company:{name:'Nintendo'}}],first_release_date:665760000,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co218e.jpg'},platforms:[{name:'Super Nintendo Entertainment System'}]},
-                    {name:'Super Metroid',summary:'Samus Aran retorna ao planeta Zebes para recuperar a Metroid roubada.',genres:[{name:'Action-adventure'}],involved_companies:[{company:{name:'Nintendo'}}],first_release_date:731270400,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co3gr9.jpg'},platforms:[{name:'Super Nintendo Entertainment System'}]},
-                    {name:'Chrono Trigger',summary:'Crono e amigos viajam no tempo para impedir a queda de Lavos.',genres:[{name:'Role-playing (RPG)'}],involved_companies:[{company:{name:'Square'}}],first_release_date:759907200,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co218j.jpg'},platforms:[{name:'Super Nintendo Entertainment System'}]},
-                    {name:'Donkey Kong Country',summary:'Donkey Kong e Diddy Kong recuperam suas bananas roubadas por King K. Rool.',genres:[{name:'Platform'}],involved_companies:[{company:{name:'Rare'}}],first_release_date:691440000,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co218m.jpg'},platforms:[{name:'Super Nintendo Entertainment System'}]}
-                ],
-                n64: [
-                    {name:'The Legend of Zelda: Ocarina of Time',summary:'Link viaja entre passado e futuro para derrotar Ganondorf e salvar Hyrule.',genres:[{name:'Action-adventure'}],involved_companies:[{company:{name:'Nintendo'}}],first_release_date:881059200,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co29os.jpg'},platforms:[{name:'Nintendo 64'}]},
-                    {name:'Super Mario 64',summary:'Mario explora o castelo da Princesa Peach coletando Power Stars.',genres:[{name:'Platform'}],involved_companies:[{company:{name:'Nintendo'}}],first_release_date:835392000,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co218r.jpg'},platforms:[{name:'Nintendo 64'}]},
-                    {name:'GoldenEye 007',summary:'James Bond deve impedir a conspiração de GoldenEye em uma missão épica.',genres:[{name:'Shooter'}],involved_companies:[{company:{name:'Rare'}}],first_release_date:871593600,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co218u.jpg'},platforms:[{name:'Nintendo 64'}]},
-                    {name:'Mario Kart 64',summary:'Corridas de kart com os personagens do universo Mario.',genres:[{name:'Racing'}],involved_companies:[{company:{name:'Nintendo'}}],first_release_date:886416000,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co218x.jpg'},platforms:[{name:'Nintendo 64'}]},
-                    {name:'Star Fox 64',summary:'Fox McCloud lidera a Star Fox em batalhas aéreas contra Andross.',genres:[{name:'Shooter'}],involved_companies:[{company:{name:'Nintendo'}}],first_release_date:868310400,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co2191.jpg'},platforms:[{name:'Nintendo 64'}]}
-                ],
-                gamecube: [
-                    {name:'Super Smash Bros. Melee',summary:'Os personagens da Nintendo lutam em batalhas épicas.',genres:[{name:'Fighting'}],involved_companies:[{company:{name:'HAL Laboratory'}}],first_release_date:1008374400,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co1tg3.jpg'},platforms:[{name:'Nintendo GameCube'}]},
-                    {name:'The Legend of Zelda: The Wind Waker',summary:'Link viaja por um oceano vasto para resgatar sua irmã Aryll.',genres:[{name:'Action-adventure'}],involved_companies:[{company:{name:'Nintendo'}}],first_release_date:1045324800,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co29ow.jpg'},platforms:[{name:'Nintendo GameCube'}]},
-                    {name:'Metroid Prime',summary:'Samus Aran explora Tallon IV enfrentando parasitas alienígenas em primeira pessoa.',genres:[{name:'Adventure'}],involved_companies:[{company:{name:'Retro Studios'}}],first_release_date:1010880000,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co3grd.jpg'},platforms:[{name:'Nintendo GameCube'}]},
-                    {name:'Resident Evil 4',summary:'Leon S. Kennedy resgata a filha do presidente em uma vila espanhola assombrada.',genres:[{name:'Survival horror'}],involved_companies:[{company:{name:'Capcom'}}],first_release_date:1107561600,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co1t0s.jpg'},platforms:[{name:'Nintendo GameCube'}]}
-                ],
-                wii: [
-                    {name:'Super Mario Galaxy',summary:'Mario explora galáxias distantes coletando Power Stars para salvar a Princesa Peach.',genres:[{name:'Platform'}],involved_companies:[{company:{name:'Nintendo'}}],first_release_date:1195833600,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co219a.jpg'},platforms:[{name:'Wii'}]},
-                    {name:'The Legend of Zelda: Twilight Princess',summary:'Link entra no Reino do Crepúsculo para derrotar Ganondorf.',genres:[{name:'Action-adventure'}],involved_companies:[{company:{name:'Nintendo'}}],first_release_date:1164566400,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co29p0.jpg'},platforms:[{name:'Wii'}]},
-                    {name:'Wii Sports',summary:'Tennis, boxe, boliche e mais esportes com controles de movimento.',genres:[{name:'Sport'}],involved_companies:[{company:{name:'Nintendo'}}],first_release_date:1164566400,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co219d.jpg'},platforms:[{name:'Wii'}]}
-                ],
-                wiiu: [
-                    {name:'Super Mario 3D World',summary:'Mario e amigos exploram mundos 3D para salvar as Sprixies.',genres:[{name:'Platform'}],involved_companies:[{company:{name:'Nintendo'}}],first_release_date:1385337600,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co219g.jpg'},platforms:[{name:'Wii U'}]},
-                    {name:'The Legend of Zelda: Breath of the Wild',summary:'Link desperta após 100 anos para derrotar Calamity Ganon em Hyrule.',genres:[{name:'Action-adventure'}],involved_companies:[{company:{name:'Nintendo'}}],first_release_date:1489977600,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co29p4.jpg'},platforms:[{name:'Wii U'}]}
-                ],
-                switch: [
-                    {name:'The Legend of Zelda: Breath of the Wild',summary:'Link desperta após 100 anos para derrotar Calamity Ganon em Hyrule.',genres:[{name:'Action-adventure'}],involved_companies:[{company:{name:'Nintendo'}}],first_release_date:1489977600,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co29p4.jpg'},platforms:[{name:'Nintendo Switch'}]},
-                    {name:'Super Mario Odyssey',summary:'Mario e Cappy viajam pelo mundo para resgatar a Princesa Peach.',genres:[{name:'Platform'}],involved_companies:[{company:{name:'Nintendo'}}],first_release_date:1509350400,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co219j.jpg'},platforms:[{name:'Nintendo Switch'}]},
-                    {name:'Animal Crossing: New Horizons',summary:'Construa sua ilha paradisíaca e conviva com animais antropomórficos.',genres:[{name:'Simulator'}],involved_companies:[{company:{name:'Nintendo'}}],first_release_date:1584412800,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co219m.jpg'},platforms:[{name:'Nintendo Switch'}]},
-                    {name:'Splatoon 3',summary:'Tinta, turf wars e aventura no deserto de Splatsville.',genres:[{name:'Shooter'}],involved_companies:[{company:{name:'Nintendo'}}],first_release_date:1662124800,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co6bkh.jpg'},platforms:[{name:'Nintendo Switch'}]},
-                    {name:'Metroid Dread',summary:'Samus Aran escapa de botins XY em um planeta alienígena mortal.',genres:[{name:'Action-adventure'}],involved_companies:[{company:{name:'MercurySteam'}}],first_release_date:1633392000,cover:{url:'//images.igdb.com/igdb/image/upload/t_cover_big/co5s5v.jpg'},platforms:[{name:'Nintendo Switch'}]}
-                ]
-            };
-
-            const games = FALLBACK[platformKey] || [];
-            return games.filter(g => {
-                const year = new Date(g.first_release_date * 1000).getFullYear();
-                return year >= startYear && year <= endYear;
-            });
-        }
-
-        async function startGame() {
-            document.getElementById('mainMenu').style.display = 'none';
-            document.getElementById('yearSelector').classList.remove('active');
-            document.getElementById('loading').classList.add('active');
-            document.getElementById('errorMessage').style.display = 'none';
-            document.getElementById('gameArea').classList.remove('active');
-
-            const con = CONSOLES[selectedConsole];
-            document.querySelector('.loading-text').innerHTML = `Buscando jogos de ${escapeHTML(con.name)}...<span class="loading-subtext">Consultando a biblioteca da IGDB.</span>`;
-            allGames = await fetchGames(con.igdbId, selectedYearRange.start, selectedYearRange.end);
-
-            if (allGames.length === 0) {
-                document.querySelector('.loading-text').innerHTML = 'Carregando jogos alternativos...<span class="loading-subtext">A sessão continuará com a biblioteca local.</span>';
-                allGames = getFallbackGames(selectedConsole, selectedYearRange.start, selectedYearRange.end);
-                if (allGames.length > 0) {
-                    apiSource = 'fallback';
-                    setApiStatus('fallback', `Modo local • ${allGames.length} jogos disponíveis neste período`);
-                }
-            }
-
-            document.getElementById('loading').classList.remove('active');
-
-            if (allGames.length === 0) {
-                showError(`Nenhum jogo encontrado para ${con.name} neste período. Tente outro intervalo.`);
-                document.getElementById('mainMenu').style.display = 'block';
-                return;
-            }
-
-            shuffleArray(allGames);
-            if (allGames.length > 50) allGames = allGames.slice(0, 50);
-            currentGameIndex = 0;
-            totalGamesInSession = allGames.length;
-            loadGame();
-        }
-
-        function shuffleArray(a) {
-            for (let i = a.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [a[i], a[j]] = [a[j], a[i]];
-            }
-        }
-
-        function loadGame() {
-            if (currentGameIndex >= allGames.length) {
-                showEndMessage();
-                return;
-            }
-            currentGame = allGames[currentGameIndex];
-            attemptsLeft = 6;
-            hintsUsed = [];
-            revealedPieces = 0;
-            lastGuessResult = '';
-
-            document.getElementById('gameArea').classList.add('active');
-            document.getElementById('gameCounter').textContent = `Jogo ${currentGameIndex + 1} / ${totalGamesInSession}`;
-            const sourceBadge = document.getElementById('sourceBadge');
-            sourceBadge.textContent = apiSource === 'igdb' ? 'IGDB' : 'LOCAL';
-            sourceBadge.className = `source-badge${apiSource === 'igdb' ? '' : ' local'}`;
-            updateAttempts();
-            setupImageGrid();
-            setupHints();
-
-            const hd = document.getElementById('hintDisplay');
-            hd.innerHTML = '💡 Clique em uma dica para receber informações sobre o jogo';
-            hd.className = 'hint-display';
-            document.getElementById('guessInput').value = '';
-            document.getElementById('suggestions').classList.remove('active');
-            updateStatsDisplay();
-        }
-
-        function setupImageGrid() {
-            const grid = document.getElementById('imageGrid');
-            grid.innerHTML = '';
-            const coverUrl = getCoverUrl(currentGame, '720p');
-
-            for (let i = 0; i < 6; i++) {
-                const piece = document.createElement('div');
-                piece.className = 'image-piece';
-                piece.id = `piece-${i}`;
-
-                if (coverUrl) {
-                    const img = document.createElement('img');
-                    img.src = coverUrl;
-                    img.alt = '';
-                    img.decoding = 'async';
-                    img.loading = i === 0 ? 'eager' : 'lazy';
-                    const row = Math.floor(i / 3);
-                    const col = i % 3;
-                    img.style.width = '300%';
-                    img.style.height = '200%';
-                    img.style.maxWidth = 'none';
-                    img.style.position = 'absolute';
-                    img.style.left = `${-col * 100}%`;
-                    img.style.top = `${-row * 100}%`;
-                    img.style.objectFit = 'cover';
-                    img.onerror = () => {
-                        img.remove();
-                        piece.classList.add('image-error');
-                    };
-                    piece.appendChild(img);
-                }
-
-                const qm = document.createElement('div');
-                qm.className = 'question-mark';
-                qm.textContent = '?';
-                piece.appendChild(qm);
-                grid.appendChild(piece);
-            }
-        }
-
-        function setupHints() {
-            const c = document.getElementById('hintsContainer');
-            c.innerHTML = '';
-            [
-                {id:'description', icon:'📝', name:'Descrição'},
-                {id:'genres', icon:'🎭', name:'Gêneros'},
-                {id:'companies', icon:'🏢', name:'Desenvolvedora'},
-                {id:'release', icon:'📅', name:'Data de Lançamento'}
-            ].forEach(h => {
-                const btn = document.createElement('button');
-                btn.className = 'hint-btn';
-                btn.id = `hint-${h.id}`;
-                btn.innerHTML = `<span class="hint-icon">${h.icon}</span><span>${h.name}</span>`;
-                btn.onclick = () => useHint(h.id);
-                c.appendChild(btn);
-            });
-        }
-
-        function useHint(id) {
-            if (hintsUsed.includes(id) || attemptsLeft <= 0) return;
-            hintsUsed.push(id);
-            document.getElementById(`hint-${id}`).classList.add('used');
-            revealNextPiece();
-            const hd = document.getElementById('hintDisplay');
-            hd.className = 'hint-display active';
-            let html = '';
-            switch(id) {
-                case 'description': {
-                    let s = currentGame.summary || 'Sem descrição disponível.';
-                    if (s.length > 250) s = s.substring(0, 250) + '...';
-                    html = `<strong>📝 Descrição:</strong><br>${escapeHTML(s)}`;
-                    break;
-                }
-                case 'genres':
-                    html = `<strong>🎭 Gêneros:</strong><br>${escapeHTML(currentGame.genres?.map(g=>g.name).filter(Boolean).join(', ') || 'Desconhecido')}`;
-                    break;
-                case 'companies':
-                    html = `<strong>🏢 Desenvolvedora(s):</strong><br>${escapeHTML(getDevelopers(currentGame).join(', ') || 'Desconhecido')}`;
-                    break;
-                case 'release': {
-                    const d = currentGame.first_release_date;
-                    const dt = d ? new Date(d * 1000) : null;
-                    const dateStr = dt ? dt.toLocaleDateString('pt-BR', {year:'numeric',month:'long',day:'numeric'}) : 'Desconhecida';
-                    html = `<strong>📅 Data de Lançamento:</strong><br>${dateStr}`;
-                    break;
-                }
-            }
-            hd.innerHTML = html;
-        }
-
-        function revealNextPiece() {
-            if (revealedPieces < 6) {
-                const piece = document.getElementById(`piece-${revealedPieces}`);
-                if (piece) piece.classList.add('revealed');
-                revealedPieces++;
-            }
-        }
-
-        function updateAttempts() {
-            const c = document.getElementById('attempts');
-            c.innerHTML = '';
-            for (let i = 0; i < 6; i++) {
-                const dot = document.createElement('div');
-                dot.className = 'attempt-dot';
-                if (i >= attemptsLeft) dot.classList.add('used');
-                c.appendChild(dot);
-            }
-        }
-
-        function normalizeStr(s) {
-            return s.toLowerCase()
-                .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-                .replace(/[^a-z0-9\s]/g, '')
-                .replace(/\s+/g, ' ')
-                .trim();
-        }
-
-        function makeGuess() {
-            const input = document.getElementById('guessInput');
-            const raw = input.value.trim();
-            if (!raw || raw.length < 2) {
-                const hd = document.getElementById('hintDisplay');
-                hd.innerHTML = '⚠️ Digite pelo menos 2 caracteres!';
-                hd.className = 'hint-display error';
-                return;
-            }
-
-            const guess = normalizeStr(raw);
-            const gameName = normalizeStr(currentGame.name);
-            const gameWords = gameName.split(' ');
-            const guessWords = guess.split(' ');
-
-            let isCorrect = false;
-            if (guess === gameName) {
-                isCorrect = true;
-            } else if (guess.length >= 4 && gameName.includes(guess)) {
-                isCorrect = true;
-            } else if (guess.length >= 5 && guess.includes(gameName)) {
-                isCorrect = true;
-            } else if (guessWords.length >= 2) {
-                const matchCount = guessWords.filter(w => gameWords.some(gw => gw.includes(w) || w.includes(gw))).length;
-                if (matchCount >= Math.ceil(guessWords.length * 0.7) && matchCount >= 2) {
-                    isCorrect = true;
-                }
-            }
-
-            if (isCorrect) {
-                winGame();
-            } else {
-                attemptsLeft--;
-                updateAttempts();
-                revealNextPiece();
-                input.value = '';
-                document.getElementById('suggestions').classList.remove('active');
-
-                const hd = document.getElementById('hintDisplay');
-                if (attemptsLeft > 0) {
-                    hd.innerHTML = `❌ Errado! Restam <strong>${attemptsLeft}</strong> tentativa${attemptsLeft > 1 ? 's' : ''}`;
-                    hd.className = 'hint-display error';
-                } else {
-                    loseGame();
-                }
-            }
-        }
-
-        function winGame() {
-            const hintsCount = hintsUsed.length;
-            const errorsCount = 6 - attemptsLeft;
-            const points = Math.max(100, attemptsLeft * 100 - hintsCount * 50);
-            const streakBonus = streak * 50;
-            score += points + streakBonus;
-            streak++;
-            if (streak > bestStreak) bestStreak = streak;
-            gamesPlayed++;
-            gamesWon++;
-            saveStats();
-
-            lastGuessResult = `🎮 Game Guess\n✅ Acertei "${currentGame.name}"!\n⭐ ${points}+${streakBonus > 0 ? streakBonus + ' streak' : ''} pontos | ${hintsCount} dicas | ${errorsCount} erros`;
-
-            playSound('win');
-            spawnConfetti();
-
-            const modal = document.getElementById('modal');
-            document.getElementById('modalContent').className = 'modal-content success';
-            document.getElementById('modalIcon').textContent = '🎉';
-            document.getElementById('modalTitle').textContent = 'PARABÉNS!';
-            document.getElementById('modalTitle').style.color = '#00ff88';
-            document.getElementById('modalText').textContent = `+${points} pontos${streakBonus > 0 ? ` +${streakBonus} streak!` : ''} | ${hintsCount} dica(s) usada(s)`;
-            document.getElementById('modalGameName').textContent = currentGame.name;
-            setModalCover(currentGame);
-            document.getElementById('modalGameInfo').innerHTML = getGameInfoHTML();
-
-            for (let i = 0; i < 6; i++) {
-                const p = document.getElementById(`piece-${i}`);
-                if (p) p.classList.add('revealed');
-            }
-            modal.classList.add('active');
-        }
-
-        function loseGame() {
-            streak = 0;
-            gamesPlayed++;
-            saveStats();
-            playSound('lose');
-
-            lastGuessResult = `🎮 Game Guess\n❌ Não acertei "${currentGame.name}"`;
-
-            const modal = document.getElementById('modal');
-            document.getElementById('modalContent').className = 'modal-content fail';
-            document.getElementById('modalIcon').textContent = '😢';
-            document.getElementById('modalTitle').textContent = 'ERROU!';
-            document.getElementById('modalTitle').style.color = '#ff4444';
-            document.getElementById('modalText').textContent = 'O jogo era:';
-            document.getElementById('modalGameName').textContent = currentGame.name;
-            setModalCover(currentGame);
-            document.getElementById('modalGameInfo').innerHTML = getGameInfoHTML();
-
-            for (let i = 0; i < 6; i++) {
-                const p = document.getElementById(`piece-${i}`);
-                if (p) p.classList.add('revealed');
-            }
-            modal.classList.add('active');
-        }
-
-        function setModalCover(game) {
-            const img = document.getElementById('modalGameCover');
-            const url = getCoverUrl(game, 'cover_big');
-            if (url) {
-                img.src = url;
-                img.alt = `Capa de ${game?.name || 'jogo'}`;
-                img.style.display = 'block';
-                img.onerror = () => { img.style.display = 'none'; };
-            } else {
-                img.removeAttribute('src');
-                img.style.display = 'none';
-            }
-        }
-
-        function getGameInfoHTML() {
-            let html = '';
-            if (currentGame.genres?.length) {
-                html += `<div>🎭 ${escapeHTML(currentGame.genres.map(g=>g.name).filter(Boolean).join(', '))}</div>`;
-            }
-            const developers = getDevelopers(currentGame);
-            if (developers.length) html += `<div>🏢 ${escapeHTML(developers.join(', '))}</div>`;
-            if (currentGame.first_release_date) {
-                const d = new Date(currentGame.first_release_date * 1000);
-                html += `<div>📅 ${escapeHTML(d.toLocaleDateString('pt-BR',{year:'numeric',month:'long',day:'numeric'}))}</div>`;
-            }
-            if (currentGame.platforms?.length) {
-                html += `<div>🕹️ ${escapeHTML(currentGame.platforms.map(p=>p.name).filter(Boolean).join(', '))}</div>`;
-            }
-            return html;
-        }
-
-        function skipGame() {
-            streak = 0;
-            gamesPlayed++;
-            saveStats();
-            currentGameIndex++;
-            loadGame();
-        }
-
-        function nextGame() {
-            document.getElementById('modal').classList.remove('active');
-            currentGameIndex++;
-            loadGame();
-        }
-
-        function showEndMessage() {
-            const modal = document.getElementById('modal');
-            document.getElementById('modalContent').className = 'modal-content success';
-            document.getElementById('modalIcon').textContent = '🏆';
-            document.getElementById('modalTitle').textContent = 'SESSÃO ENCERRADA!';
-            document.getElementById('modalTitle').style.color = '#ffaa00';
-            document.getElementById('modalText').textContent = `Você jogou todos os ${totalGamesInSession} jogos disponíveis!`;
-            document.getElementById('modalGameName').textContent = '';
-            document.getElementById('modalGameCover').style.display = 'none';
-            document.getElementById('modalGameInfo').innerHTML = `
-                <div style="margin:15px 0;font-size:1.2rem">
-                    ⭐ Pontuação: <strong>${score}</strong> | 
-                    ✅ Acertou: <strong>${gamesWon}</strong> | 
-                    🔥 Melhor streak: <strong>${bestStreak}</strong>
-                </div>`;
-            modal.classList.add('active');
-        }
-
-        function backToMenu() {
-            document.getElementById('gameArea').classList.remove('active');
-            document.getElementById('modal').classList.remove('active');
-            document.getElementById('mainMenu').style.display = 'block';
-            document.getElementById('yearSelector').classList.remove('active');
-            document.querySelectorAll('.console-card').forEach(c => c.classList.remove('selected'));
-            selectedConsole = null;
-        }
-
-        function updateStatsDisplay() {
-            document.getElementById('score').textContent = score;
-            document.getElementById('gamesPlayed').textContent = gamesPlayed;
-            document.getElementById('gamesWon').textContent = gamesWon;
-            document.getElementById('winRate').textContent = gamesPlayed > 0 ? Math.round((gamesWon/gamesPlayed)*100)+'%' : '0%';
-            document.getElementById('bestStreak').textContent = bestStreak;
-            const sd = document.getElementById('streakDisplay');
-            if (streak > 0) {
-                sd.style.display = 'inline';
-                document.getElementById('streak').textContent = streak;
-            } else {
-                sd.style.display = 'none';
-            }
-        }
-
-        function showError(msg) {
-            const e = document.getElementById('errorMessage');
-            e.textContent = msg;
-            e.style.display = 'block';
-            e.scrollIntoView({behavior:'smooth', block:'nearest'});
-            clearTimeout(showError._timer);
-            showError._timer = setTimeout(() => { e.style.display = 'none'; }, 10000);
-        }
-
-        function showTutorial() {
-            document.getElementById('tutorialOverlay').classList.add('active');
-        }
-        function closeTutorial() {
-            document.getElementById('tutorialOverlay').classList.remove('active');
-            localStorage.setItem('gameGuessTutorialSeen', '1');
-        }
-
-        function shareResult() {
-            if (!lastGuessResult) return;
-            if (navigator.share) {
-                navigator.share({text: lastGuessResult}).catch(() => {});
-            } else if (navigator.clipboard) {
-                navigator.clipboard.writeText(lastGuessResult).then(() => {
-                    const hd = document.getElementById('hintDisplay');
-                    alert('Resultado copiado para a área de transferência!');
-                });
-            }
-        }
-
-        function spawnConfetti() {
-            const c = document.getElementById('confettiContainer');
-            c.innerHTML = '';
-            const colors = ['#00f5ff','#ff00ff','#00ff88','#ffaa00','#ff4444','#44ff44','#ffff00'];
-            for (let i = 0; i < 80; i++) {
-                const el = document.createElement('div');
-                el.className = 'confetti';
-                el.style.left = Math.random()*100+'%';
-                el.style.background = colors[Math.floor(Math.random()*colors.length)];
-                el.style.width = (6+Math.random()*8)+'px';
-                el.style.height = (6+Math.random()*8)+'px';
-                el.style.borderRadius = Math.random()>0.5 ? '50%' : '2px';
-                el.style.animationDelay = Math.random()*1.5+'s';
-                el.style.animationDuration = (2+Math.random()*2)+'s';
-                c.appendChild(el);
-            }
-            setTimeout(() => { c.innerHTML = ''; }, 4000);
-        }
-
-        const AudioCtx = window.AudioContext || window.webkitAudioContext;
-        let audioCtx = null;
-        function getAudioCtx() {
-            if (!audioCtx) audioCtx = new AudioCtx();
-            return audioCtx;
-        }
-
-        function playSound(type) {
-            try {
-                const ctx = getAudioCtx();
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-                osc.connect(gain);
-                gain.connect(ctx.destination);
-                gain.gain.setValueAtTime(0.15, ctx.currentTime);
-
-                if (type === 'win') {
-                    osc.type = 'sine';
-                    osc.frequency.setValueAtTime(523, ctx.currentTime);
-                    osc.frequency.setValueAtTime(659, ctx.currentTime + 0.1);
-                    osc.frequency.setValueAtTime(784, ctx.currentTime + 0.2);
-                    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
-                    osc.start(ctx.currentTime);
-                    osc.stop(ctx.currentTime + 0.5);
-                } else {
-                    osc.type = 'sawtooth';
-                    osc.frequency.setValueAtTime(300, ctx.currentTime);
-                    osc.frequency.linearRampToValueAtTime(150, ctx.currentTime + 0.3);
-                    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
-                    osc.start(ctx.currentTime);
-                    osc.stop(ctx.currentTime + 0.4);
-                }
-            } catch(e) {}
-        }
-
-        document.getElementById('guessInput').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') makeGuess();
-        });
-
-        document.getElementById('guessInput').addEventListener('input', (e) => {
-            const v = e.target.value.trim().toLowerCase();
-            const sd = document.getElementById('suggestions');
-            sd.innerHTML = '';
-            if (v.length < 2 || allGames.length === 0) { sd.classList.remove('active'); return; }
-
-            const nv = normalizeStr(v);
-            const matches = allGames
-                .filter(g => normalizeStr(g.name).includes(nv))
-                .sort((a,b) => normalizeStr(a.name).indexOf(nv) - normalizeStr(b.name).indexOf(nv))
-                .slice(0, 7);
-
-            matches.forEach(g => {
-                const item = document.createElement('div');
-                item.className = 'suggestion-item';
-                item.textContent = g.name;
-                item.addEventListener('click', () => selectSuggestion(g.name));
-                sd.appendChild(item);
-            });
-            sd.classList.toggle('active', matches.length > 0);
-        });
-
-        function selectSuggestion(name) {
-            document.getElementById('guessInput').value = name;
-            document.getElementById('suggestions').classList.remove('active');
-            document.getElementById('guessInput').focus();
-        }
-
-        document.addEventListener('click', (e) => {
-            if (!e.target.closest('.input-wrapper')) {
-                document.getElementById('suggestions').classList.remove('active');
-            }
-        });
-
-        createParticles();
-        initConsoleGrid();
-        loadStats();
-        updateStatsDisplay();
-        setApiStatus('', 'Pronto • escolha um console para consultar a IGDB');
-
-        if (!localStorage.getItem('gameGuessTutorialSeen')) {
-            setTimeout(showTutorial, 500);
-        }
-    </script>
+  </div>
+
+  <div class="overlay" id="confirmOverlay" aria-hidden="true">
+    <div class="panel-modal compact">
+      <div class="result-icon">🚪</div>
+      <h2>Sair da partida?</h2>
+      <p class="modal-subtitle">Seu recorde e moedas continuam salvos.</p>
+      <div class="modal-actions">
+        <button class="danger-btn" id="confirmQuit">SAIR</button>
+        <button class="secondary-btn" id="cancelQuit">CONTINUAR</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/app.js" defer></script>
 </body>
 </html>

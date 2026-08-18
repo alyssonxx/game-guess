@@ -1,33 +1,109 @@
-# Game Guess — IGDB + Vercel
+# Game Guess V4 — Arcade Edition
 
-Versão corrigida do Game Guess com a integração da IGDB feita no servidor.
+Versão completa do Game Guess para Vercel + IGDB.
 
-## Por que mudou?
+## Principais novidades
 
-A IGDB não aceita requisições feitas diretamente pelo navegador. Além disso, colocar o Client Secret dentro do `index.html` expõe a credencial para qualquer visitante.
+- Tela inicial arcade com 8 modos:
+  - Jogo Rápido
+  - Clássico
+  - Survival
+  - Blitz
+  - Console Misterioso
+  - Décadas
+  - Temático
+  - Caos Aleatório
+- 4 dificuldades: Fácil, Normal, Difícil e Insano.
+- Screenshots do próprio jogo vindos da IGDB e escolhidos aleatoriamente.
+- Fragmentos da imagem revelados em ordem aleatória.
+- Fácil começa com 2 fragmentos; Normal com 1; Difícil/Insano com 0.
+- Dicas mais elaboradas e dependentes da dificuldade:
+  - contexto/sinopse com nomes próprios ocultos;
+  - gênero completo, parcial ou cifrado;
+  - desenvolvedora mascarada;
+  - época de lançamento aproximada;
+  - plataforma como pista no modo Console Misterioso.
+- Sistema de tentativas, combo e multiplicador:
+  - 3 acertos: x1,5
+  - 5 acertos: x2
+  - 10 acertos: x3
+- Moedas persistentes no navegador.
+- Loja de ajuda:
+  - revelar fragmento;
+  - eliminar letras;
+  - revelar primeira letra;
+  - mostrar plataforma.
+- Quente ou Frio após palpites errados, comparando plataforma, gênero e época.
+- Cronômetro opcional de 30 segundos por rodada.
+- Blitz com 120 segundos globais.
+- Survival com 3 vidas.
+- Conquistas locais com recompensas em moedas.
+- Recordes e estatísticas salvos em `localStorage`.
+- Categorias: Terror, Corrida, RPG, Tiro/FPS, Plataforma, Aventura, PlayStation Classics, Xbox Classics, Nintendo, PC e Retrô.
+- Filtro por décadas.
+- Histórico recente para diminuir repetição entre sessões.
+- Layout responsivo para PC e celular.
+- Sons, animações, confete e feedback visual de acerto/erro.
 
-Nesta versão:
+## Integração IGDB
 
-- `index.html` chama somente `/api/igdb` no mesmo domínio;
-- `api/igdb.js` obtém o App Access Token da Twitch e consulta a IGDB;
-- o Client Secret fica somente nas variáveis de ambiente do Vercel;
-- existe cache temporário de token e das consultas;
-- se a IGDB estiver indisponível, o jogo continua usando a biblioteca local já presente no HTML;
-- a interface informa se a sessão está usando IGDB ou modo local;
-- capas, desenvolvedoras, sugestões de busca e tratamento de erros foram melhorados.
+O navegador chama somente `/api/igdb`. O Client Secret nunca é colocado no frontend.
 
-## Configurar no Vercel
+A Function em `api/igdb.js`:
 
-1. Suba esta pasta para o GitHub ou importe-a diretamente no Vercel.
-2. No projeto Vercel, abra **Settings > Environment Variables**.
-3. Crie:
-   - `IGDB_CLIENT_ID`
-   - `IGDB_CLIENT_SECRET`
-4. Marque as variáveis para Production, Preview e Development se desejar.
-5. Faça um novo deploy.
+- obtém e reutiliza App Access Token da Twitch;
+- consulta vários consoles de uma vez usando filtros OR de plataforma;
+- conta os jogos elegíveis;
+- usa `multiquery` para trazer vários blocos aleatórios em uma única chamada;
+- filtra categorias temáticas no servidor;
+- oferece uma ação de busca para o sistema Quente ou Frio;
+- usa screenshots e capas da própria entrada do jogo.
 
-> Não coloque o Client Secret novamente dentro do `index.html`.
+Documentação oficial usada como referência:
 
-## Teste local
+- https://api-docs.igdb.com/
 
-Para testar a Function do Vercel localmente, use o Vercel CLI (`vercel dev`) e configure as variáveis de ambiente localmente.
+## Atualizar seu projeto no Vercel
+
+Você já tem um projeto conectado ao GitHub. Então:
+
+1. Extraia esta pasta.
+2. Substitua os arquivos do repositório antigo pelos desta versão.
+3. Não apague suas variáveis de ambiente da Vercel.
+4. No terminal do VS Code:
+
+```bash
+git add .
+git commit -m "Game Guess V4 Arcade"
+git push
+```
+
+A Vercel fará o novo deploy automaticamente.
+
+## Variáveis de ambiente
+
+No Vercel, mantenha:
+
+```text
+IGDB_CLIENT_ID=...
+IGDB_CLIENT_SECRET=...
+```
+
+## Estrutura
+
+```text
+game-guess-v4-arcade/
+├── index.html
+├── styles.css
+├── app.js
+├── api/
+│   └── igdb.js
+├── package.json
+├── vercel.json
+├── .env.example
+└── README.md
+```
+
+## Observação
+
+Não há banco de dados nem login. Moedas, conquistas, recordes e estatísticas ficam no navegador do dispositivo usando `localStorage`, conforme solicitado.
