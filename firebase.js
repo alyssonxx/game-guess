@@ -9,7 +9,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/12.17.1/firebase-database.js';
 
 const CONFIG = window.GAME_GUESS_FIREBASE_CONFIG || {};
-const APP_VERSION = '14.0.0';
+const APP_VERSION = '14.1.0';
 const PROTOCOL_VERSION = 13;
 const WAITING_TTL_MS = 30 * 60 * 1000;
 const PLAYING_TTL_MS = 4 * 60 * 60 * 1000;
@@ -407,7 +407,7 @@ async function createDuelRoom(payload){
     const room={code,protocolVersion:PROTOCOL_VERSION,appVersion:APP_VERSION,hostUid:currentUser.uid,status:'waiting',roundState:'waiting',createdAt:now,updatedAt:now,expiresAt:now+WAITING_TTL_MS,startedAt:0,finishedAt:0,roundIndex:0,roundDeadline:0,revealUntil:0,timeoutRound:-1,roundHadSkip:false,config:{...(cleanPayload.config||{}),maxPlayers},questions,slots:{1:currentUser.uid},players:{[currentUser.uid]:{uid:currentUser.uid,name,slot:1,joinedAt:now,lastSeen:now,connectionState:'online',controlSessionId:CLIENT_SESSION_ID,lives:3,correct:0,score:0,wrong:0,roundWrong:0,roundSolved:false,roundResult:'',eliminated:false,left:false,lastRound:-1,lastSubmissionId:''}}};
     try{await set(r,room);}catch(error){
       const msg=String(error?.code||error?.message||'').toLowerCase();
-      if(msg.includes('permission'))throw new Error('O Firebase recusou a criação da Arena. Publique o database.rules.json da V13.1 no Realtime Database.');
+      if(msg.includes('permission'))throw new Error('O Firebase recusou a criação da Arena. Publique o database.rules.json da V14.1 no Realtime Database.');
       throw error;
     }
     // Presença é importante, mas não deve transformar uma sala já criada em "erro ao criar".
@@ -437,7 +437,17 @@ async function joinDuelRoom(code){
   if(initial.status==='finished')throw new Error('Esta arena já foi finalizada.');if(initial.players?.[currentUser.uid]){await attachDuelPresence(code);return code;}if(initial.status!=='waiting')throw new Error('Esta arena já começou.');
   const maxPlayers=Math.max(2,Math.min(8,Number(initial.config?.maxPlayers||2))),claim=await claimDuelSlot(code,maxPlayers);if(!claim)throw new Error('Esta arena acabou de ficar cheia.');
   const slot=claim.slot,name=cleanName(currentUser.displayName||currentUser.email?.split('@')[0]),now=serverNow(),playerRef=ref(db,`duels/${code}/players/${currentUser.uid}`),player={uid:currentUser.uid,name,slot,joinedAt:now,lastSeen:now,connectionState:'online',controlSessionId:CLIENT_SESSION_ID,lives:3,correct:0,score:0,wrong:0,roundWrong:0,roundSolved:false,roundResult:'',eliminated:false,left:false,lastRound:-1,lastSubmissionId:''};
-  try{await set(playerRef,player);await claim.disconnectSlot.cancel();}catch(error){await claim.disconnectSlot.cancel().catch(()=>{});await releaseDuelSlot(code,slot);if(String(error?.code||error?.message||'').toLowerCase().includes('permission'))throw new Error('O Firebase recusou a entrada. Publique o database.rules.json da V13.');throw error;}
+  try{
+    await set(playerRef,player);
+    await claim.disconnectSlot.cancel();
+  }catch(error){
+    await claim.disconnectSlot.cancel().catch(()=>{});
+    await releaseDuelSlot(code,slot);
+    const msg=String(error?.code||error?.message||'').toLowerCase();
+    console.warn('Arena join failed at players write',{code,slot,uid:currentUser.uid,error});
+    if(msg.includes('permission'))throw new Error('O Firebase recusou a entrada na Arena. Publique o database.rules.json da V14.1 no Realtime Database.');
+    throw error;
+  }
   const after=(await get(roomRef)).val();if(!after||after.status!=='waiting'||Number(after.protocolVersion)!==PROTOCOL_VERSION){await remove(playerRef).catch(()=>{});await releaseDuelSlot(code,slot);throw new Error('A sala iniciou ou mudou de versão enquanto você entrava.');}
   await attachDuelPresence(code);const joinedCount=Object.values(after.players||{}).filter(p=>!p.left).length;if(joinedCount>=maxPlayers){try{await startDuelRoom(code,true);}catch{}}else await update(roomRef,{updatedAt:serverNow()}).catch(()=>{});return code;
 }

@@ -35,7 +35,8 @@
         },
         "players": {
           "$uid": {
-            ".write": "auth != null && auth.uid === $uid && root.child('duels').child($code).child('status').val() === 'waiting' && newData.child('slot').isNumber() && root.child('duels').child($code).child('slots').child(newData.child('slot').val()).val() === auth.uid"
+            ".write": "auth != null && auth.uid === $uid && root.child('duels').child($code).child('status').val() === 'waiting' && newData.child('uid').val() === auth.uid && newData.child('slot').isNumber() && newData.child('slot').val() >= 1 && newData.child('slot').val() <= 8 && ((newData.child('slot').val() === 1 && root.child('duels').child($code).child('slots').child('1').val() === auth.uid) || (newData.child('slot').val() === 2 && root.child('duels').child($code).child('slots').child('2').val() === auth.uid) || (newData.child('slot').val() === 3 && root.child('duels').child($code).child('slots').child('3').val() === auth.uid) || (newData.child('slot').val() === 4 && root.child('duels').child($code).child('slots').child('4').val() === auth.uid) || (newData.child('slot').val() === 5 && root.child('duels').child($code).child('slots').child('5').val() === auth.uid) || (newData.child('slot').val() === 6 && root.child('duels').child($code).child('slots').child('6').val() === auth.uid) || (newData.child('slot').val() === 7 && root.child('duels').child($code).child('slots').child('7').val() === auth.uid) || (newData.child('slot').val() === 8 && root.child('duels').child($code).child('slots').child('8').val() === auth.uid))",
+            ".validate": "!newData.exists() || (newData.child('uid').val() === $uid && newData.child('slot').isNumber() && newData.child('slot').val() >= 1 && newData.child('slot').val() <= 8 && newData.child('name').isString())"
           }
         },
         "presence": {
