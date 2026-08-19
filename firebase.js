@@ -173,163 +173,202 @@ function loadRanking(){
 
 function roomCode(){const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let out='';for(let i=0;i<6;i++)out+=chars[Math.floor(Math.random()*chars.length)];return out;}
 async function createDuelRoom(payload){
-  if(!currentUser)throw new Error('Faça login antes de criar um duelo.');
+  if(!currentUser)throw new Error('Faça login antes de criar uma arena.');
+
   for(let tries=0;tries<8;tries++){
-    const code=roomCode(),r=ref(db,`duels/${code}`),exists=(await get(r)).exists();if(exists)continue;
+    const code=roomCode();
+    const r=ref(db,`duels/${code}`);
+    if((await get(r)).exists())continue;
+
     const name=cleanName(currentUser.displayName||currentUser.email?.split('@')[0]);
+    const maxPlayers=Math.max(2,Math.min(8,Number(payload?.config?.maxPlayers||2)));
+    const now=Date.now();
+
     const room={
-      code,hostUid:currentUser.uid,status:'waiting',createdAt:Date.now(),updatedAt:Date.now(),roundIndex:0,roundDeadline:0,
-      config:payload.config||{},questions:payload.questions||[],
-      players:{[currentUser.uid]:{uid:currentUser.uid,name,lives:3,correct:0,score:0,wrong:0,roundWrong:0,roundSolved:false,lastRound:-1}}
+      code,
+      hostUid:currentUser.uid,
+      status:'waiting',
+      createdAt:now,
+      updatedAt:now,
+      startedAt:0,
+      roundIndex:0,
+      roundDeadline:0,
+      timeoutRound:-1,
+      config:{...(payload.config||{}),maxPlayers},
+      questions:payload.questions||[],
+      players:{
+        [currentUser.uid]:{
+          uid:currentUser.uid,
+          name,
+          joinedAt:now,
+          lives:3,
+          correct:0,
+          score:0,
+          wrong:0,
+          roundWrong:0,
+          roundSolved:false,
+          roundResult:'',
+          eliminated:false,
+          left:false,
+          lastRound:-1
+        }
+      }
     };
-    await set(r,room);return code;
+
+    await set(r,room);
+    return code;
   }
+
   throw new Error('Não consegui gerar um código de sala. Tente novamente.');
 }
 
 async function joinDuelRoom(code){
-  if(!currentUser){
-    throw new Error('Faça login antes de entrar no duelo.');
+  if(!currentUser)throw new Error('Faça login antes de entrar na arena.');
+
+  code=String(code||'').trim().toUpperCase();
+  if(!/^[A-Z2-9]{6}$/.test(code))throw new Error('Código inválido.');
+
+  const roomRef=ref(db,`duels/${code}`);
+  const initialSnapshot=await get(roomRef);
+
+  if(!initialSnapshot.exists())throw new Error('Sala não encontrada.');
+
+  const initial=initialSnapshot.val();
+  if(initial.players?.[currentUser.uid])return code;
+  if(initial.status==='finished')throw new Error('Esta arena já foi finalizada.');
+  if(initial.status==='playing')throw new Error('Esta arena já começou.');
+
+  const maxPlayers=Math.max(2,Math.min(8,Number(initial.config?.maxPlayers||2)));
+  if(Object.values(initial.players||{}).filter(p=>!p.left).length>=maxPlayers){
+    throw new Error('Esta arena já está cheia.');
   }
 
-  code = String(code || '')
-    .trim()
-    .toUpperCase();
+  const name=cleanName(currentUser.displayName||currentUser.email?.split('@')[0]);
 
-  if(!/^[A-Z2-9]{6}$/.test(code)){
-    throw new Error('Código inválido.');
-  }
+  const result=await runTransaction(roomRef,room=>{
+    if(!room)return;
 
-  const roomRef = ref(db, `duels/${code}`);
-  const guestRef = ref(db, `duels/${code}/guestUid`);
+    if(room.players?.[currentUser.uid])return room;
+    if(room.status!=='waiting')return;
 
-  const name = cleanName(
-    currentUser.displayName ||
-    currentUser.email?.split('@')[0]
-  );
+    const max=Math.max(2,Math.min(8,Number(room.config?.maxPlayers||2)));
+    const players=Object.values(room.players||{}).filter(p=>!p.left);
 
-  // Primeiro verifica se a sala realmente existe
-  const initialSnapshot = await get(roomRef);
+    if(players.length>=max)return;
 
-  if(!initialSnapshot.exists()){
-    throw new Error('Sala não encontrada.');
-  }
+    room.players=room.players||{};
+    room.players[currentUser.uid]={
+      uid:currentUser.uid,
+      name,
+      joinedAt:Date.now(),
+      lives:3,
+      correct:0,
+      score:0,
+      wrong:0,
+      roundWrong:0,
+      roundSolved:false,
+      roundResult:'',
+      eliminated:false,
+      left:false,
+      lastRound:-1
+    };
 
-  const initialRoom = initialSnapshot.val();
+    const count=Object.values(room.players).filter(p=>!p.left).length;
 
-  // Impede entrar na própria sala usando a mesma conta
-  if(initialRoom.hostUid === currentUser.uid){
-    throw new Error(
-      'Esta sala foi criada por esta mesma conta. Use outra conta no segundo aparelho.'
-    );
-  }
-
-  if(initialRoom.status === 'finished'){
-    throw new Error('Esta sala já foi finalizada.');
-  }
-
-  if(
-    initialRoom.guestUid &&
-    initialRoom.guestUid !== currentUser.uid
-  ){
-    throw new Error('Esta sala já está cheia.');
-  }
-
-  // Reserva somente a vaga guestUid
-  const claim = await runTransaction(
-    guestRef,
-    current => {
-
-      if(
-        current === null ||
-        current === undefined ||
-        current === ''
-      ){
-        return currentUser.uid;
-      }
-
-      // Se já for este mesmo jogador,
-      // deixa continuar normalmente
-      if(current === currentUser.uid){
-        return current;
-      }
-
-      // Outro usuário ocupou a vaga
-      return;
-    },
-    {
-      applyLocally: false
+    // Sala cheia: começa automaticamente.
+    if(count>=max){
+      room.status='playing';
+      room.startedAt=Date.now();
+      room.roundDeadline=Date.now()+35000;
+      room.timeoutRound=-1;
     }
-  );
 
-  if(
-    !claim.committed ||
-    claim.snapshot?.val() !== currentUser.uid
-  ){
-    throw new Error(
-      'A sala acabou de ser ocupada por outro jogador.'
-    );
-  }
+    room.updatedAt=Date.now();
+    return room;
+  },{applyLocally:false});
 
-  const player = {
-    uid: currentUser.uid,
-    name,
-    lives: 3,
-    correct: 0,
-    score: 0,
-    wrong: 0,
-    roundWrong: 0,
-    roundSolved: false,
-    lastRound: -1
-  };
-
-  try{
-
-    // Agora adiciona oficialmente o segundo jogador
-    await update(roomRef, {
-      [`players/${currentUser.uid}`]: player,
-
-      status: 'playing',
-
-      roundDeadline:
-        Date.now() + 35000,
-
-      updatedAt:
-        Date.now()
-    });
-
-  }catch(error){
-
-    // Se alguma coisa der errado depois de reservar
-    // a vaga, libera guestUid novamente
-    try{
-
-      const latest =
-        await get(guestRef);
-
-      if(
-        latest.val() ===
-        currentUser.uid
-      ){
-        await remove(guestRef);
-      }
-
-    }catch{}
-
-    throw error;
+  if(!result.committed){
+    throw new Error('Não foi possível entrar. A sala pode ter lotado ou iniciado.');
   }
 
   return code;
 }
+
+async function startDuelRoom(code){
+  if(!currentUser)throw new Error('Sessão expirada. Entre novamente.');
+
+  code=String(code||'').trim().toUpperCase();
+
+  const result=await runTransaction(ref(db,`duels/${code}`),room=>{
+    if(!room)return;
+    if(room.hostUid!==currentUser.uid)return;
+    if(room.status!=='waiting')return room;
+
+    const players=Object.values(room.players||{}).filter(p=>!p.left);
+    if(players.length<2)return;
+
+    room.status='playing';
+    room.startedAt=Date.now();
+    room.roundDeadline=Date.now()+35000;
+    room.timeoutRound=-1;
+    room.updatedAt=Date.now();
+
+    for(const p of players){
+      p.roundSolved=false;
+      p.roundWrong=0;
+      p.roundResult='';
+      p.eliminated=false;
+      p.left=false;
+      if(!Number.isFinite(Number(p.lives)))p.lives=3;
+    }
+
+    return room;
+  },{applyLocally:false});
+
+  if(!result.committed)throw new Error('É preciso ter pelo menos 2 jogadores e ser o anfitrião.');
+  return result.snapshot?.val()||null;
+}
+
+async function leaveDuelRoom(code){
+  if(!currentUser||!code)return;
+
+  const roomRef=ref(db,`duels/${String(code).toUpperCase()}`);
+
+  await runTransaction(roomRef,room=>{
+    if(!room)return;
+    if(room.status!=='waiting')return room;
+    if(room.hostUid===currentUser.uid)return room;
+    if(room.players?.[currentUser.uid])delete room.players[currentUser.uid];
+    room.updatedAt=Date.now();
+    return room;
+  },{applyLocally:false});
+}
+
 function watchDuel(code,cb){if(!db)return()=>{};return onValue(ref(db,`duels/${code}`),s=>cb(s.val()),e=>cb(null,e));}
 async function mutateDuel(code,fn){
   if(!currentUser)throw new Error('Sessão expirada. Entre novamente.');
+
   const result=await runTransaction(ref(db,`duels/${code}`),room=>{
     if(!room)return;
-    const uid=currentUser.uid;if(uid!==room.hostUid&&uid!==room.guestUid)return;
-    const next=fn(room,uid);if(!next)return;next.updatedAt=Date.now();return next;
-  });
-  return {committed:result.committed,value:result.snapshot?.val()||null};
+
+    const uid=currentUser.uid;
+    if(!room.players?.[uid])return;
+
+    // Evita escrever no Firebase quando a função não mudou nada.
+    // Isso impede loops de snapshots/onValue e elimina travamentos/scroll repetitivo.
+    const before=JSON.stringify(room);
+    const next=fn(room,uid);
+    if(!next)return;
+    if(JSON.stringify(next)===before)return;
+
+    next.updatedAt=Date.now();
+    return next;
+  },{applyLocally:false});
+
+  return {
+    committed:result.committed,
+    value:result.snapshot?.val()||null
+  };
 }
 async function deleteDuel(code){if(!currentUser||!code)return;const snap=await get(ref(db,`duels/${code}`));const room=snap.val();if(room?.hostUid===currentUser.uid)await remove(ref(db,`duels/${code}`));}
 
@@ -363,7 +402,7 @@ if(configured){
 
 window.GameGuessFirebase={
   configured, ready:()=>configured&&Boolean(db), getUser:()=>currentUser, openAuth, loadRanking, login, register, googleLogin, logout,
-  syncLocalProfile, ratingOf, createDuelRoom, joinDuelRoom, watchDuel, mutateDuel, deleteDuel,
+  syncLocalProfile, ratingOf, createDuelRoom, joinDuelRoom, startDuelRoom, leaveDuelRoom, watchDuel, mutateDuel, deleteDuel,
   getRoom:async code=>configured?(await get(ref(db,`duels/${String(code||'').toUpperCase()}`))).val():null
 };
 
