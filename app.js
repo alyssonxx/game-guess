@@ -433,7 +433,7 @@
     if(session.config.timed && session.config.mode!=='blitz') session.roundDeadline=Date.now()+30000; else session.roundDeadline=null;
     if(session.config.mode==='blitz' && !session.blitzStarted) { session.blitzStarted=true; session.blitzEndsAt=Date.now()+120000; }
     updateGameUI();
-    $('guessInput').focus();
+    if(window.matchMedia?.('(hover:hover) and (pointer:fine)').matches){try{$('guessInput').focus({preventScroll:true});}catch{$('guessInput').focus();}}
     preloadUpcoming();
   }
 
@@ -595,7 +595,7 @@
       session.attemptsLeft--; session.roundErrors++; const withLives=roundUsesLives(); if(withLives)session.lives=Math.max(0,Number(session.lives||0)-1); revealNextPiece(true); playSound('error');
       $('hintDisplay').className='hint-display error'; $('hintDisplay').innerHTML=withLives?`<strong>❌ Não é esse. -1 ❤️</strong> Você ainda tem ${session.lives} vida(s). Um novo fragmento foi liberado.`:`<strong>❌ Não é esse.</strong> Restam ${session.attemptsLeft} tentativa(s) nesta rodada. Um novo fragmento foi liberado.`;
       await updateHotCold(raw); if(!session||session.roundResolved)return; $('guessInput').value=''; updateGameUI();
-      if(roundUsesLives()&&session.lives<=0) loseRound('vidas',false); else if(session.attemptsLeft<=0) loseRound('tentativas',false); else $('guessInput').focus();
+      if(roundUsesLives()&&session.lives<=0) loseRound('vidas',false); else if(session.attemptsLeft<=0) loseRound('tentativas',false); else if(document.activeElement===$('guessInput')||window.matchMedia?.('(hover:hover) and (pointer:fine)').matches){try{$('guessInput').focus({preventScroll:true});}catch{$('guessInput').focus();}}
     } finally { isGuessing=false; }
   }
 

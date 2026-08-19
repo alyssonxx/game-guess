@@ -242,7 +242,7 @@
     $('universeHintDisplay').innerHTML='<span class="hint-placeholder">💡 Use uma pista quando precisar. Cada pista manual reduz um pouco o valor da rodada.</span>';
     applyAutomaticChallengeClue();
     $('universeGuessInput').value='';$('universeSuggestions').classList.remove('active');
-    updateUI();setTimeout(()=>$('universeGuessInput').focus(),50);
+    updateUI();if(window.matchMedia?.('(hover:hover) and (pointer:fine)').matches)setTimeout(()=>{try{$('universeGuessInput').focus({preventScroll:true});}catch{$('universeGuessInput').focus();}},50);
   }
 
   function setupImage(url,available=true){

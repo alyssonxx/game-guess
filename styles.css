@@ -72,7 +72,7 @@ button,input{font:inherit}.hidden{display:none!important}
 
 /* V8 — Termo editável, imagens resilientes e modos ampliados */
 .termo-tile{appearance:none;color:var(--text);cursor:default;animation:none!important;transform:none!important;transition:border-color .12s,background .12s,box-shadow .12s!important}
-.termo-row:not(:has(.correct,.present,.absent)) .termo-tile{cursor:pointer}
+.termo-row.editing .termo-tile{cursor:pointer}
 .termo-tile.filled{transform:none!important}
 .termo-tile.selected{border-color:#63e6a5!important;box-shadow:0 0 0 3px rgba(99,230,165,.12),inset 0 0 20px rgba(99,230,165,.04)}
 .termo-tile.correct,.termo-tile.present,.termo-tile.absent{animation:none!important;transform:none!important}
@@ -125,6 +125,159 @@ button,input{font:inherit}.hidden{display:none!important}
 .termo-board-wrap{border:1px solid rgba(255,255,255,.07);background:rgba(6,12,25,.38);border-radius:16px;padding:10px}.termo-board-wrap.solved{border-color:rgba(99,230,165,.35);box-shadow:inset 0 0 25px rgba(99,230,165,.04)}
 .termo-board-head{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:2px 2px 9px;color:#7f8ca7}.termo-board-head b{font:800 .65rem 'Orbitron',sans-serif;color:#c6d0e7}.termo-board-head span{font-size:.72rem}.termo-board-wrap.solved .termo-board-head span{color:#63e6a5}
 .termo-boards.mode-duet .termo-tile,.termo-boards.mode-quartet .termo-tile{font-size:clamp(1rem,2.5vw,1.5rem);border-radius:7px}.termo-boards.mode-quartet .termo-row,.termo-boards.mode-duet .termo-row{gap:5px}.termo-boards.mode-quartet .termo-board,.termo-boards.mode-duet .termo-board{gap:5px;width:100%}
-@media(max-width:720px){.termo-mode-switch{grid-template-columns:1fr}.termo-boards.mode-duet,.termo-boards.mode-quartet{grid-template-columns:1fr;max-width:390px}.termo-boards.mode-duet .termo-tile,.termo-boards.mode-quartet .termo-tile{font-size:clamp(1.15rem,5vw,1.7rem)} .duel-mosaic-piece{
-  background:#000 ;
-}}
+@media(max-width:720px){.termo-mode-switch{grid-template-columns:1fr}.termo-boards.mode-duet,.termo-boards.mode-quartet{grid-template-columns:1fr;max-width:390px}.termo-boards.mode-duet .termo-tile,.termo-boards.mode-quartet .termo-tile{font-size:clamp(1.15rem,5vw,1.7rem)}}
+
+
+/* V12.2 — Termo legível, animado e teclado nativo no celular */
+.termo-tile,.termo-key{font-family:'Rajdhani',sans-serif!important;letter-spacing:.035em}.termo-tile{font-weight:900!important;font-size:clamp(1.45rem,4vw,2.2rem)!important}.termo-tile.filled{animation:termoPop .18s ease!important}.termo-tile.correct,.termo-tile.present,.termo-tile.absent{animation:termoFlip .34s ease!important}.termo-key{font-weight:800!important;font-size:.95rem!important}.termo-key:active{transform:scale(.97)}.termo-input-tools{display:grid;justify-items:center;margin:8px 0;position:relative}.termo-mobile-btn{display:none}.termo-native-input{position:absolute;width:2px;height:2px;opacity:.01;pointer-events:none;border:0;background:transparent;color:transparent}.termo-message{transition:opacity .2s ease,transform .2s ease!important}@keyframes termoPop{0%{transform:scale(.88)}70%{transform:scale(1.05)}100%{transform:scale(1)}}@keyframes termoFlip{0%{transform:rotateX(0)}50%{transform:rotateX(90deg)}100%{transform:rotateX(0)}}
+@media(max-width:720px){.termo-mobile-btn{display:inline-flex}.termo-boards.mode-duet,.termo-boards.mode-quartet{grid-template-columns:repeat(2,minmax(0,1fr));max-width:100%;gap:9px}.termo-board-wrap{padding:8px}.termo-boards.mode-duet .termo-tile,.termo-boards.mode-quartet .termo-tile{font-size:clamp(.95rem,4vw,1.3rem)!important}.termo-boards.mode-duet .termo-row,.termo-boards.mode-quartet .termo-row{gap:4px}}
+@media(max-width:480px){.termo-boards.mode-duet{grid-template-columns:1fr}.termo-boards.mode-quartet{grid-template-columns:repeat(2,minmax(0,1fr))}.termo-key{height:46px;font-size:.9rem!important}.termo-key.wide{font-size:.72rem!important}}
+
+/* V12.2 — mosaico blindado: imagem não existe visualmente sob blocos fechados */
+.image-fragment{visibility:hidden!important}.image-piece.revealed .image-fragment{visibility:visible!important}.universe-piece img{visibility:hidden!important}.universe-piece.revealed img{visibility:visible!important}.image-piece:not(.revealed) .image-fragment,.universe-piece:not(.revealed) img{opacity:0!important;visibility:hidden!important}.image-piece:not(.revealed)::before,.universe-piece:not(.revealed)::before{background:#02040b!important;opacity:1!important;visibility:visible!important;box-shadow:inset 0 0 60px rgba(0,0,0,1)!important}.image-piece:not(.revealed)::after,.universe-piece:not(.revealed)::after{background:radial-gradient(circle at 50% 42%,#080b17 0%,#03050d 58%,#000 100%)!important;opacity:1!important;visibility:visible!important;color:rgba(160,175,225,.16)!important}.duel-mosaic-piece{background:radial-gradient(circle at 50% 42%,#080b17 0%,#03050d 58%,#000 100%)!important;box-shadow:inset 0 0 60px rgba(0,0,0,1)!important}
+
+
+/* =========================================================
+   V12.3 — Mobile Compatibility (iOS Safari + Android Chrome)
+========================================================= */
+html{
+  min-height:100%;
+  -webkit-text-size-adjust:100%;
+  text-size-adjust:100%;
+}
+body{
+  min-height:100vh;
+  min-height:100dvh;
+}
+.bg-grid{
+  -webkit-mask-image:linear-gradient(to bottom,#000,transparent 80%);
+}
+.shell{
+  padding-top:calc(18px + env(safe-area-inset-top,0px));
+  padding-right:max(0px,env(safe-area-inset-right,0px));
+  padding-bottom:calc(42px + env(safe-area-inset-bottom,0px));
+  padding-left:max(0px,env(safe-area-inset-left,0px));
+}
+.overlay{
+  padding-top:max(18px,env(safe-area-inset-top,0px));
+  padding-right:max(18px,env(safe-area-inset-right,0px));
+  padding-bottom:max(18px,env(safe-area-inset-bottom,0px));
+  padding-left:max(18px,env(safe-area-inset-left,0px));
+}
+.result-modal,.panel-modal{
+  max-height:92vh;
+  max-height:min(92dvh,var(--gg-visual-height,92dvh));
+  -webkit-overflow-scrolling:touch;
+}
+.toast-stack{
+  top:calc(78px + env(safe-area-inset-top,0px));
+  right:max(18px,env(safe-area-inset-right,0px));
+}
+button,.termo-tile,.termo-key,.choice-btn,.select-btn,.hint-btn{
+  touch-action:manipulation;
+  -webkit-tap-highlight-color:transparent;
+}
+.termo-row.editing .termo-tile{cursor:pointer}
+
+/* Input real, mas visualmente invisível. 16px evita zoom automático
+   em navegadores móveis quando o campo recebe foco. */
+.termo-native-input{
+  position:fixed !important;
+  left:50% !important;
+  bottom:max(2px,env(safe-area-inset-bottom,0px)) !important;
+  top:auto !important;
+  transform:translateX(-50%) !important;
+  width:2px !important;
+  height:2px !important;
+  padding:0 !important;
+  margin:0 !important;
+  border:0 !important;
+  opacity:.01 !important;
+  pointer-events:none !important;
+  font-size:16px !important;
+  line-height:16px !important;
+  caret-color:transparent !important;
+  color:transparent !important;
+  background:transparent !important;
+  z-index:1 !important;
+}
+
+@media (hover:none) and (pointer:coarse){
+  .mini-pill,.icon-btn,.status-pill{min-height:44px}
+  .icon-btn{width:44px}
+  .back-link{min-height:44px;display:inline-flex;align-items:center}
+  .primary-btn,.secondary-btn,.skip-btn,.danger-btn{min-height:44px}
+  .choice-btn,.select-btn,.hint-btn{min-height:46px}
+  button:hover{transform:none}
+}
+
+/* Quando o teclado do sistema realmente ocupa a tela, escondemos o
+   teclado virtual do site para deixar os tabuleiros mais visíveis. */
+@media(max-width:720px){
+  .termo-screen.native-keyboard-open .termo-keyboard{display:none}
+  .termo-screen.native-keyboard-open .termo-actions{margin-top:10px}
+  .termo-screen.native-keyboard-open{padding-bottom:calc(18px + env(safe-area-inset-bottom,0px))}
+}
+
+/* Dueto/Quarteto: no celular cada tabuleiro vira um cartão deslizável.
+   Fica maior e legível, em vez de esmagar quatro grades na largura. */
+@media(max-width:520px){
+  .termo-boards.mode-duet,.termo-boards.mode-quartet{
+    display:flex !important;
+    width:100%;
+    max-width:100%;
+    gap:12px;
+    overflow-x:auto;
+    overflow-y:hidden;
+    scroll-snap-type:x mandatory;
+    scroll-padding-inline:8px;
+    overscroll-behavior-x:contain;
+    -webkit-overflow-scrolling:touch;
+    padding:2px 8px 10px;
+  }
+  .termo-boards.mode-duet .termo-board-wrap,
+  .termo-boards.mode-quartet .termo-board-wrap{
+    flex:0 0:min(86vw,340px);
+    scroll-snap-align:center;
+    scroll-snap-stop:always;
+  }
+  .termo-boards.mode-duet .termo-board,
+  .termo-boards.mode-quartet .termo-board{
+    width:min(100%,330px);
+    margin:0 auto;
+  }
+  .termo-boards.mode-duet .termo-tile,
+  .termo-boards.mode-quartet .termo-tile{
+    font-size:clamp(1.2rem,6vw,1.7rem) !important;
+    border-radius:9px;
+  }
+  .termo-boards.mode-duet::after,.termo-boards.mode-quartet::after{
+    content:'';
+    flex:0 0 1px;
+  }
+}
+
+@media(max-width:380px){
+  .shell{width:min(100% - 14px,1280px)}
+  .termo-main-card{padding:10px}
+  .termo-board-wrap{padding:8px}
+  .termo-key-row{gap:2px}
+  .termo-key{height:44px;font-size:.82rem !important}
+  .termo-key.wide{font-size:.66rem !important}
+}
+
+@media(orientation:landscape) and (max-height:520px){
+  .termo-toolbar{margin:10px 0 14px}
+  .termo-side-card{display:none}
+  .termo-main-card{padding:12px}
+  .termo-key{height:40px}
+  .duel-board{gap:14px}
+  .overlay{align-items:flex-start;overflow:auto}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .termo-tile,.termo-message,.termo-board-wrap,.termo-key{
+    animation:none !important;
+    transition:none !important;
+  }
+}
