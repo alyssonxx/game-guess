@@ -2,7 +2,7 @@
   'use strict';
   const $=id=>document.getElementById(id), CORE=()=>window.GameGuessCore, FB=()=>window.GameGuessFirebase;
   const PROFILE_KEY='gameGuessArcadeV4';
-  const ROUND_SECONDS=35, TOTAL_ROUNDS=15; // V10.1: pulo corrigido + mosaico progressivo no 1x1
+  const ROUND_SECONDS=35, TOTAL_ROUNDS=15; // V10.2: pulo corrigido + mosaico progressivo super escuro no 1x1
   let roomCode='', room=null, unsub=null, renderedRound=-1, clock=null, advanceTimer=null, hintsUsed=0, localWrong=0, isSubmitting=false;
 
   const UNIVERSE_LABELS={random:'🌌 Caos Multiverso',games:'🎮 Games IGDB',dragonball:'🐉 Dragon Ball',naruto:'🍥 Naruto',yugioh:'🃏 Yu-Gi-Oh!',saintseiya:'♈ Cavaleiros',lol:'⚔️ League of Legends',pokemon:'🔴 Pokémon',digimon:'🔵 Digimon',cartoons:'📺 Desenhos clássicos',globinho:'☀️ TV Globinho'};
@@ -61,18 +61,127 @@
   // ===== Mosaico progressivo do duelo 1x1 =====
   function ensureDuelMosaicStyles(){
     if(document.getElementById('gameGuessDuelMosaicStyles'))return;
+
     const style=document.createElement('style');
     style.id='gameGuessDuelMosaicStyles';
+
     style.textContent=`
-      .duel-image-shell{position:relative;overflow:hidden;}
-      .duel-image-shell #duelQuestionImage{position:relative;z-index:1;}
-      .duel-mosaic-mask{position:absolute;inset:0;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(2,1fr);z-index:2;pointer-events:none;}
-      .duel-mosaic-mask.hidden{display:none!important;}
-      .duel-mosaic-piece{position:relative;background:radial-gradient(circle at 50% 50%,rgba(38,47,88,.52),rgba(5,8,22,.985));border:1px solid rgba(255,255,255,.08);opacity:1;transition:opacity .35s ease;}
-      .duel-mosaic-piece::after{content:'?';position:absolute;inset:0;display:grid;place-items:center;color:rgba(255,255,255,.16);font-family:'Orbitron',sans-serif;font-size:2rem;font-weight:900;}
-      .duel-mosaic-piece.revealed{opacity:0;}
-      .duel-image-cover{position:absolute;z-index:3;}
+      /* =========================================
+         GAME GUESS 1x1 — MOSAICO SUPER ESCURO
+         Os blocos escondidos são praticamente
+         opacos para impedir enxergar o personagem.
+      ========================================= */
+
+      .duel-image-shell{
+        position:relative !important;
+        overflow:hidden !important;
+        isolation:isolate !important;
+        background:#01020a !important;
+      }
+
+      .duel-image-shell #duelQuestionImage{
+        position:relative !important;
+        z-index:1 !important;
+        display:block !important;
+        width:100% !important;
+        height:100% !important;
+        object-fit:cover !important;
+      }
+
+      .duel-mosaic-mask{
+        position:absolute !important;
+        inset:0 !important;
+        display:grid !important;
+        grid-template-columns:repeat(3,1fr) !important;
+        grid-template-rows:repeat(2,1fr) !important;
+        width:100% !important;
+        height:100% !important;
+        z-index:50 !important;
+        pointer-events:none !important;
+        background:transparent !important;
+      }
+
+      .duel-mosaic-mask.hidden{
+        display:none !important;
+      }
+
+      .duel-mosaic-piece{
+        position:relative !important;
+
+        /* Fundo 100% opaco: não deixa a imagem vazar */
+        background:
+          radial-gradient(
+            circle at 50% 42%,
+            #0a0e1d 0%,
+            #040610 52%,
+            #010208 100%
+          ) !important;
+
+        border:1px solid rgba(120,145,210,.16) !important;
+
+        opacity:1 !important;
+        visibility:visible !important;
+
+        filter:none !important;
+        -webkit-filter:none !important;
+
+        -webkit-backdrop-filter:none !important;
+        backdrop-filter:none !important;
+
+        box-shadow:
+          inset 0 0 40px rgba(0,0,0,.92),
+          inset 0 0 8px rgba(90,120,190,.08) !important;
+
+        transition:
+          opacity .28s ease,
+          visibility .28s ease !important;
+      }
+
+      .duel-mosaic-piece::before{
+        content:'';
+        position:absolute;
+        inset:0;
+        background:
+          linear-gradient(
+            135deg,
+            rgba(255,255,255,.018),
+            rgba(255,255,255,0) 35%,
+            rgba(0,0,0,.28)
+          );
+        pointer-events:none;
+      }
+
+      .duel-mosaic-piece::after{
+        content:'?';
+        position:absolute;
+        inset:0;
+        display:grid;
+        place-items:center;
+
+        color:rgba(190,205,255,.18);
+
+        text-shadow:
+          0 0 12px rgba(120,155,255,.08);
+
+        font-family:'Orbitron',sans-serif;
+        font-size:2rem;
+        font-weight:900;
+      }
+
+      /* Fragmento revelado = bloco desaparece por completo */
+      .duel-mosaic-piece.revealed{
+        opacity:0 !important;
+        visibility:hidden !important;
+      }
+
+      /* Fallback de imagem sempre acima de tudo */
+      .duel-image-cover{
+        position:absolute !important;
+        inset:0 !important;
+        z-index:60 !important;
+      }
     `;
+
     document.head.appendChild(style);
   }
 
@@ -105,6 +214,12 @@
         const piece=document.createElement('div');
         piece.className='duel-mosaic-piece';
         piece.dataset.piece=String(i);
+
+        // Fallback inline: mesmo se outro CSS interferir,
+        // o fragmento escondido continua totalmente opaco.
+        piece.style.background='#02040c';
+        piece.style.opacity='1';
+
         mask.appendChild(piece);
       }
 
@@ -112,6 +227,12 @@
     }
 
     mask.classList.toggle('hidden',!enabled);
+
+    // Reforço inline para evitar que estilos antigos/cacheados escondam o mosaico.
+    mask.style.display=enabled?'grid':'none';
+    mask.style.zIndex='50';
+    mask.style.position='absolute';
+    mask.style.inset='0';
 
     if(!enabled)return;
 
