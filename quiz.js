@@ -4,7 +4,7 @@
   const PROFILE_KEY='gameGuessArcadeV4';
   const DIFF={easy:{label:'Fácil',icon:'🌱',seconds:25,mult:.9},normal:{label:'Normal',icon:'🎯',seconds:20,mult:1},hard:{label:'Difícil',icon:'🔥',seconds:15,mult:1.25}};
   let config={category:'random',difficulty:'normal',count:10};
-  let state=null,timer=null;
+  let state=null,timer=null,loading=false;
   function readProfile(){try{return CORE()?.getProfile?.()||JSON.parse(localStorage.getItem(PROFILE_KEY)||'{}')}catch{return {}}}
   function saveProfile(p){CORE()?.replaceProfile?.(p);CORE()?.saveProfile?.();window.GameGuessFirebase?.syncLocalProfile?.(p);}
   function show(id){CORE()?.showScreen?.(id)}
@@ -16,7 +16,7 @@
     if(diffs){diffs.innerHTML=Object.entries(DIFF).map(([k,v])=>`<button class="quiz-choice${config.difficulty===k?' active':''}" data-quiz-difficulty="${k}"><span>${v.icon}</span><b>${v.label}</b><small>${v.seconds}s por pergunta</small></button>`).join('');}
     if($('quizQuestionCount')){
       const sel=$('quizQuestionCount');
-      const values=config.category==='random'?[5,10,15,20]:[5,10,12];
+      const values=[5,10,15,20];
       if(!values.includes(config.count))config.count=config.category==='random'?10:10;
       sel.innerHTML=values.map(v=>`<option value="${v}">${v} perguntas</option>`).join('');
       sel.value=String(config.count);
@@ -25,10 +25,18 @@
   }
   function updateSetupSummary(){const c=meta(config.category),d=DIFF[config.difficulty];if($('quizSetupSummary'))$('quizSetupSummary').innerHTML=`<div><span>Categoria</span><b>${c.icon} ${esc(c.title)}</b></div><div><span>Dificuldade</span><b>${d.icon} ${d.label}</b></div><div><span>Perguntas</span><b>${config.count}</b></div><div><span>Tempo</span><b>${d.seconds}s por rodada</b></div>`;}
   function openSetup(){if(!BANK())return CORE()?.toast?.('Quiz ainda carregando','Tente novamente em um instante.');renderSetup();show('quizSetupScreen');}
-  function start(){
-    const questions=BANK().getQuestions({category:config.category,count:config.count});
-    state={questions,index:0,score:0,correct:0,wrong:0,streak:0,bestStreak:0,answered:false,startedAt:Date.now(),deadline:0};
-    show('quizGameScreen');loadQuestion();
+  async function start(){
+    if(loading)return;const bank=BANK();if(!bank)return CORE()?.toast?.('Quiz ainda carregando','Tente novamente em um instante.');
+    loading=true;const btn=$('quizStartButton'),again=$('quizResultAgain');
+    if(btn){btn.disabled=true;btn.dataset.old=btn.textContent;btn.textContent='BUSCANDO PERGUNTAS NOVAS...';}
+    if(again){again.disabled=true;}
+    try{
+      const questions=bank.fetchQuestions?await bank.fetchQuestions({category:config.category,count:config.count,difficulty:config.difficulty}):bank.getQuestions({category:config.category,count:config.count});
+      if(!Array.isArray(questions)||questions.length<5)throw new Error('Não consegui preparar perguntas suficientes agora.');
+      state={questions,index:0,score:0,correct:0,wrong:0,streak:0,bestStreak:0,answered:false,startedAt:Date.now(),deadline:0};
+      show('quizGameScreen');loadQuestion();
+    }catch(e){CORE()?.toast?.('Quiz indisponível',e.message||'Tente novamente.','error');}
+    finally{loading=false;if(btn){btn.disabled=false;btn.textContent=btn.dataset.old||'COMEÇAR QUIZ ▶';}if(again)again.disabled=false;}
   }
   function clearTimer(){if(timer){clearInterval(timer);timer=null}}
   function current(){return state?.questions?.[state.index]}

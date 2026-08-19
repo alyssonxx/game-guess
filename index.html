@@ -84,7 +84,7 @@
 
       <div class="home-footer">
         <button class="secondary-btn" id="tutorialButton">❔ Como jogar</button>
-        <span>Jogos: IGDB • LoL: Riot • Pokémon: PokéAPI • Digimon: DAPI • animes/desenhos: curadoria + Wikipedia/Fandom • Termo Arcade: palavras locais • Quiz Mundial: banco PT-BR local.</span>
+        <span>Jogos: IGDB • LoL: Riot • Pokémon: PokéAPI • Digimon: DAPI • animes/desenhos: curadoria + Wikipedia/Fandom • Termo Arcade: palavras locais • Quiz Mundial: Tryvia API PT-BR + banco local + geração procedural anti-repetição.</span>
       </div>
     </section>
 
@@ -341,7 +341,7 @@
       </div>
       <div class="ranking-layout">
         <div class="ranking-card">
-          <div class="ranking-head"><span>POS</span><span>JOGADOR</span><span>RATING</span><span>1x1</span></div>
+          <div class="ranking-head"><span>POS</span><span>JOGADOR</span><span>RATING</span><span>ARENA</span></div>
           <div id="rankingList" class="ranking-list"><div class="ranking-empty">Entre na sua conta para carregar o ranking.</div></div>
         </div>
         <aside class="ranking-side">
@@ -356,7 +356,7 @@
     <section class="screen" id="duelLobbyScreen">
       <div class="section-heading">
         <button class="back-link" id="duelBackButton">← Voltar</button>
-        <div><p class="eyebrow">⚔️ DUELO ONLINE 1x1</p><h2>Um contra um. Um vencedor.</h2><p>Os dois recebem a mesma pergunta. No Difícil/Insano cada erro tira 1 das 3 vidas; no Fácil/Normal cada rodada oferece 3 tentativas.</p></div>
+        <div><p class="eyebrow">⚔️ ARENA ONLINE • 2–8 JOGADORES</p><h2>De 2 até 8 jogadores na mesma sala.</h2><p>No Quiz, todos recebem exatamente a mesma pergunta e as mesmas alternativas. No Difícil/Insano cada erro tira 1 das 3 vidas; no Fácil/Normal cada jogador responde uma vez por rodada.</p></div>
       </div>
       <div class="duel-lobby-grid">
         <div class="duel-panel">
@@ -371,7 +371,7 @@
         </div>
         <div class="duel-panel">
           <span class="duel-panel-icon">🔗</span><h3>Entrar com código</h3>
-          <p>Peça o código de 6 caracteres ao outro jogador.</p>
+          <p>Peça o código de 6 caracteres ao criador da Arena.</p>
           <input class="guess-input duel-code-input" id="joinDuelCode" maxlength="6" placeholder="ABC123" autocomplete="off">
           <button class="secondary-btn huge" id="joinDuelButton">ENTRAR NA SALA</button>
           <div class="duel-auth-warning" id="duelAuthWarning">Você precisa estar logado para jogar online.</div>
@@ -574,9 +574,9 @@
   <script src="/app.js?v=12.3.0" defer></script>
   <script src="/multiverse.js?v=12.3.0" defer></script>
   <script src="/termo.js?v=12.6.0" defer></script>
-  <script src="/quiz-bank.js?v=13.0.0" defer></script>
-  <script src="/quiz.js?v=13.0.0" defer></script>
-  <script type="module" src="/firebase.js?v=13.0.0"></script>
-  <script src="/duel.js?v=13.0.0" defer></script>
+  <script src="/quiz-bank.js?v=13.1.0" defer></script>
+  <script src="/quiz.js?v=13.1.0" defer></script>
+  <script type="module" src="/firebase.js?v=13.1.0"></script>
+  <script src="/duel.js?v=13.1.0" defer></script>
 </body>
 </html>

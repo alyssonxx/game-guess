@@ -9,7 +9,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/12.17.1/firebase-database.js';
 
 const CONFIG = window.GAME_GUESS_FIREBASE_CONFIG || {};
-const APP_VERSION = '13.0.0';
+const APP_VERSION = '13.1.0';
 const PROTOCOL_VERSION = 13;
 const WAITING_TTL_MS = 30 * 60 * 1000;
 const PLAYING_TTL_MS = 4 * 60 * 60 * 1000;
@@ -297,7 +297,24 @@ async function detachDuelPresence(code){
 async function cleanupExpiredDuel(code){if(!db||!code)return false;const r=ref(db,`duels/${String(code).toUpperCase()}`),snap=await get(r),room=snap.val();if(room?.expiresAt&&Number(room.expiresAt)<=serverNow()){await remove(r).catch(()=>{});return true;}return false;}
 async function createDuelRoom(payload){
   if(!currentUser)throw new Error('Faça login antes de criar uma arena.');
-  for(let tries=0;tries<8;tries++){const code=roomCode(),r=ref(db,`duels/${code}`);if((await get(r)).exists())continue;const name=cleanName(currentUser.displayName||currentUser.email?.split('@')[0]),maxPlayers=Math.max(2,Math.min(8,Number(payload?.config?.maxPlayers||2))),now=serverNow();const room={code,protocolVersion:PROTOCOL_VERSION,appVersion:APP_VERSION,hostUid:currentUser.uid,status:'waiting',roundState:'waiting',createdAt:now,updatedAt:now,expiresAt:now+WAITING_TTL_MS,startedAt:0,finishedAt:0,roundIndex:0,roundDeadline:0,revealUntil:0,timeoutRound:-1,roundHadSkip:false,config:{...(payload.config||{}),maxPlayers},questions:payload.questions||[],slots:{1:currentUser.uid},players:{[currentUser.uid]:{uid:currentUser.uid,name,slot:1,joinedAt:now,lastSeen:now,connectionState:'online',controlSessionId:CLIENT_SESSION_ID,lives:3,correct:0,score:0,wrong:0,roundWrong:0,roundSolved:false,roundResult:'',eliminated:false,left:false,lastRound:-1,lastSubmissionId:''}}};await set(r,room);await attachDuelPresence(code);return code;}throw new Error('Não consegui gerar um código de sala. Tente novamente.');
+  for(let tries=0;tries<8;tries++){
+    const code=roomCode(),r=ref(db,`duels/${code}`);if((await get(r)).exists())continue;
+    const name=cleanName(currentUser.displayName||currentUser.email?.split('@')[0]),maxPlayers=Math.max(2,Math.min(8,Number(payload?.config?.maxPlayers||2))),now=serverNow();
+    const cleanPayload=JSON.parse(JSON.stringify(payload||{}));
+    const questions=Array.isArray(cleanPayload.questions)?cleanPayload.questions.filter(q=>q&&q.id&&q.name&&(q.kind!=='quiz'||(q.prompt&&Array.isArray(q.options)&&q.options.length===4))).slice(0,30):[];
+    if(questions.length<5)throw new Error('A Arena não recebeu perguntas suficientes para criar a sala.');
+    const room={code,protocolVersion:PROTOCOL_VERSION,appVersion:APP_VERSION,hostUid:currentUser.uid,status:'waiting',roundState:'waiting',createdAt:now,updatedAt:now,expiresAt:now+WAITING_TTL_MS,startedAt:0,finishedAt:0,roundIndex:0,roundDeadline:0,revealUntil:0,timeoutRound:-1,roundHadSkip:false,config:{...(cleanPayload.config||{}),maxPlayers},questions,slots:{1:currentUser.uid},players:{[currentUser.uid]:{uid:currentUser.uid,name,slot:1,joinedAt:now,lastSeen:now,connectionState:'online',controlSessionId:CLIENT_SESSION_ID,lives:3,correct:0,score:0,wrong:0,roundWrong:0,roundSolved:false,roundResult:'',eliminated:false,left:false,lastRound:-1,lastSubmissionId:''}}};
+    try{await set(r,room);}catch(error){
+      const msg=String(error?.code||error?.message||'').toLowerCase();
+      if(msg.includes('permission'))throw new Error('O Firebase recusou a criação da Arena. Publique o database.rules.json da V13.1 no Realtime Database.');
+      throw error;
+    }
+    // Presença é importante, mas não deve transformar uma sala já criada em "erro ao criar".
+    // Se falhar momentaneamente, a conexão/reconexão tentará registrá-la novamente.
+    attachDuelPresence(code).catch(e=>console.warn('Arena presence attach:',e));
+    return code;
+  }
+  throw new Error('Não consegui gerar um código de sala. Tente novamente.');
 }
 async function claimDuelSlot(code,maxPlayers){
   for(let slot=1;slot<=maxPlayers;slot++){

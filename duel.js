@@ -323,7 +323,11 @@
     if(universe==='quiz'){
       const bank=window.GameGuessQuizBank;
       if(!bank)throw new Error('Banco do Quiz ainda não carregou. Atualize a página.');
-      return bank.getQuestions({category:config.category||'random',count:22}).map(bank.toDuelQuestion);
+      const raw=bank.fetchQuestions
+        ? await bank.fetchQuestions({category:config.category||'random',count:Math.max(TOTAL_ROUNDS,18),difficulty:config.difficulty||'normal'})
+        : bank.getQuestions({category:config.category||'random',count:Math.max(TOTAL_ROUNDS,18)});
+      if(!Array.isArray(raw)||raw.length<TOTAL_ROUNDS)throw new Error('Não consegui carregar perguntas suficientes para a Arena. Tente novamente.');
+      return raw.map(bank.toDuelQuestion);
     }
     if(universe==='games'){
       const ids=[7,8,9,48,167,11,12,49,169,6,18,19,4,21,5,41,130];
