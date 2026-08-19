@@ -1,18 +1,14 @@
-# Firebase — configuração da V10 Online Arena
+# Firebase — configuração da V12 Stability + Ranked
 
-A V10 usa **Firebase Authentication** para registro/login e **Firebase Realtime Database** para perfil sincronizado, ranking e salas 1x1.
+A V12 usa:
 
-## 1. Criar ou abrir um projeto Firebase
+- **Firebase Authentication** — conta/login.
+- **Firebase Realtime Database** — perfil, ranking, salas, presença e Arena.
+- IGDB continua no backend da Vercel como nas versões anteriores.
 
-1. Abra o Firebase Console.
-2. Crie um projeto (ou use um projeto próprio separado para o Game Guess).
-3. Na visão geral do projeto, clique no ícone **Web (`</>`)**.
-4. Registre o app Web, por exemplo com o apelido `Game Guess`.
-5. O Firebase mostrará um objeto `firebaseConfig`.
+## 1. `firebase-config.js`
 
-## 2. Preencher `firebase-config.js`
-
-Abra `firebase-config.js` e substitua os valores de exemplo pelos valores do seu app Web:
+Mantenha o objeto Web do seu projeto:
 
 ```js
 window.GAME_GUESS_FIREBASE_CONFIG = {
@@ -26,91 +22,99 @@ window.GAME_GUESS_FIREBASE_CONFIG = {
 };
 ```
 
-> O `databaseURL` só aparece/funciona depois que o Realtime Database existe. Se o objeto copiado antes da criação do banco não tiver esse campo, copie a URL exibida na página do Realtime Database e adicione manualmente.
+Não use Service Account/private key no frontend.
 
-Não coloque arquivo de Service Account, private key ou credenciais administrativas no repositório.
+## 2. Authentication
 
-## 3. Ativar registro e login
+Ative **Email/Password**. Google continua opcional.
 
-No Firebase Console:
+Confira também **Authentication → Settings → Authorized domains** e mantenha o domínio da Vercel autorizado.
 
-1. Vá em **Authentication**.
-2. Abra **Sign-in method**.
-3. Ative **Email/Password**.
-4. Salve.
+## 3. Realtime Database
 
-A V10 já possui telas para:
-- criar conta com nome, e-mail e senha;
-- entrar com e-mail e senha;
-- sair da conta;
-- restaurar e sincronizar progresso.
+A V12 exige o **Realtime Database**, não o Firestore.
 
-### Login Google (opcional)
+## 4. IMPORTANTE — publicar as regras V12
 
-A interface também tem o botão Google. Para usá-lo:
+Abra:
 
-1. Em **Authentication > Sign-in method**, ative **Google**.
-2. Em **Authentication > Settings > Authorized domains**, confira se o domínio onde seu site está publicado está autorizado. Adicione o domínio da Vercel, se necessário.
+**Realtime Database → Rules**
 
-Se não quiser Google, basta deixar esse provedor desativado; e-mail/senha continua funcionando.
-
-## 4. Criar o Realtime Database
-
-1. Abra **Realtime Database** no Firebase Console.
-2. Clique em **Create database**.
-3. Escolha a região.
-4. Pode iniciar em modo bloqueado; logo depois publique as regras da V10.
-5. Copie a URL do banco e confirme que ela está em `firebase-config.js` como `databaseURL`.
-
-## 5. Publicar as regras
-
-Abra **Realtime Database > Rules** e substitua o conteúdo pelas regras que estão no arquivo:
+Substitua tudo pelo conteúdo de:
 
 `database.rules.json`
 
-Depois clique em **Publish**.
+e clique em **Publish**.
 
-As regras da V10 separam:
-- `profiles/{uid}` — cada usuário só altera o próprio perfil;
-- `leaderboard/{uid}` — ranking dos jogadores autenticados;
-- `duels/{codigo}` — sala em tempo real usada pelos dois participantes.
+A V12 adiciona regras para:
 
-## 6. Testar localmente / depois do deploy
+- `profiles`
+- `leaderboard`
+- `duels/{codigo}`
+- `duels/{codigo}/slots` — reserva de vagas
+- `duels/{codigo}/presence` — conexão/reconexão
 
-Depois de publicar:
+## 5. Como a Arena V12 evita conflitos
 
-1. Abra o site.
-2. Clique em **Entrar**.
-3. Crie duas contas diferentes (para teste você pode usar dois navegadores ou uma janela anônima).
-4. Na primeira conta, entre em **Duelo 1x1 > Criar sala**.
-5. Copie o código de 6 caracteres.
-6. Na segunda conta, abra **Duelo 1x1 > Entrar em sala** e informe o código.
-7. Os dois devem receber a mesma rodada e o placar deve atualizar em tempo real.
+Cada sala possui `protocolVersion: 12`.
 
-## 7. Regra de vidas e tentativas
+Cada participante reserva um `slot` de 1 a 8 por transação atômica. Enquanto o jogador está entrando, existe também um `onDisconnect` temporário na vaga, portanto uma queda no meio da entrada não deixa a sala permanentemente com vaga fantasma.
 
-Na V10, as vidas dependem da dificuldade:
+Durante a partida cada navegador usa um `sessionId`. Se a mesma conta abrir a mesma Arena em outro aparelho, a sessão mais recente assume o controle e o aparelho antigo fica bloqueado para responder.
 
-- **Fácil / Normal:** não exibem corações; erros consomem apenas tentativas da rodada.
-- **Difícil / Insano:** o jogador tem 3 vidas; cada resposta incorreta enviada reduz `1 ❤️`. Pulo e timeout também podem consumir uma vida.
-- **Termo Arcade:** não possui vidas. Uma Palavra tem 6 tentativas, Dueto tem 7 e Quarteto tem 9. Palavra inexistente é rejeitada sem consumir tentativa.
+## 6. Presença e host
 
-No duelo, a mesma regra é aplicada: Fácil/Normal usam 3 tentativas por rodada; Difícil/Insano usam 3 vidas por jogador e o duelo pode terminar quando alguém chega a zero.
+A presença fica em:
 
-## 8. Observação sobre ranking competitivo
+```text
+duels/CODIGO/presence/UID/SESSION_ID
+```
 
-Esta versão foi feita para um jogo casual entre amigos: o navegador autenticado sincroniza suas próprias estatísticas com o Firebase. As regras impedem um usuário comum de escrever diretamente no perfil de outro usuário, mas um jogador tecnicamente avançado ainda pode adulterar dados do próprio cliente.
+O Firebase remove a presença automaticamente com `onDisconnect`.
 
-Se no futuro o ranking virar competitivo/público com premiações, mova a validação de pontuação e resultados de duelo para um backend confiável (por exemplo uma função/servidor com Firebase Admin) e considere ativar App Check.
+Se o anfitrião sumir do lobby e não voltar após a tolerância, outro participante assume o host automaticamente.
 
-## 9. Deploy na Vercel
+## 7. Horário
 
-Após configurar `firebase-config.js`:
+Cronômetro, deadlines e transições usam a diferença de horário fornecida pelo Firebase em:
+
+```text
+.info/serverTimeOffset
+```
+
+Isso evita depender do relógio configurado em cada celular.
+
+## 8. Estados da rodada
+
+A V12 usa:
+
+```text
+waiting
+playing
+revealing
+finished
+```
+
+Durante `revealing` ninguém pode enviar resposta. Quando alguém pula, a resposta correta é exibida nesse estado antes da próxima rodada.
+
+## 9. Expiração
+
+- lobby: aproximadamente 30 minutos;
+- partida ativa: aproximadamente 4 horas;
+- resultado final: aproximadamente 2 horas.
+
+Salas expiradas podem ser removidas.
+
+## 10. Ranking
+
+O `leaderboard` agora recebe também resumo da melhor partida e especialidades do jogador. Os detalhes completos continuam guardados no perfil sincronizado.
+
+## 11. Deploy
 
 ```bash
 git add .
-git commit -m "Game Guess V10 Termo Multi"
+git commit -m "Game Guess V12 Stability Ranked"
 git push origin main
 ```
 
-A configuração IGDB do projeto continua igual à versão anterior. Para o Firebase desta V10, não é necessário criar novas variáveis Vercel porque o app Web lê `firebase-config.js`.
+Depois que a Vercel estiver `Ready`, faça `Ctrl + Shift + R` uma vez no PC.

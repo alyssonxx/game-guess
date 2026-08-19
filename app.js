@@ -665,6 +665,7 @@
   function endSession(reason) {
     if(!session||session.ended)return; stopTicker(); session.ended=true; session.roundResolved=true; profile.highScore=Math.max(profile.highScore,session.score);
     if(['survival','blitz'].includes(session.config.mode)) profile.modeRecords[session.config.mode]=Math.max(profile.modeRecords[session.config.mode]||0,session.wins);
+    window.GameGuessRanked?.record?.(profile,{kind:'solo',score:session.score,mode:session.config.mode,universe:'games',challenge:'image',difficulty:session.config.difficulty||'normal',correct:session.wins,wrong:session.losses,won:session.wins>0});
     saveProfile();
     const mode=MODES[session.config.mode];$('resultModal').className='result-modal success';$('resultIcon').textContent=reason==='lives'?'💔':reason==='blitz'?'⏱️':'🏆';$('resultEyebrow').textContent=reason==='lives'?'GAME OVER':reason==='blitz'?'TEMPO!':'SESSÃO ENCERRADA';$('resultGameName').textContent=mode.title;
     const modeRecord=['survival','blitz'].includes(session.config.mode)?`<div>🎖️ Recorde do modo: <strong>${profile.modeRecords[session.config.mode]}</strong> acertos</div>`:'';

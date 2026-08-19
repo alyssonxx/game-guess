@@ -380,7 +380,10 @@
   function closeResult(){$('universeResultOverlay').classList.remove('active');$('universeResultOverlay').setAttribute('aria-hidden','true')}
   function endSession(reason){
     stopTicker();if(!session)return;
-    const s=session,u=UNIVERSES[s.config.universe],p=readProfile();p.highScore=Math.max(Number(p.highScore||0),s.score);saveProfile(p);
+    const s=session,u=UNIVERSES[s.config.universe],p=readProfile();
+    p.highScore=Math.max(Number(p.highScore||0),s.score);
+    window.GameGuessRanked?.record?.(p,{kind:'multiverse',score:s.score,mode:s.config.mode||'classic',universe:s.config.universe||'random',challenge:s.config.challenge||s.roundChallenge||'random',difficulty:s.config.difficulty||'normal',correct:s.wins,wrong:s.losses,won:s.wins>0});
+    saveProfile(p);
     toast(reason==='images'?'Imagens externas instáveis — use novamente':'Sessão encerrada',`${u.title}: ${s.wins} acertos • ${s.score} pontos.`);
     session=null;closeResult();show('homeScreen');
   }

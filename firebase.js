@@ -5,10 +5,17 @@ import {
 } from 'https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js';
 import {
   getDatabase, ref, set, get, update, onValue, query, orderByChild,
-  limitToLast, runTransaction, remove
+  limitToLast, runTransaction, remove, onDisconnect, serverTimestamp
 } from 'https://www.gstatic.com/firebasejs/12.17.1/firebase-database.js';
 
-const CONFIG = window.GAME_GUESS_FIREBASE_CONFIG || {}; // V11.1: entrada multi-player sem transação na sala inteira
+const CONFIG = window.GAME_GUESS_FIREBASE_CONFIG || {};
+const APP_VERSION = '12.0.0';
+const PROTOCOL_VERSION = 12;
+const WAITING_TTL_MS = 30 * 60 * 1000;
+const PLAYING_TTL_MS = 4 * 60 * 60 * 1000;
+const FINISHED_TTL_MS = 2 * 60 * 60 * 1000;
+const HOST_GRACE_MS = 12000;
+const CLIENT_SESSION_ID = (globalThis.crypto?.randomUUID?.() || `gg-${Date.now()}-${Math.random().toString(36).slice(2)}`);
 const configured = Boolean(
   CONFIG.apiKey && CONFIG.databaseURL && CONFIG.projectId && CONFIG.appId &&
   !String(CONFIG.apiKey).includes('COLE_') && !String(CONFIG.projectId).includes('SEU-PROJETO')
@@ -18,6 +25,11 @@ const $ = id => document.getElementById(id);
 const CORE = () => window.GameGuessCore;
 const PROFILE_KEY = 'gameGuessArcadeV4';
 let app = null, auth = null, db = null, currentUser = null;
+let serverOffsetMs = 0;
+let firebaseConnected = false;
+let serverOffsetUnsub = null;
+let connectedUnsub = null;
+const duelPresence = new Map();
 let authMode = 'login';
 let rankingUnsub = null;
 let syncTimer = null;
@@ -33,13 +45,34 @@ function num(v){const n=Number(v);return Number.isFinite(n)&&n>0?n:0;}
 function mapMax(a={},b={}){const out={...a};for(const [k,v] of Object.entries(b||{}))out[k]=Math.max(num(out[k]),num(v));return out;}
 function mergeAchievements(a={},b={}){return {...a,...b};}
 
+function serverNow(){return Date.now()+Number(serverOffsetMs||0);}
+function isConnected(){return Boolean(firebaseConnected);}
+function newSubmissionId(){return `${CLIENT_SESSION_ID}:${serverNow()}:${Math.random().toString(36).slice(2,10)}`;}
+function safeKey(v,fallback='unknown'){return String(v||fallback).toLowerCase().trim().replace(/[^a-z0-9_-]+/g,'-').replace(/^-+|-+$/g,'')||fallback;}
+function statMerge(a={},b={}){return {played:Math.max(num(a.played),num(b.played)),wins:Math.max(num(a.wins),num(b.wins)),bestScore:Math.max(num(a.bestScore),num(b.bestScore)),bestCorrect:Math.max(num(a.bestCorrect),num(b.bestCorrect))};}
+function mergeStatMap(a={},b={}){const out={};for(const k of new Set([...Object.keys(a||{}),...Object.keys(b||{})]))out[k]=statMerge(a?.[k],b?.[k]);return out;}
+function normalizeRankedStats(s={}){return {bestMatch:s.bestMatch&&typeof s.bestMatch==='object'?s.bestMatch:{},modes:s.modes&&typeof s.modes==='object'?s.modes:{},universes:s.universes&&typeof s.universes==='object'?s.universes:{},challenges:s.challenges&&typeof s.challenges==='object'?s.challenges:{},difficulties:s.difficulties&&typeof s.difficulties==='object'?s.difficulties:{},arena:s.arena&&typeof s.arena==='object'?s.arena:{played:0,wins:0,losses:0,bestScore:0,maxPlayers:0},termo:s.termo&&typeof s.termo==='object'?s.termo:{modes:{}}};}
+function mergeRankedStats(a={},b={}){const A=normalizeRankedStats(a),B=normalizeRankedStats(b),bestA=num(A.bestMatch?.score),bestB=num(B.bestMatch?.score);return {bestMatch:bestB>bestA?B.bestMatch:A.bestMatch,modes:mergeStatMap(A.modes,B.modes),universes:mergeStatMap(A.universes,B.universes),challenges:mergeStatMap(A.challenges,B.challenges),difficulties:mergeStatMap(A.difficulties,B.difficulties),arena:{played:Math.max(num(A.arena.played),num(B.arena.played)),wins:Math.max(num(A.arena.wins),num(B.arena.wins)),losses:Math.max(num(A.arena.losses),num(B.arena.losses)),bestScore:Math.max(num(A.arena.bestScore),num(B.arena.bestScore)),maxPlayers:Math.max(num(A.arena.maxPlayers),num(B.arena.maxPlayers))},termo:{modes:mergeStatMap(A.termo?.modes||{},B.termo?.modes||{})}};}
+function bestStatKey(map={}){return Object.entries(map||{}).sort((a,b)=>(num(b[1]?.bestScore)-num(a[1]?.bestScore))||(num(b[1]?.wins)-num(a[1]?.wins)))[0]?.[0]||'';}
+function bestNumericKey(map={}){return Object.entries(map||{}).sort((a,b)=>num(b[1])-num(a[1]))[0]?.[0]||'';}
+function recordRankedResult(profile={},detail={}){
+  const s=normalizeRankedStats(profile.rankedStats),score=num(detail.score),correct=num(detail.correct),won=Boolean(detail.won);
+  const bump=(map,key)=>{key=safeKey(key);const cur=map[key]||{played:0,wins:0,bestScore:0,bestCorrect:0};cur.played=num(cur.played)+1;if(won)cur.wins=num(cur.wins)+1;cur.bestScore=Math.max(num(cur.bestScore),score);cur.bestCorrect=Math.max(num(cur.bestCorrect),correct);map[key]=cur;};
+  bump(s.modes,detail.mode||detail.kind||'geral');bump(s.universes,detail.universe||'games');bump(s.challenges,detail.challenge||'geral');bump(s.difficulties,detail.difficulty||'normal');
+  if(detail.kind==='arena'){s.arena.played=num(s.arena.played)+1;if(won)s.arena.wins=num(s.arena.wins)+1;else if(!detail.tie)s.arena.losses=num(s.arena.losses)+1;s.arena.bestScore=Math.max(num(s.arena.bestScore),score);s.arena.maxPlayers=Math.max(num(s.arena.maxPlayers),num(detail.players));}
+  if(detail.kind==='termo'){s.termo.modes=s.termo.modes||{};bump(s.termo.modes,detail.mode||'single');}
+  if(score>num(s.bestMatch?.score))s.bestMatch={score,mode:String(detail.mode||detail.kind||''),universe:String(detail.universe||''),challenge:String(detail.challenge||''),difficulty:String(detail.difficulty||''),correct,wrong:num(detail.wrong),players:num(detail.players),at:serverNow()};
+  profile.rankedStats=s;return profile;
+}
+
 function compactProfile(p={}){
   return {
     coins:num(p.coins), highScore:num(p.highScore), gamesPlayed:num(p.gamesPlayed), gamesWon:num(p.gamesWon),
     bestStreak:num(p.bestStreak), achievements:p.achievements||{}, platformWins:p.platformWins||{}, modeWins:p.modeWins||{},
     modeRecords:p.modeRecords||{}, multiverseWins:p.multiverseWins||{}, termPlayed:num(p.termPlayed), termWins:num(p.termWins),
-    termBestStreak:num(p.termBestStreak), termCurrentStreak:num(p.termCurrentStreak), duelWins:num(p.duelWins),
-    duelLosses:num(p.duelLosses), duelPlayed:num(p.duelPlayed), duelBestScore:num(p.duelBestScore)
+    termBestStreak:num(p.termBestStreak), termCurrentStreak:num(p.termCurrentStreak), termModeWins:p.termModeWins||{}, duelWins:num(p.duelWins),
+    duelLosses:num(p.duelLosses), duelPlayed:num(p.duelPlayed), duelBestScore:num(p.duelBestScore),
+    rankedStats:normalizeRankedStats(p.rankedStats)
   };
 }
 
@@ -54,9 +87,10 @@ function mergeProfiles(local={},remote={}){
     platformWins:mapMax(l.platformWins,r.platformWins), modeWins:mapMax(l.modeWins,r.modeWins), modeRecords:mapMax(l.modeRecords,r.modeRecords),
     multiverseWins:mapMax(l.multiverseWins,r.multiverseWins),
     termPlayed:Math.max(l.termPlayed,r.termPlayed), termWins:Math.max(l.termWins,r.termWins), termBestStreak:Math.max(l.termBestStreak,r.termBestStreak),
-    termCurrentStreak:Math.max(l.termCurrentStreak,r.termCurrentStreak),
+    termCurrentStreak:Math.max(l.termCurrentStreak,r.termCurrentStreak), termModeWins:mapMax(l.termModeWins,r.termModeWins),
     duelWins:Math.max(l.duelWins,r.duelWins), duelLosses:Math.max(l.duelLosses,r.duelLosses), duelPlayed:Math.max(l.duelPlayed,r.duelPlayed),
-    duelBestScore:Math.max(l.duelBestScore,r.duelBestScore)
+    duelBestScore:Math.max(l.duelBestScore,r.duelBestScore),
+    rankedStats:mergeRankedStats(l.rankedStats,r.rankedStats)
   };
 }
 
@@ -68,22 +102,24 @@ function ratingOf(p={}){
 }
 
 function leaderboardRow(profile, user=currentUser){
-  const p=compactProfile(profile);
-  return {
-    displayName:cleanName(user?.displayName || user?.email?.split('@')[0] || 'Jogador'),
-    rating:ratingOf(p), wins:p.gamesWon, played:p.gamesPlayed, bestStreak:p.bestStreak,
-    duelWins:p.duelWins, duelLosses:p.duelLosses, updatedAt:Date.now()
-  };
+  const p=compactProfile(profile),rs=normalizeRankedStats(p.rankedStats),best=rs.bestMatch||{},played=num(p.gamesPlayed)+num(p.termPlayed)+num(p.duelPlayed),wins=num(p.gamesWon)+num(p.termWins)+num(p.duelWins);
+  return {displayName:cleanName(user?.displayName || user?.email?.split('@')[0] || 'Jogador'),rating:ratingOf(p),wins:p.gamesWon,played:p.gamesPlayed,totalPlayed:played,totalWins:wins,bestStreak:p.bestStreak,duelWins:p.duelWins,duelLosses:p.duelLosses,bestScore:num(best.score)||p.highScore,bestMode:String(best.mode||bestStatKey(rs.modes)||bestNumericKey(p.modeRecords)||bestNumericKey(p.modeWins)||''),bestUniverse:String(best.universe||bestStatKey(rs.universes)||bestNumericKey(p.multiverseWins)||''),bestChallenge:String(best.challenge||bestStatKey(rs.challenges)||''),bestDifficulty:String(best.difficulty||bestStatKey(rs.difficulties)||''),arenaBestScore:num(rs.arena.bestScore)||p.duelBestScore,arenaMaxPlayers:num(rs.arena.maxPlayers),arenaPlayed:num(rs.arena.played)||p.duelPlayed,termBestMode:bestStatKey(rs.termo?.modes||{})||bestNumericKey(p.termModeWins),accuracy:played?Math.round(wins/played*100):0,updatedAt:serverNow()};
 }
 
 async function flushProfile(profile){
   if(!configured || !currentUser || !db)return;
-  const p=compactProfile(profile||localProfile());
+  const local=compactProfile(profile||localProfile());
   const displayName=cleanName(currentUser.displayName || currentUser.email?.split('@')[0] || 'Jogador');
-  await Promise.all([
-    set(ref(db,`profiles/${currentUser.uid}`),{displayName,email:currentUser.email||'',profile:p,updatedAt:Date.now()}),
-    set(ref(db,`leaderboard/${currentUser.uid}`),leaderboardRow(p,currentUser))
-  ]).catch(e=>console.warn('Firebase sync:',e));
+  try{
+    const pref=ref(db,`profiles/${currentUser.uid}`);
+    const tx=await runTransaction(pref,current=>{
+      const remote=current?.profile||{};
+      const merged=compactProfile(mergeProfiles(local,remote));
+      return {displayName,email:currentUser.email||'',profile:merged,updatedAt:serverNow()};
+    },{applyLocally:false});
+    const merged=tx.snapshot?.val()?.profile||local;
+    await set(ref(db,`leaderboard/${currentUser.uid}`),leaderboardRow(merged,currentUser));
+  }catch(e){console.warn('Firebase sync:',e);}
 }
 
 function syncLocalProfile(profile){
@@ -129,7 +165,7 @@ function updateAuthUI(){
   if(signed){
     if($('signedInName'))$('signedInName').textContent=cleanName(currentUser.displayName||currentUser.email?.split('@')[0]);
     if($('signedInEmail'))$('signedInEmail').textContent=currentUser.email||'';
-    const p=localProfile();if($('signedInStats'))$('signedInStats').innerHTML=`<span>🏆 Rating <b>${ratingOf(p)}</b></span><span>⚔️ 1x1 <b>${num(p.duelWins)}V / ${num(p.duelLosses)}D</b></span>`;
+    const p=localProfile();if($('signedInStats'))$('signedInStats').innerHTML=`<span>🏆 Rating <b>${ratingOf(p)}</b></span><span>⚔️ Arena <b>${num(p.duelWins)}V / ${num(p.duelLosses)}D</b></span>`;
   }
 }
 
@@ -145,278 +181,98 @@ async function register(email,password,name){
 }
 async function login(email,password){if(!configured)throw new Error('Firebase não configurado.');return (await signInWithEmailAndPassword(auth,email,password)).user;}
 async function googleLogin(){if(!configured)throw new Error('Firebase não configurado.');return (await signInWithPopup(auth,new GoogleAuthProvider())).user;}
-async function logout(){if(auth)await signOut(auth);}
+async function logout(){
+  for(const h of [...duelPresence.values()]){
+    try{
+      clearInterval(h.timer);
+      await h.disconnectPresence.cancel();
+      await h.disconnectLastSeen.cancel();
+      await remove(h.presenceRef);
+    }catch{}
+  }
+  duelPresence.clear();
+  if(auth)await signOut(auth);
+}
 
+let rankingMode='rating';
+function ensureRankingUI(){
+  if(document.getElementById('gameGuessRankingV12Styles'))return;
+  const style=document.createElement('style');style.id='gameGuessRankingV12Styles';style.textContent=`.ranking-v12-filters{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}.ranking-v12-filters button{border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.035);color:inherit;border-radius:999px;padding:8px 12px;cursor:pointer}.ranking-v12-filters button.active{border-color:rgba(91,238,224,.55);background:rgba(91,238,224,.09)}details.ranking-entry{border-bottom:1px solid rgba(255,255,255,.07)}details.ranking-entry summary{list-style:none;cursor:pointer}details.ranking-entry summary::-webkit-details-marker{display:none}.ranking-detail{padding:10px 14px 14px 58px;display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px}.ranking-detail div{border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:9px;background:rgba(255,255,255,.025)}.ranking-detail small{display:block;opacity:.7}`;document.head.appendChild(style);
+  const list=$('rankingList');if(list&&!$('rankingV12Filters')){const bar=document.createElement('div');bar.id='rankingV12Filters';bar.className='ranking-v12-filters';bar.innerHTML=`<button data-rank-mode="rating" class="active">🌍 Geral</button><button data-rank-mode="bestScore">⭐ Melhor partida</button><button data-rank-mode="arenaBestScore">⚔️ Arena</button><button data-rank-mode="bestStreak">🔥 Sequência</button>`;list.parentElement?.insertBefore(bar,list);bar.addEventListener('click',e=>{const b=e.target.closest('[data-rank-mode]');if(!b)return;rankingMode=b.dataset.rankMode;bar.querySelectorAll('button').forEach(x=>x.classList.toggle('active',x===b));loadRanking();});}
+}
+function labelKey(v){return String(v||'—').replace(/-/g,' ').replace(/\b\w/g,c=>c.toUpperCase());}
+function escapeHtml(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function rankingHTML(rows){
   if(!rows.length)return '<div class="ranking-empty">Ainda não há jogadores no ranking.</div>';
-  return rows.map((x,i)=>{
-    const medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':`#${i+1}`;
-    const me=currentUser&&x.uid===currentUser.uid;
-    return `<div class="ranking-row${me?' me':''}"><b class="rank-pos">${medal}</b><div class="rank-player"><span>${escapeHtml(x.displayName)}</span><small>${x.wins||0} acertos • melhor sequência ${x.bestStreak||0}</small></div><strong>${x.rating||0}</strong><span>⚔️ ${x.duelWins||0}V/${x.duelLosses||0}D</span></div>`;
-  }).join('');
+  return rows.map((x,i)=>{const medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':`#${i+1}`,me=currentUser&&x.uid===currentUser.uid,arena=x.arenaPlayed?`${x.duelWins||0}V/${x.duelLosses||0}D • até ${x.arenaMaxPlayers||2} jogadores`:'Sem partidas';return `<details class="ranking-entry${me?' me':''}"><summary class="ranking-row${me?' me':''}"><b class="rank-pos">${medal}</b><div class="rank-player"><span>${escapeHtml(x.displayName)}</span><small>⭐ ${x.bestScore||0} melhor • 🎯 ${x.accuracy||0}% aproveitamento</small></div><strong>${x.rating||0}</strong><span>⚔️ ${x.duelWins||0}V/${x.duelLosses||0}D</span></summary><div class="ranking-detail"><div><small>Melhor modalidade</small><b>${escapeHtml(labelKey(x.bestMode))}</b></div><div><small>Melhor universo</small><b>${escapeHtml(labelKey(x.bestUniverse))}</b></div><div><small>Melhor desafio</small><b>${escapeHtml(labelKey(x.bestChallenge))}</b></div><div><small>Dificuldade de destaque</small><b>${escapeHtml(labelKey(x.bestDifficulty))}</b></div><div><small>Arena</small><b>${escapeHtml(arena)}</b></div><div><small>Termo de destaque</small><b>${escapeHtml(labelKey(x.termBestMode))}</b></div></div></details>`;}).join('');
 }
-function escapeHtml(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-
 function loadRanking(){
-  showScreen('rankingScreen');
-  if(rankingUnsub){rankingUnsub();rankingUnsub=null;}
+  showScreen('rankingScreen');ensureRankingUI();if(rankingUnsub){rankingUnsub();rankingUnsub=null;}
   if(!configured){$('rankingList').innerHTML='<div class="ranking-empty">Configure o Firebase para ativar o ranking global.</div>';return;}
   if(!currentUser){$('rankingList').innerHTML='<div class="ranking-empty">Entre na sua conta para carregar o ranking.</div>';$('myRankCard').innerHTML='<span>Faça login para aparecer no ranking.</span>';return;}
   const q=query(ref(db,'leaderboard'),orderByChild('rating'),limitToLast(100));
-  rankingUnsub=onValue(q,snap=>{
-    const raw=snap.val()||{};const rows=Object.entries(raw).map(([uid,v])=>({uid,...v})).sort((a,b)=>(b.rating||0)-(a.rating||0));
-    if($('rankingList'))$('rankingList').innerHTML=rankingHTML(rows);
-    const idx=rows.findIndex(x=>x.uid===currentUser.uid);const me=rows[idx];
-    if($('myRankCard'))$('myRankCard').innerHTML=me?`<b>#${idx+1}</b><span>${escapeHtml(me.displayName)}</span><strong>${me.rating} pts</strong><small>⚔️ ${me.duelWins||0} vitórias 1x1</small>`:'<span>Jogue uma partida para entrar no ranking.</span>';
-  },e=>{$('rankingList').innerHTML=`<div class="ranking-empty">Não consegui ler o ranking: ${escapeHtml(e.message)}</div>`;});
+  rankingUnsub=onValue(q,snap=>{const raw=snap.val()||{},rows=Object.entries(raw).map(([uid,v])=>({uid,...v})).sort((a,b)=>(Number(b[rankingMode]||0)-Number(a[rankingMode]||0))||((b.rating||0)-(a.rating||0)));if($('rankingList'))$('rankingList').innerHTML=rankingHTML(rows);const idx=rows.findIndex(x=>x.uid===currentUser.uid),mine=rows[idx];if($('myRankCard'))$('myRankCard').innerHTML=mine?`<b>#${idx+1}</b><span>${escapeHtml(mine.displayName)}</span><strong>${mine.rating} pts</strong><small>⭐ ${mine.bestScore||0} • ⚔️ ${mine.duelWins||0} vitórias • ${mine.accuracy||0}% aproveitamento</small>`:'<span>Jogue uma partida para entrar no ranking.</span>';},e=>{$('rankingList').innerHTML=`<div class="ranking-empty">Não consegui ler o ranking: ${escapeHtml(e.message)}</div>`;});
 }
 
 function roomCode(){const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let out='';for(let i=0;i<6;i++)out+=chars[Math.floor(Math.random()*chars.length)];return out;}
+function playerOnline(room,uid){return Object.keys(room?.presence?.[uid]||{}).length>0;}
+function claimedSlots(room){return Object.entries(room?.slots||{}).filter(([,uid])=>Boolean(uid));}
+async function attachDuelPresence(code){
+  if(!currentUser||!db||!code)return;code=String(code).toUpperCase();const key=`${code}:${currentUser.uid}`;if(duelPresence.has(key))return;
+  const presenceRef=ref(db,`duels/${code}/presence/${currentUser.uid}/${CLIENT_SESSION_ID}`),playerRef=ref(db,`duels/${code}/players/${currentUser.uid}`),lastSeenRef=ref(db,`duels/${code}/players/${currentUser.uid}/lastSeen`);
+  const disconnectPresence=onDisconnect(presenceRef),disconnectLastSeen=onDisconnect(lastSeenRef);await disconnectPresence.remove();await disconnectLastSeen.set(serverTimestamp());
+  await set(presenceRef,{sessionId:CLIENT_SESSION_ID,connectedAt:serverTimestamp(),heartbeatAt:serverTimestamp()});await update(playerRef,{controlSessionId:CLIENT_SESSION_ID,lastSeen:serverNow(),connectionState:'online'}).catch(()=>{});
+  const timer=setInterval(async()=>{if(!currentUser)return;await update(presenceRef,{heartbeatAt:serverTimestamp()}).catch(()=>{});await set(lastSeenRef,serverNow()).catch(()=>{});},8000);duelPresence.set(key,{presenceRef,playerRef,lastSeenRef,disconnectPresence,disconnectLastSeen,timer,code});
+}
+async function detachDuelPresence(code){
+  if(!currentUser||!db||!code)return;code=String(code).toUpperCase();const key=`${code}:${currentUser.uid}`,h=duelPresence.get(key);
+  if(h){clearInterval(h.timer);await h.disconnectPresence.cancel().catch(()=>{});await h.disconnectLastSeen.cancel().catch(()=>{});await remove(h.presenceRef).catch(()=>{});duelPresence.delete(key);}else await remove(ref(db,`duels/${code}/presence/${currentUser.uid}/${CLIENT_SESSION_ID}`)).catch(()=>{});
+}
+async function cleanupExpiredDuel(code){if(!db||!code)return false;const r=ref(db,`duels/${String(code).toUpperCase()}`),snap=await get(r),room=snap.val();if(room?.expiresAt&&Number(room.expiresAt)<=serverNow()){await remove(r).catch(()=>{});return true;}return false;}
 async function createDuelRoom(payload){
   if(!currentUser)throw new Error('Faça login antes de criar uma arena.');
-
-  for(let tries=0;tries<8;tries++){
-    const code=roomCode();
-    const r=ref(db,`duels/${code}`);
-    if((await get(r)).exists())continue;
-
-    const name=cleanName(currentUser.displayName||currentUser.email?.split('@')[0]);
-    const maxPlayers=Math.max(2,Math.min(8,Number(payload?.config?.maxPlayers||2)));
-    const now=Date.now();
-
-    const room={
-      code,
-      hostUid:currentUser.uid,
-      status:'waiting',
-      createdAt:now,
-      updatedAt:now,
-      startedAt:0,
-      roundIndex:0,
-      roundDeadline:0,
-      timeoutRound:-1,
-      config:{...(payload.config||{}),maxPlayers},
-      questions:payload.questions||[],
-      players:{
-        [currentUser.uid]:{
-          uid:currentUser.uid,
-          name,
-          joinedAt:now,
-          lives:3,
-          correct:0,
-          score:0,
-          wrong:0,
-          roundWrong:0,
-          roundSolved:false,
-          roundResult:'',
-          eliminated:false,
-          left:false,
-          lastRound:-1
-        }
-      }
-    };
-
-    await set(r,room);
-    return code;
-  }
-
-  throw new Error('Não consegui gerar um código de sala. Tente novamente.');
+  for(let tries=0;tries<8;tries++){const code=roomCode(),r=ref(db,`duels/${code}`);if((await get(r)).exists())continue;const name=cleanName(currentUser.displayName||currentUser.email?.split('@')[0]),maxPlayers=Math.max(2,Math.min(8,Number(payload?.config?.maxPlayers||2))),now=serverNow();const room={code,protocolVersion:PROTOCOL_VERSION,appVersion:APP_VERSION,hostUid:currentUser.uid,status:'waiting',roundState:'waiting',createdAt:now,updatedAt:now,expiresAt:now+WAITING_TTL_MS,startedAt:0,finishedAt:0,roundIndex:0,roundDeadline:0,revealUntil:0,timeoutRound:-1,roundHadSkip:false,config:{...(payload.config||{}),maxPlayers},questions:payload.questions||[],slots:{1:currentUser.uid},players:{[currentUser.uid]:{uid:currentUser.uid,name,slot:1,joinedAt:now,lastSeen:now,connectionState:'online',controlSessionId:CLIENT_SESSION_ID,lives:3,correct:0,score:0,wrong:0,roundWrong:0,roundSolved:false,roundResult:'',eliminated:false,left:false,lastRound:-1,lastSubmissionId:''}}};await set(r,room);await attachDuelPresence(code);return code;}throw new Error('Não consegui gerar um código de sala. Tente novamente.');
 }
-
+async function claimDuelSlot(code,maxPlayers){
+  for(let slot=1;slot<=maxPlayers;slot++){
+    const sr=ref(db,`duels/${code}/slots/${slot}`),result=await runTransaction(sr,current=>{if(current===currentUser.uid)return current;if(current===null||current===undefined)return currentUser.uid;return;},{applyLocally:false});
+    if(result.committed&&result.snapshot?.val()===currentUser.uid){
+      const disconnectSlot=onDisconnect(sr);
+      await disconnectSlot.remove();
+      return {slot,disconnectSlot};
+    }
+  }
+  return null;
+}
+async function releaseDuelSlot(code,slot){if(!slot)return;await runTransaction(ref(db,`duels/${code}/slots/${slot}`),current=>current===currentUser?.uid?null:current,{applyLocally:false}).catch(()=>{});}
 async function joinDuelRoom(code){
-  if(!currentUser)throw new Error('Faça login antes de entrar na arena.');
-
-  code=String(code||'').trim().toUpperCase();
-  if(!/^[A-Z2-9]{6}$/.test(code))throw new Error('Código inválido.');
-
-  const roomRef=ref(db,`duels/${code}`);
-  const initialSnapshot=await get(roomRef);
-
-  if(!initialSnapshot.exists())throw new Error('Sala não encontrada.');
-
-  const initial=initialSnapshot.val();
-
-  // Se este usuário já está dentro, apenas reconecta.
-  if(initial.players?.[currentUser.uid])return code;
-
-  if(initial.status==='finished')throw new Error('Esta arena já foi finalizada.');
-  if(initial.status==='playing')throw new Error('Esta arena já começou.');
-  if(initial.status!=='waiting')throw new Error('Esta arena não está aceitando novos jogadores.');
-
-  const maxPlayers=Math.max(2,Math.min(8,Number(initial.config?.maxPlayers||2)));
-  const activeBefore=Object.values(initial.players||{}).filter(p=>!p.left);
-
-  if(activeBefore.length>=maxPlayers){
-    throw new Error('Esta arena já está cheia.');
-  }
-
-  const name=cleanName(currentUser.displayName||currentUser.email?.split('@')[0]);
-  const joinedAt=Date.now();
-  const playerRef=ref(db,`duels/${code}/players/${currentUser.uid}`);
-
-  const player={
-    uid:currentUser.uid,
-    name,
-    joinedAt,
-    lives:3,
-    correct:0,
-    score:0,
-    wrong:0,
-    roundWrong:0,
-    roundSolved:false,
-    roundResult:'',
-    eliminated:false,
-    left:false,
-    lastRound:-1
-  };
-
-  // IMPORTANTE:
-  // Não usa mais transação na sala inteira. Cada usuário escreve somente
-  // no próprio nó players/{uid}, evitando o falso "sala lotada/iniciada"
-  // causado pelo primeiro callback local nulo do Realtime Database.
-  try{
-    await set(playerRef,player);
-  }catch(error){
-    const msg=String(error?.code||error?.message||'');
-    if(msg.includes('PERMISSION_DENIED')||msg.includes('permission-denied')){
-      throw new Error('O Firebase recusou a entrada. Confirme se as regras V11 do Realtime Database foram publicadas.');
-    }
-    throw error;
-  }
-
-  // Recarrega a sala depois da entrada para validar lotação e estado.
-  const afterSnapshot=await get(roomRef);
-
-  if(!afterSnapshot.exists()){
-    await remove(playerRef).catch(()=>{});
-    throw new Error('A sala foi encerrada enquanto você entrava.');
-  }
-
-  const after=afterSnapshot.val();
-  const max=Math.max(2,Math.min(8,Number(after.config?.maxPlayers||maxPlayers)));
-
-  if(after.status==='finished'){
-    await remove(playerRef).catch(()=>{});
-    throw new Error('Esta arena foi finalizada enquanto você entrava.');
-  }
-
-  // Em caso de duas ou mais entradas exatamente ao mesmo tempo,
-  // mantém deterministicamente apenas os primeiros até o limite.
-  const ordered=Object.values(after.players||{})
-    .filter(p=>!p.left)
-    .sort((a,b)=>{
-      const ta=Number(a.joinedAt||0), tb=Number(b.joinedAt||0);
-      if(ta!==tb)return ta-tb;
-      return String(a.uid||'').localeCompare(String(b.uid||''));
-    });
-
-  const accepted=ordered.slice(0,max).some(p=>p.uid===currentUser.uid);
-
-  if(!accepted){
-    await remove(playerRef).catch(()=>{});
-    throw new Error('Esta arena acabou de ficar cheia.');
-  }
-
-  // Se o último jogador completar a lotação, inicia automaticamente.
-  // Aqui o usuário já faz parte de players, portanto a atualização é válida.
-  if(after.status==='waiting'&&ordered.length>=max){
-    const now=Date.now();
-    try{
-      await update(roomRef,{
-        status:'playing',
-        startedAt:now,
-        roundDeadline:now+35000,
-        timeoutRound:-1,
-        updatedAt:now
-      });
-    }catch(error){
-      // Se outro cliente/host iniciou no mesmo instante, isso não é falha de entrada.
-      const latest=(await get(roomRef)).val();
-      if(latest?.status!=='playing')throw error;
-    }
-  }else{
-    // Atualiza só o timestamp da sala, sem transação.
-    await update(roomRef,{updatedAt:Date.now()}).catch(()=>{});
-  }
-
-  return code;
+  if(!currentUser)throw new Error('Faça login antes de entrar na arena.');code=String(code||'').trim().toUpperCase();if(!/^[A-Z2-9]{6}$/.test(code))throw new Error('Código inválido.');
+  const roomRef=ref(db,`duels/${code}`),snap=await get(roomRef);if(!snap.exists())throw new Error('Sala não encontrada.');const initial=snap.val();
+  if(Number(initial.protocolVersion||0)!==PROTOCOL_VERSION)throw new Error(`Esta sala usa outra versão do jogo. Atualize a página (V${APP_VERSION}).`);
+  if(initial.expiresAt&&Number(initial.expiresAt)<=serverNow()){await cleanupExpiredDuel(code);throw new Error('Esta arena expirou. Crie uma nova sala.');}
+  if(initial.status==='finished')throw new Error('Esta arena já foi finalizada.');if(initial.players?.[currentUser.uid]){await attachDuelPresence(code);return code;}if(initial.status!=='waiting')throw new Error('Esta arena já começou.');
+  const maxPlayers=Math.max(2,Math.min(8,Number(initial.config?.maxPlayers||2))),claim=await claimDuelSlot(code,maxPlayers);if(!claim)throw new Error('Esta arena acabou de ficar cheia.');
+  const slot=claim.slot,name=cleanName(currentUser.displayName||currentUser.email?.split('@')[0]),now=serverNow(),playerRef=ref(db,`duels/${code}/players/${currentUser.uid}`),player={uid:currentUser.uid,name,slot,joinedAt:now,lastSeen:now,connectionState:'online',controlSessionId:CLIENT_SESSION_ID,lives:3,correct:0,score:0,wrong:0,roundWrong:0,roundSolved:false,roundResult:'',eliminated:false,left:false,lastRound:-1,lastSubmissionId:''};
+  try{await set(playerRef,player);await claim.disconnectSlot.cancel();}catch(error){await claim.disconnectSlot.cancel().catch(()=>{});await releaseDuelSlot(code,slot);if(String(error?.code||error?.message||'').toLowerCase().includes('permission'))throw new Error('O Firebase recusou a entrada. Publique o database.rules.json da V12.');throw error;}
+  const after=(await get(roomRef)).val();if(!after||after.status!=='waiting'||Number(after.protocolVersion)!==PROTOCOL_VERSION){await remove(playerRef).catch(()=>{});await releaseDuelSlot(code,slot);throw new Error('A sala iniciou ou mudou de versão enquanto você entrava.');}
+  await attachDuelPresence(code);const joinedCount=Object.values(after.players||{}).filter(p=>!p.left).length;if(joinedCount>=maxPlayers){try{await startDuelRoom(code,true);}catch{}}else await update(roomRef,{updatedAt:serverNow()}).catch(()=>{});return code;
 }
-async function startDuelRoom(code){
-  if(!currentUser)throw new Error('Sessão expirada. Entre novamente.');
-
-  code=String(code||'').trim().toUpperCase();
-
-  const result=await runTransaction(ref(db,`duels/${code}`),room=>{
-    if(!room)return;
-    if(room.hostUid!==currentUser.uid)return;
-    if(room.status!=='waiting')return room;
-
-    const players=Object.values(room.players||{}).filter(p=>!p.left);
-    if(players.length<2)return;
-
-    room.status='playing';
-    room.startedAt=Date.now();
-    room.roundDeadline=Date.now()+35000;
-    room.timeoutRound=-1;
-    room.updatedAt=Date.now();
-
-    for(const p of players){
-      p.roundSolved=false;
-      p.roundWrong=0;
-      p.roundResult='';
-      p.eliminated=false;
-      p.left=false;
-      if(!Number.isFinite(Number(p.lives)))p.lives=3;
-    }
-
-    return room;
-  },{applyLocally:false});
-
-  if(!result.committed)throw new Error('É preciso ter pelo menos 2 jogadores e ser o anfitrião.');
-  return result.snapshot?.val()||null;
+async function startDuelRoom(code,allowAnyPlayer=false){
+  if(!currentUser)throw new Error('Sessão expirada. Entre novamente.');code=String(code||'').trim().toUpperCase();
+  const result=await runTransaction(ref(db,`duels/${code}`),room=>{if(!room)return;if(Number(room.protocolVersion||0)!==PROTOCOL_VERSION)return;if(!allowAnyPlayer&&room.hostUid!==currentUser.uid)return;if(!room.players?.[currentUser.uid])return;if(room.status!=='waiting')return;const players=Object.values(room.players||{}).filter(p=>!p.left);if(players.length<2)return;const now=serverNow();room.status='playing';room.roundState='playing';room.startedAt=now;room.roundDeadline=now+35000;room.revealUntil=0;room.timeoutRound=-1;room.roundHadSkip=false;room.updatedAt=now;room.expiresAt=now+PLAYING_TTL_MS;for(const p of players){p.roundSolved=false;p.roundWrong=0;p.roundResult='';p.eliminated=false;p.left=false;p.lastSubmissionId='';if(!Number.isFinite(Number(p.lives)))p.lives=3;}return room;},{applyLocally:false});
+  if(!result.committed)throw new Error('É preciso ter pelo menos 2 jogadores e permissão para iniciar.');return result.snapshot?.val()||null;
 }
-
+async function ensureDuelHost(code){
+  if(!currentUser||!code)return;await runTransaction(ref(db,`duels/${String(code).toUpperCase()}`),room=>{if(!room||!room.players?.[currentUser.uid]||room.status==='finished')return;const host=room.players?.[room.hostUid],hostPresent=playerOnline(room,room.hostUid),stale=!host||host.left||(!hostPresent&&(serverNow()-Number(host?.lastSeen||0)>=HOST_GRACE_MS));if(!stale)return;const replacement=Object.values(room.players||{}).filter(p=>!p.left).sort((a,b)=>(Number(a.slot||99)-Number(b.slot||99))||(Number(a.joinedAt||0)-Number(b.joinedAt||0)))[0];if(replacement&&replacement.uid!==room.hostUid){room.hostUid=replacement.uid;room.lastEvent={type:'host-migrated',uid:replacement.uid,at:serverNow()};room.updatedAt=serverNow();}return room;},{applyLocally:false}).catch(()=>{});
+}
 async function leaveDuelRoom(code){
-  if(!currentUser||!code)return;
-
-  const roomRef=ref(db,`duels/${String(code).toUpperCase()}`);
-
-  await runTransaction(roomRef,room=>{
-    if(!room)return;
-    if(room.status!=='waiting')return room;
-    if(room.hostUid===currentUser.uid)return room;
-    if(room.players?.[currentUser.uid])delete room.players[currentUser.uid];
-    room.updatedAt=Date.now();
-    return room;
-  },{applyLocally:false});
+  if(!currentUser||!code)return;code=String(code).toUpperCase();await detachDuelPresence(code).catch(()=>{});await runTransaction(ref(db,`duels/${code}`),room=>{if(!room)return;const p=room.players?.[currentUser.uid];if(!p)return;const slot=p.slot;delete room.players[currentUser.uid];if(slot&&room.slots?.[slot]===currentUser.uid)delete room.slots[slot];if(room.hostUid===currentUser.uid){const replacement=Object.values(room.players||{}).filter(x=>!x.left).sort((a,b)=>Number(a.slot||99)-Number(b.slot||99))[0];if(replacement)room.hostUid=replacement.uid;}if(!Object.keys(room.players||{}).length)return null;room.updatedAt=serverNow();return room;},{applyLocally:false});
 }
-
 function watchDuel(code,cb){if(!db)return()=>{};return onValue(ref(db,`duels/${code}`),s=>cb(s.val()),e=>cb(null,e));}
 async function mutateDuel(code,fn){
-  if(!currentUser)throw new Error('Sessão expirada. Entre novamente.');
-
-  const result=await runTransaction(ref(db,`duels/${code}`),room=>{
-    if(!room)return;
-
-    const uid=currentUser.uid;
-    if(!room.players?.[uid])return;
-
-    // Evita escrever no Firebase quando a função não mudou nada.
-    // Isso impede loops de snapshots/onValue e elimina travamentos/scroll repetitivo.
-    const before=JSON.stringify(room);
-    const next=fn(room,uid);
-    if(!next)return;
-    if(JSON.stringify(next)===before)return;
-
-    next.updatedAt=Date.now();
-    return next;
-  },{applyLocally:false});
-
-  return {
-    committed:result.committed,
-    value:result.snapshot?.val()||null
-  };
+  if(!currentUser)throw new Error('Sessão expirada. Entre novamente.');const result=await runTransaction(ref(db,`duels/${code}`),room=>{if(!room)return;const uid=currentUser.uid,p=room.players?.[uid];if(!p||p.left)return;if(p.controlSessionId&&p.controlSessionId!==CLIENT_SESSION_ID)return;const before=JSON.stringify(room),next=fn(room,uid);if(!next)return;if(JSON.stringify(next)===before)return;next.updatedAt=serverNow();return next;},{applyLocally:false});return {committed:result.committed,value:result.snapshot?.val()||null};
 }
-async function deleteDuel(code){if(!currentUser||!code)return;const snap=await get(ref(db,`duels/${code}`));const room=snap.val();if(room?.hostUid===currentUser.uid)await remove(ref(db,`duels/${code}`));}
+async function deleteDuel(code){if(!currentUser||!code)return;code=String(code).toUpperCase();await detachDuelPresence(code).catch(()=>{});const snap=await get(ref(db,`duels/${code}`)),room=snap.val();if(room?.hostUid===currentUser.uid||Number(room?.expiresAt||0)<=serverNow())await remove(ref(db,`duels/${code}`));}
 
 function bind(){
   $('accountButton')?.addEventListener('click',()=>openAuth('login'));
@@ -433,6 +289,20 @@ function bind(){
 if(configured){
   try{
     app=initializeApp(CONFIG);auth=getAuth(app);db=getDatabase(app);
+    serverOffsetUnsub=onValue(ref(db,'.info/serverTimeOffset'),s=>{serverOffsetMs=Number(s.val()||0);});
+    connectedUnsub=onValue(ref(db,'.info/connected'),async s=>{
+      firebaseConnected=Boolean(s.val());
+      if(firebaseConnected){
+        for(const h of duelPresence.values()){
+          try{
+            await h.disconnectPresence.remove();
+            await h.disconnectLastSeen.set(serverTimestamp());
+            await set(h.presenceRef,{sessionId:CLIENT_SESSION_ID,connectedAt:serverTimestamp(),heartbeatAt:serverTimestamp()});
+            await update(h.playerRef,{lastSeen:serverNow(),connectionState:'online'});
+          }catch{}
+        }
+      }
+    });
     onAuthStateChanged(auth,async user=>{
       currentUser=user||null;
       if(user){
@@ -446,10 +316,13 @@ if(configured){
   }catch(e){console.error('Firebase init:',e);}
 }
 
+window.GameGuessRanked={record:recordRankedResult};
 window.GameGuessFirebase={
-  configured, ready:()=>configured&&Boolean(db), getUser:()=>currentUser, openAuth, loadRanking, login, register, googleLogin, logout,
-  syncLocalProfile, ratingOf, createDuelRoom, joinDuelRoom, startDuelRoom, leaveDuelRoom, watchDuel, mutateDuel, deleteDuel,
-  getRoom:async code=>configured?(await get(ref(db,`duels/${String(code||'').toUpperCase()}`))).val():null
+  configured, appVersion:APP_VERSION, protocolVersion:PROTOCOL_VERSION, sessionId:CLIENT_SESSION_ID,
+  ready:()=>configured&&Boolean(db), getUser:()=>currentUser, openAuth, loadRanking, login, register, googleLogin, logout,
+  syncLocalProfile, ratingOf, serverNow, isConnected, newSubmissionId, recordRankedResult,
+  createDuelRoom, joinDuelRoom, startDuelRoom, leaveDuelRoom, ensureDuelHost, attachDuelPresence, detachDuelPresence, cleanupExpiredDuel,
+  watchDuel, mutateDuel, deleteDuel,getRoom:async code=>configured?(await get(ref(db,`duels/${String(code||'').toUpperCase()}`))).val():null
 };
 
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind);else bind();

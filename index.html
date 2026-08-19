@@ -4,12 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#090b18">
-  <title>Game Guess V10 — Online Arena</title>
+  <title>Game Guess V12 — Stability + Ranked</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/styles.css?v=12.0.0">
 </head>
 <body>
   <div class="bg-grid"></div>
@@ -21,7 +21,7 @@
     <header class="topbar">
       <button class="brand" id="brandButton" aria-label="Voltar ao menu principal">
         <span class="brand-icon">🎮</span>
-        <span><b>GAME GUESS</b><small>ONLINE ARENA V10</small></span>
+        <span><b>GAME GUESS</b><small>STABILITY + RANKED V12</small></span>
       </button>
       <div class="top-actions">
         <span class="status-pill" id="apiStatus"><i></i> Pronto</span>
@@ -44,7 +44,7 @@
           <div><b id="homeBestStreak">0</b><span>Melhor sequência</span></div>
           <div><b id="homeAccuracy">0%</b><span>Taxa de acerto</span></div>
           <div><b id="homeAchievements">0</b><span>Conquistas</span></div>
-          <div><b>3 ❤️</b><span>Vidas em todos os modos</span></div>
+          <div><b>2–8</b><span>Jogadores na Arena</span></div>
         </div>
       </div>
 
@@ -297,7 +297,7 @@
     <section class="screen" id="rankingScreen">
       <div class="section-heading">
         <button class="back-link" id="rankingBackButton">← Voltar</button>
-        <div><p class="eyebrow">🌍 RANKING GLOBAL</p><h2>Hall dos jogadores</h2><p>Pontuação combinada de recordes, acertos, sequência e vitórias em duelos.</p></div>
+        <div><p class="eyebrow">🌍 RANKING GLOBAL</p><h2>Hall dos jogadores</h2><p>Ranking detalhado por rating, melhor partida, modalidade, universo, desafio, dificuldade, Arena e Termo.</p></div>
       </div>
       <div class="ranking-layout">
         <div class="ranking-card">
@@ -522,11 +522,11 @@
     </div>
   </div>
 
-  <script src="/firebase-config.js" defer></script>
-  <script src="/app.js" defer></script>
-  <script src="/multiverse.js" defer></script>
-  <script src="/termo.js" defer></script>
-  <script type="module" src="/firebase.js"></script>
-  <script src="/duel.js" defer></script>
+  <script src="/firebase-config.js?v=12.0.0" defer></script>
+  <script src="/app.js?v=12.0.0" defer></script>
+  <script src="/multiverse.js?v=12.0.0" defer></script>
+  <script src="/termo.js?v=12.0.0" defer></script>
+  <script type="module" src="/firebase.js?v=12.0.0"></script>
+  <script src="/duel.js?v=12.0.0" defer></script>
 </body>
 </html>

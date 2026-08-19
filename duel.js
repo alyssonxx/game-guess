@@ -2,8 +2,8 @@
   'use strict';
   const $=id=>document.getElementById(id), CORE=()=>window.GameGuessCore, FB=()=>window.GameGuessFirebase;
   const PROFILE_KEY='gameGuessArcadeV4';
-  const ROUND_SECONDS=35, TOTAL_ROUNDS=15, MIN_PLAYERS=2, MAX_PLAYERS=8; // V11.1: Arena 2–8 + join robusto + anti-scroll + trava de resposta + mosaico super escuro
-  let roomCode='', room=null, unsub=null, renderedRound=-1, clock=null, advanceTimer=null, hintsUsed=0, localWrong=0, isSubmitting=false, isJoining=false;
+  const ROUND_SECONDS=35, TOTAL_ROUNDS=15, MIN_PLAYERS=2, MAX_PLAYERS=8, PROTOCOL_VERSION=12; // V12 Stability + Ranked
+  let roomCode='', room=null, unsub=null, renderedRound=-1, clock=null, hintsUsed=0, localWrong=0, isSubmitting=false, isJoining=false, resuming=false, lastHostCheck=0;
 
   const UNIVERSE_LABELS={random:'🌌 Caos Multiverso',games:'🎮 Games IGDB',dragonball:'🐉 Dragon Ball',naruto:'🍥 Naruto',yugioh:'🃏 Yu-Gi-Oh!',saintseiya:'♈ Cavaleiros',lol:'⚔️ League of Legends',pokemon:'🔴 Pokémon',digimon:'🔵 Digimon',cartoons:'📺 Desenhos clássicos',globinho:'☀️ TV Globinho'};
   const CH_LABELS={random:'🎲 Aleatório',image:'🧩 Imagem',ability:'💥 Habilidade',origin:'🌍 Origem/Nação',group:'🛡️ Grupo/Afiliação',era:'🕰️ Saga/Geração',role:'🎭 Classe/Papel',dossier:'🕵️ Dossiê',blind:'🧠 Só pistas'};
@@ -36,6 +36,11 @@
     }
   }
   function toast(a,b,t=''){CORE()?.toast?.(a,b,t);}
+  function now(){return FB()?.serverNow?.()||Date.now();}
+  function localSessionId(){return FB()?.sessionId||'';}
+  function ownsSession(r=room){const p=me(r);return !p?.controlSessionId||p.controlSessionId===localSessionId();}
+  function playerOnline(p,r=room){return Boolean(p?.uid&&Object.keys(r?.presence?.[p.uid]||{}).length);}
+  function roundState(r=room){return r?.roundState||((r?.status==='playing')?'playing':r?.status||'waiting');}
   function user(){return FB()?.getUser?.()||null;}
   function playerList(r=room){return r?Object.values(r.players||{}):[];}
   function me(r=room){const u=user();return u&&r?.players?.[u.uid]||null;}
@@ -432,9 +437,11 @@
   }
 
   function waitingPlayerHTML(p,r){
+    const online=playerOnline(p,r);
     return `<div class="arena-waiting-player">
       <span>${p.uid===r.hostUid?'👑':'👤'}</span>
       <b>${esc(p.name||'Jogador')}</b>
+      <span title="${online?'Online':'Reconectando'}">${online?'🟢':'🟡'}</span>
       ${p.uid===r.hostUid?'<span class="arena-host-badge">HOST</span>':''}
     </div>`;
   }
@@ -444,7 +451,7 @@
     show('duelLobbyScreen');
     $('duelRoomWaiting')?.classList.remove('hidden');
 
-    const players=playerList().filter(p=>!p.left).sort((a,b)=>(a.joinedAt||0)-(b.joinedAt||0));
+    const players=playerList().filter(p=>!p.left).sort((a,b)=>(Number(a.slot||99)-Number(b.slot||99))||(Number(a.joinedAt||0)-Number(b.joinedAt||0)));
     const max=roomMaxPlayers();
     const count=players.length;
 
@@ -465,11 +472,13 @@
       if(isHost())help.textContent=count<MIN_PLAYERS?'Aguardando pelo menos 2 jogadores.':count<max?'Você já pode começar ou aguardar mais jogadores.':'Sala cheia — iniciando...';
       else help.textContent='Aguardando o anfitrião começar a partida.';
     }
+    startClock();
   }
 
   function playerStatusText(p){
     if(p.left)return '🚪 Saiu da partida';
     if(p.eliminated)return '💀 Eliminado';
+    if(!playerOnline(p))return '🟡 Reconectando';
     if(p.roundSolved){
       if(p.roundResult==='correct')return '✅ Acertou';
       if(p.roundResult==='skip')return '⏭️ Pulou';
@@ -490,7 +499,7 @@
       .sort((a,b)=>{
         if(a.uid===uid)return -1;
         if(b.uid===uid)return 1;
-        return (a.joinedAt||0)-(b.joinedAt||0);
+        return (Number(a.slot||99)-Number(b.slot||99))||(Number(a.joinedAt||0)-Number(b.joinedAt||0));
       });
 
     wrap.classList.add('arena-players-grid');
@@ -593,12 +602,18 @@
 
   function watch(code){
     unsub?.();
+    FB()?.attachDuelPresence?.(code).catch(()=>{});
     unsub=FB().watchDuel(code,(data,error)=>{
-      if(error)return toast('Arena desconectada',error.message,'error');
-      if(!data)return;
+      if(error){toast('Arena desconectada',error.message,'error');return;}
+      if(!data){toast('Arena encerrada','A sala não existe mais.','error');cleanup();show('homeScreen');return;}
       room=data;
+      if(Number(room.protocolVersion||0)!==PROTOCOL_VERSION){
+        toast('Versão incompatível','Atualize a página para entrar nesta arena.','error');
+        setAnswerLocked(true);
+        return;
+      }
       renderRoom();
-      hostControl();
+      arenaControl();
     });
   }
 
@@ -625,6 +640,9 @@
     const q=room.questions?.[idx];
     if(!q)return;
 
+    const state=roundState();
+    const controller=ownsSession();
+
     if($('duelRoomBadge'))$('duelRoomBadge').textContent=`SALA ${room.code||roomCode}`;
     if($('duelRoundCounter'))$('duelRoundCounter').textContent=`RODADA ${idx+1} / ${room.questions.length}`;
     if($('duelChallengeBadge'))$('duelChallengeBadge').textContent=`${CH_LABELS[q.challenge]||q.challenge} • ${playerList().filter(p=>!p.left).length} jogadores`;
@@ -638,39 +656,54 @@
       renderQuestion(q);
     }
 
-    updateDuelMosaic(q,mine);
-
+    const stateNow=roundState();
     const solved=Boolean(mine?.roundSolved);
-    const eliminated=Boolean(mine?.eliminated)||(
-      duelUsesLives()&&(mine?.lives||0)<=0
-    );
-    setAnswerLocked(solved||eliminated);
+    const eliminated=Boolean(mine?.eliminated)||(duelUsesLives()&&(mine?.lives||0)<=0);
+    const foreignSession=!ownsSession();
 
-    $('duelWaitOpponent')?.classList.toggle('hidden',!solved&&!eliminated);
+    if(stateNow==='revealing')updateDuelMosaic(q,{roundSolved:true});
+    else updateDuelMosaic(q,mine);
 
-    if(solved||eliminated){
-      const result=mine?.roundResult||'';
+    setAnswerLocked(stateNow!=='playing'||solved||eliminated||foreignSession);
 
-      if(result==='correct'){
-        $('duelWaitOpponent').textContent='✅ Você acertou esta rodada. Aguardando os outros jogadores...';
-        $('duelFeedback').textContent='✅ Resposta correta! Sua caixa de resposta ficará travada até a próxima rodada.';
-      }else if(result==='skip'){
-        $('duelWaitOpponent').textContent='⏭️ Você pulou esta rodada. Aguardando os outros jogadores...';
-        $('duelFeedback').textContent='⏭️ Rodada pulada. A resposta fica bloqueada até a próxima rodada.';
-      }else if(result==='failed'){
-        $('duelWaitOpponent').textContent='❌ Suas tentativas acabaram. Aguardando os outros jogadores...';
-        $('duelFeedback').textContent='❌ Você não acertou esta rodada. Aguarde a próxima.';
-      }else if(result==='timeout'){
-        $('duelWaitOpponent').textContent='⏱️ O tempo acabou. Aguardando os outros jogadores...';
-        $('duelFeedback').textContent=duelUsesLives()?'⏱️ Tempo esgotado. Você perdeu 1 vida.':'⏱️ Tempo esgotado nesta rodada.';
-      }else if(mine?.eliminated){
-        $('duelWaitOpponent').textContent='💀 Você foi eliminado desta arena.';
-        $('duelFeedback').textContent='Você pode acompanhar o restante da partida, mas não pode mais responder.';
+    if(foreignSession){
+      $('duelWaitOpponent')?.classList.remove('hidden');
+      if($('duelWaitOpponent'))$('duelWaitOpponent').textContent='📱 Esta conta foi assumida em outro dispositivo.';
+      if($('duelFeedback'))$('duelFeedback').textContent='As respostas foram bloqueadas neste aparelho para evitar comandos duplicados.';
+    }else if(stateNow==='revealing'){
+      $('duelWaitOpponent')?.classList.remove('hidden');
+      const left=Math.max(0,Math.ceil((Number(room.revealUntil||0)-now())/1000));
+      if(room.roundHadSkip){
+        if($('duelWaitOpponent'))$('duelWaitOpponent').textContent=`📢 Resposta correta: ${q.name}`;
+        if($('duelFeedback'))$('duelFeedback').innerHTML=`⏭️ Alguém pulou esta rodada. <strong>Resposta correta: ${esc(q.name)}</strong><br>Próxima rodada em ${left}s...`;
       }else{
-        $('duelWaitOpponent').textContent='⏳ Resposta registrada. Aguardando os outros jogadores...';
+        if($('duelWaitOpponent'))$('duelWaitOpponent').textContent='✅ Rodada encerrada. Preparando a próxima...';
+        if($('duelFeedback'))$('duelFeedback').textContent=`Próxima rodada em ${left}s...`;
+      }
+    }else{
+      $('duelWaitOpponent')?.classList.toggle('hidden',!solved&&!eliminated);
+      if(solved||eliminated){
+        const result=mine?.roundResult||'';
+        if(result==='correct'){
+          $('duelWaitOpponent').textContent='✅ Você acertou esta rodada. Aguardando os outros jogadores...';
+          $('duelFeedback').textContent='✅ Resposta correta! Sua caixa de resposta ficará travada até a próxima rodada.';
+        }else if(result==='skip'){
+          $('duelWaitOpponent').textContent='⏭️ Você pulou esta rodada. Aguardando os outros jogadores...';
+          $('duelFeedback').textContent='⏭️ Rodada pulada. A resposta correta será mostrada quando todos terminarem.';
+        }else if(result==='failed'){
+          $('duelWaitOpponent').textContent='❌ Suas tentativas acabaram. Aguardando os outros jogadores...';
+          $('duelFeedback').textContent='❌ Você não acertou esta rodada. Aguarde a próxima.';
+        }else if(result==='timeout'){
+          $('duelWaitOpponent').textContent='⏱️ O tempo acabou. Aguardando os outros jogadores...';
+          $('duelFeedback').textContent=duelUsesLives()?'⏱️ Tempo esgotado. Você perdeu 1 vida.':'⏱️ Tempo esgotado nesta rodada.';
+        }else if(mine?.eliminated){
+          $('duelWaitOpponent').textContent='💀 Você foi eliminado desta arena.';
+          $('duelFeedback').textContent='Você pode acompanhar o restante da partida, mas não pode mais responder.';
+        }else{
+          $('duelWaitOpponent').textContent='⏳ Resposta registrada. Aguardando os outros jogadores...';
+        }
       }
     }
-
     startClock();
   }
 
@@ -684,7 +717,7 @@
     $('duelGuessInput').value='';
     $('duelFeedback').textContent=duelUsesLives()?'Cada resposta errada enviada custa 1 vida.':'Fácil/Normal: cada erro gasta uma das 3 tentativas da rodada, sem corações.';
     $('duelWaitOpponent').classList.add('hidden');
-    setAnswerLocked(false);
+    setAnswerLocked(roundState()!=='playing'||!ownsSession()||Boolean(me()?.roundSolved)||Boolean(me()?.eliminated));
 
     const img=$('duelQuestionImage'),cover=$('duelImageCover');
     const imageAllowed=q.challenge!=='blind'&&await probe(q.image);
@@ -739,7 +772,7 @@
   }
 
   async function submit(rawOverride=null,skip=false){
-    if(isSubmitting||!room||room.status!=='playing')return;
+    if(isSubmitting||!room||room.status!=='playing'||roundState()!=='playing'||!ownsSession())return;
 
     const mine=me();
     if(!mine||mine.roundSolved||mine.eliminated||(duelUsesLives()&&mine.lives<=0))return;
@@ -753,16 +786,19 @@
     const correct=!skip&&isCorrect(raw,q);
     const idx=Number(room.roundIndex||0);
     const pts=correct?pointsForCorrect():0;
+    const submissionId=FB()?.newSubmissionId?.()||`${idx}:${now()}:${Math.random()}`;
 
     isSubmitting=true;
     setAnswerLocked(true,'⏳ Registrando sua resposta...');
 
     try{
       const result=await FB().mutateDuel(roomCode,(r,uid)=>{
-        if(r.status!=='playing'||Number(r.roundIndex)!==idx)return r;
+        if(r.status!=='playing'||(r.roundState||'playing')!=='playing'||Number(r.roundIndex)!==idx)return r;
 
         const p=r.players?.[uid];
         if(!p||p.roundSolved||p.eliminated||(duelUsesLives(r)&&p.lives<=0))return r;
+        if(p.lastSubmissionId===submissionId)return r;
+        p.lastSubmissionId=submissionId;
 
         if(correct){
           p.correct=(p.correct||0)+1;
@@ -770,7 +806,7 @@
           p.roundSolved=true;
           p.roundResult='correct';
           p.lastRound=idx;
-          r.lastEvent={uid,type:'correct',at:Date.now(),round:idx};
+          r.lastEvent={uid,type:'correct',at:now(),round:idx};
         }else{
           p.wrong=(p.wrong||0)+1;
           p.roundWrong=Number(p.roundWrong||0)+1;
@@ -781,6 +817,10 @@
           if(skip){
             p.roundSolved=true;
             p.roundResult='skip';
+
+            // Marca a rodada inteira. A resposta correta só será
+            // exibida quando TODOS os jogadores ativos terminarem.
+            r.roundHadSkip=true;
           }else if(!withLives&&p.roundWrong>=3){
             p.roundSolved=true;
             p.roundResult='failed';
@@ -794,7 +834,7 @@
             p.roundResult='eliminated';
           }
 
-          r.lastEvent={uid,type:skip?'skip':'wrong',at:Date.now(),round:idx};
+          r.lastEvent={uid,type:skip?'skip':'wrong',at:now(),round:idx};
         }
 
         return r;
@@ -868,110 +908,125 @@
   }
 
   function finalizeMutable(r,reason='complete'){
-    r.status='finished';
-    r.finishedAt=Date.now();
-    r.finishReason=reason;
-    r.winnerUid=winnerOf(r);
+    const t=now();
+    r.status='finished';r.roundState='finished';r.finishedAt=t;r.finishReason=reason;r.winnerUid=winnerOf(r);
+    r.expiresAt=t+2*60*60*1000;r.roundDeadline=0;r.revealUntil=0;
     return r;
   }
 
-  function hostControl(){
+  function arenaControl(){
     const u=user();
-    if(!u||!room||room.status!=='playing'||!room.players?.[u.uid]||room.players[u.uid].left)return;
+    if(!u||!room||!FB()?.isConnected?.()||!room.players?.[u.uid]||room.players[u.uid].left)return;
 
-    const all=playerList();
+    if(room.status==='waiting'){
+      if(now()-lastHostCheck>=2000){
+        lastHostCheck=now();
+        FB()?.ensureDuelHost?.(roomCode).catch(()=>{});
+      }
+      return;
+    }
+    if(room.status!=='playing'||!ownsSession())return;
+
     const active=activePlayers();
-
-    if(all.filter(p=>!p.left).length>=2&&active.length<=1){
+    if(playerList().filter(p=>!p.left).length>=2&&active.length<=1){
       FB().mutateDuel(roomCode,r=>r.status==='playing'?finalizeMutable(r,'last-player'):r);
       return;
     }
-
     if(active.length<1)return;
 
-    if(active.every(p=>p.roundSolved)){
-      clearTimeout(advanceTimer);
-      const expected=Number(room.roundIndex||0);
+    const state=roundState();
+    const expected=Number(room.roundIndex||0);
 
-      advanceTimer=setTimeout(()=>FB().mutateDuel(roomCode,r=>{
-        if(r.status!=='playing'||Number(r.roundIndex)!==expected)return r;
-
-        const activeNow=activePlayers(r);
+    if(state==='playing'&&active.every(p=>p.roundSolved)){
+      FB().mutateDuel(roomCode,r=>{
+        if(r.status!=='playing'||(r.roundState||'playing')!=='playing'||Number(r.roundIndex)!==expected)return r;
+        const activeNow=Object.values(r.players||{}).filter(p=>!p.left&&!p.eliminated);
         if(activeNow.length<=1)return finalizeMutable(r,'last-player');
         if(!activeNow.every(p=>p.roundSolved))return r;
+        const t=now();
+        r.roundState='revealing';
+        r.revealUntil=t+(r.roundHadSkip?4000:1200);
+        r.roundDeadline=0;
+        r.lastEvent={type:'reveal',round:expected,at:t};
+        return r;
+      });
+      return;
+    }
 
+    if(state==='revealing'&&now()>=Number(room.revealUntil||0)){
+      FB().mutateDuel(roomCode,r=>{
+        if(r.status!=='playing'||r.roundState!=='revealing'||Number(r.roundIndex)!==expected||now()<Number(r.revealUntil||0))return r;
+        const activeNow=Object.values(r.players||{}).filter(p=>!p.left&&!p.eliminated);
+        if(activeNow.length<=1)return finalizeMutable(r,'last-player');
         if(expected+1>=(r.questions||[]).length)return finalizeMutable(r,'rounds');
 
-        r.roundIndex=expected+1;
-        r.roundDeadline=Date.now()+ROUND_SECONDS*1000;
-        r.timeoutRound=-1;
-
+        const t=now();
+        r.roundIndex=expected+1;r.roundState='playing';r.roundDeadline=t+ROUND_SECONDS*1000;r.revealUntil=0;r.timeoutRound=-1;r.roundHadSkip=false;
+        r.expiresAt=t+4*60*60*1000;
         for(const p of Object.values(r.players||{})){
           if(p.left||p.eliminated)continue;
-          p.roundSolved=false;
-          p.roundWrong=0;
-          p.roundResult='';
-          p.lastRound=expected;
+          p.roundSolved=false;p.roundWrong=0;p.roundResult='';p.lastRound=expected;p.lastSubmissionId='';
         }
-
-        r.lastEvent={type:'next',round:r.roundIndex,at:Date.now()};
+        r.lastEvent={type:'next',round:r.roundIndex,at:t};
         return r;
-      }),900);
+      });
     }
   }
 
   function startClock(){
     if(clock)return;
-
     clock=setInterval(()=>{
-      if(!room||room.status!=='playing')return;
-
-      const left=Math.max(0,Math.ceil(((room.roundDeadline||0)-Date.now())/1000));
-      if($('duelConnection'))$('duelConnection').textContent=`⏱️ ${left}s • 🟢 ${activePlayers().length} ativos`;
-
-      const u=user();
-      if(left<=0&&u&&room.players?.[u.uid]&&!room.players[u.uid].left){
-        const expected=Number(room.roundIndex||0);
-
-        FB().mutateDuel(roomCode,r=>{
-          if(r.status!=='playing'||Number(r.roundIndex)!==expected||r.timeoutRound===expected)return r;
-
-          r.timeoutRound=expected;
-
-          for(const p of Object.values(r.players||{})){
-            if(p.left||p.eliminated||p.roundSolved)continue;
-
-            if(duelUsesLives(r)){
-              p.lives=Math.max(0,(p.lives||0)-1);
-              if(p.lives<=0)p.eliminated=true;
-            }
-
-            p.roundSolved=true;
-            p.roundResult=p.eliminated?'eliminated':'timeout';
-            p.roundWrong=Number(p.roundWrong||0)+1;
-            p.wrong=(p.wrong||0)+1;
-          }
-
-          r.lastEvent={type:'timeout',round:expected,at:Date.now()};
-
-          const activeNow=activePlayers(r);
-          if(activeNow.length<=1)return finalizeMutable(r,'last-player');
-
-          return r;
-        });
+      if(!room)return;
+      const connected=FB()?.isConnected?.();
+      const state=roundState();
+      if($('duelConnection')){
+        if(!connected)$('duelConnection').textContent='🟡 Reconectando...';
+        else if(room.status==='playing'&&state==='playing'){
+          const left=Math.max(0,Math.ceil((Number(room.roundDeadline||0)-now())/1000));
+          $('duelConnection').textContent=`⏱️ ${left}s • 🟢 ${activePlayers().length} ativos`;
+        }else if(room.status==='playing'&&state==='revealing'){
+          const left=Math.max(0,Math.ceil((Number(room.revealUntil||0)-now())/1000));
+          $('duelConnection').textContent=`📢 Revelação • ${left}s`;
+        }else $('duelConnection').textContent='🟢 Online';
       }
+
+      arenaControl();
+
+      if(!connected||room.status!=='playing'||state!=='playing'||!ownsSession())return;
+      if(now()<Number(room.roundDeadline||0))return;
+      const u=user();if(!u||!room.players?.[u.uid]||room.players[u.uid].left)return;
+      const expected=Number(room.roundIndex||0);
+      FB().mutateDuel(roomCode,r=>{
+        if(r.status!=='playing'||(r.roundState||'playing')!=='playing'||Number(r.roundIndex)!==expected||r.timeoutRound===expected||now()<Number(r.roundDeadline||0))return r;
+        r.timeoutRound=expected;
+        for(const p of Object.values(r.players||{})){
+          if(p.left||p.eliminated||p.roundSolved)continue;
+          if(duelUsesLives(r)){p.lives=Math.max(0,(p.lives||0)-1);if(p.lives<=0)p.eliminated=true;}
+          p.roundSolved=true;p.roundResult=p.eliminated?'eliminated':'timeout';p.roundWrong=Number(p.roundWrong||0)+1;p.wrong=(p.wrong||0)+1;
+        }
+        r.lastEvent={type:'timeout',round:expected,at:now()};
+        const activeNow=Object.values(r.players||{}).filter(p=>!p.left&&!p.eliminated);
+        if(activeNow.length<=1)return finalizeMutable(r,'last-player');
+        return r;
+      });
     },350);
   }
 
   function recordResult(){
-    if(!room||!user())return;const key=`gameGuessDuelRecorded:${room.code||roomCode}:${user().uid}`;if(localStorage.getItem(key))return;localStorage.setItem(key,'1');
-    const p=CORE()?.getProfile?.()||{};p.duelPlayed=Number(p.duelPlayed||0)+1;const mine=me(),winner=room.winnerUid;if(winner===user().uid)p.duelWins=Number(p.duelWins||0)+1;else if(winner!=='tie')p.duelLosses=Number(p.duelLosses||0)+1;p.duelBestScore=Math.max(Number(p.duelBestScore||0),Number(mine?.score||0));CORE()?.replaceProfile?.(p);CORE()?.saveProfile?.();FB()?.syncLocalProfile?.(p);
+    if(!room||!user())return;
+    const key=`gameGuessDuelRecorded:${room.code||roomCode}:${user().uid}`;if(localStorage.getItem(key))return;localStorage.setItem(key,'1');
+    const p=CORE()?.getProfile?.()||{},mine=me(),winner=room.winnerUid,tie=winner==='tie',won=winner===user().uid;
+    p.duelPlayed=Number(p.duelPlayed||0)+1;if(won)p.duelWins=Number(p.duelWins||0)+1;else if(!tie)p.duelLosses=Number(p.duelLosses||0)+1;
+    p.duelBestScore=Math.max(Number(p.duelBestScore||0),Number(mine?.score||0));
+    window.GameGuessRanked?.record?.(p,{kind:'arena',score:Number(mine?.score||0),mode:arenaName(playerList().filter(x=>!x.left).length),universe:room.config?.universe||'random',challenge:room.config?.challenge||'random',difficulty:room.config?.difficulty||'normal',correct:Number(mine?.correct||0),wrong:Number(mine?.wrong||0),won,tie,players:playerList().filter(x=>!x.left).length});
+    CORE()?.replaceProfile?.(p);CORE()?.saveProfile?.();FB()?.syncLocalProfile?.(p);
   }
 
   function showFinal(){
     clearInterval(clock);
     clock=null;
     recordResult();
+    localStorage.removeItem('gameGuessLastDuel');
 
     const winner=room.winnerUid;
     const isTie=winner==='tie';
@@ -1013,11 +1068,8 @@
     const u=user();
 
     if(room?.status==='waiting'){
-      if(room.hostUid===u?.uid){
-        await FB().deleteDuel(roomCode).catch(()=>{});
-      }else{
-        await FB().leaveDuelRoom(roomCode).catch(()=>{});
-      }
+      await FB().leaveDuelRoom(roomCode).catch(()=>{});
+      localStorage.removeItem('gameGuessLastDuel');
       cleanup();
       show('homeScreen');
       return;
@@ -1038,14 +1090,14 @@
         if(r.hostUid===uid){
           const replacement=Object.values(r.players||{})
             .filter(x=>x.uid!==uid&&!x.left)
-            .sort((a,b)=>(a.joinedAt||0)-(b.joinedAt||0))[0];
+            .sort((a,b)=>(Number(a.slot||99)-Number(b.slot||99))||(Number(a.joinedAt||0)-Number(b.joinedAt||0)))[0];
           if(replacement)r.hostUid=replacement.uid;
         }
 
         const remaining=Object.values(r.players||{}).filter(x=>!x.left&&!x.eliminated);
         if(remaining.length<=1)return finalizeMutable(r,'last-player');
 
-        r.lastEvent={uid,type:'left',at:Date.now(),round:Number(r.roundIndex||0)};
+        r.lastEvent={uid,type:'left',at:now(),round:Number(r.roundIndex||0)};
         return r;
       }).catch(()=>{});
     }
@@ -1053,7 +1105,12 @@
     cleanup();
     show('homeScreen');
   }
-  function cleanup(){unsub?.();unsub=null;clearInterval(clock);clock=null;clearTimeout(advanceTimer);advanceTimer=null;room=null;roomCode='';renderedRound=-1;}
+  function cleanup(){
+    const oldCode=roomCode;
+    unsub?.();unsub=null;clearInterval(clock);clock=null;
+    if(oldCode)FB()?.detachDuelPresence?.(oldCode).catch(()=>{});
+    room=null;roomCode='';renderedRound=-1;isSubmitting=false;isJoining=false;
+  }
 
   function bind(){
     ensureArenaUI();
@@ -1062,10 +1119,7 @@
     $('homeDuelButton')?.addEventListener('click',openLobby);
 
     $('duelBackButton')?.addEventListener('click',async()=>{
-      if(room?.status==='waiting'&&roomCode){
-        if(isHost())await FB().deleteDuel(roomCode).catch(()=>{});
-        else await FB().leaveDuelRoom(roomCode).catch(()=>{});
-      }
+      if(room?.status==='waiting'&&roomCode)await FB().leaveDuelRoom(roomCode).catch(()=>{});
       cleanup();
       show('homeScreen');
     });
@@ -1102,10 +1156,21 @@
       openLobby();
     });
 
-    window.addEventListener('gameguess:authchange',e=>{
-      if(!e.detail?.user&&roomCode){
-        cleanup();
-        show('homeScreen');
+    window.addEventListener('gameguess:authchange',async e=>{
+      if(!e.detail?.user&&roomCode){cleanup();show('homeScreen');return;}
+      if(e.detail?.user&&!roomCode&&!resuming){
+        const saved=localStorage.getItem('gameGuessLastDuel');
+        if(!saved)return;
+        resuming=true;
+        try{
+          const savedRoom=await FB()?.getRoom?.(saved);
+          if(savedRoom?.players?.[e.detail.user.uid]&&savedRoom.status!=='finished'&&Number(savedRoom.protocolVersion||0)===PROTOCOL_VERSION){
+            roomCode=String(saved).toUpperCase();
+            await FB()?.attachDuelPresence?.(roomCode);
+            watch(roomCode);
+            toast('Arena reconectada',`Você voltou para a sala ${roomCode}.`);
+          }else localStorage.removeItem('gameGuessLastDuel');
+        }catch{}finally{resuming=false;}
       }
     });
   }

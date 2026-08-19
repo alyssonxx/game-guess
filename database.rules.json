@@ -13,18 +13,38 @@
       ".read": "auth != null",
       ".indexOn": [
         "rating",
-        "duelWins"
+        "duelWins",
+        "bestScore",
+        "arenaBestScore",
+        "bestStreak"
       ],
       "$uid": {
         ".write": "auth != null && auth.uid === $uid",
-        ".validate": "newData.hasChildren(['displayName','rating','wins','played','bestStreak','duelWins','duelLosses','updatedAt']) && newData.child('rating').isNumber() && newData.child('rating').val() >= 0 && newData.child('wins').isNumber() && newData.child('played').isNumber() && newData.child('duelWins').isNumber() && newData.child('duelLosses').isNumber()"
+        ".validate": "newData.hasChildren(['displayName','rating','wins','played','bestStreak','duelWins','duelLosses','updatedAt']) && newData.child('rating').isNumber() && newData.child('rating').val() >= 0 && newData.child('wins').isNumber() && newData.child('played').isNumber() && newData.child('duelWins').isNumber() && newData.child('duelLosses').isNumber() && (!newData.child('bestScore').exists() || newData.child('bestScore').isNumber()) && (!newData.child('arenaBestScore').exists() || newData.child('arenaBestScore').isNumber()) && (!newData.child('arenaMaxPlayers').exists() || newData.child('arenaMaxPlayers').isNumber())"
       }
     },
     "duels": {
       "$code": {
         ".read": "auth != null",
-        ".write": "auth != null && ((!data.exists() && newData.child('hostUid').val() === auth.uid) || data.child('hostUid').val() === auth.uid || data.child('players').child(auth.uid).exists() || (data.exists() && data.child('status').val() === 'waiting' && !data.child('players').child(auth.uid).exists() && newData.child('players').child(auth.uid).exists()))",
-        ".validate": "newData.hasChildren(['hostUid','status','config','players','questions','roundIndex'])"
+        ".write": "auth != null && ((!data.exists() && newData.child('hostUid').val() === auth.uid) || data.child('players').child(auth.uid).exists() || (!newData.exists() && data.child('expiresAt').isNumber() && data.child('expiresAt').val() < now))",
+        ".validate": "!newData.exists() || (newData.hasChildren(['hostUid','status','roundState','protocolVersion','config','players','questions','roundIndex','expiresAt']) && newData.child('protocolVersion').val() === 12 && newData.child('config').child('maxPlayers').isNumber() && newData.child('config').child('maxPlayers').val() >= 2 && newData.child('config').child('maxPlayers').val() <= 8)",
+        "slots": {
+          "$slot": {
+            ".write": "auth != null && root.child('duels').child($code).child('status').val() === 'waiting' && ((!data.exists() && newData.val() === auth.uid) || (data.val() === auth.uid && (!newData.exists() || newData.val() === auth.uid)))"
+          }
+        },
+        "players": {
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid && root.child('duels').child($code).child('status').val() === 'waiting' && newData.child('slot').isNumber() && root.child('duels').child($code).child('slots').child(newData.child('slot').val()).val() === auth.uid"
+          }
+        },
+        "presence": {
+          "$uid": {
+            "$session": {
+              ".write": "auth != null && auth.uid === $uid && root.child('duels').child($code).child('players').child($uid).exists()"
+            }
+          }
+        }
       }
     }
   }

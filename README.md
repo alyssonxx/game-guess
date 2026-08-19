@@ -1,32 +1,53 @@
-# Game Guess V10 — Online Arena
+# Game Guess V12 — Stability + Ranked
 
-Versão ampliada do Game Guess com Games IGDB, Multiverso, Termo Arcade, contas Firebase, ranking global e duelo 1x1 em tempo real.
+A V12 consolida a Arena online de **2 a 8 jogadores**, o Multiverso, Termo Arcade e o ranking global com uma camada extra de estabilidade.
 
-## Destaques
-- 3 vidas somente nas dificuldades **Difícil** e **Insano**.
-- Fácil e Normal usam tentativas por rodada, sem corações.
-- Perguntas e pistas específicas para cada franquia/universo.
-- Registro/login com Firebase Authentication.
-- Progresso sincronizado e ranking global.
-- Duelo 1x1: Difícil/Insano usam 3 vidas; Fácil/Normal usam 3 tentativas por rodada.
-- Dragon Ball, Naruto, Yu-Gi-Oh!, Cavaleiros, Pokémon, Digimon, LoL, desenhos, TV Globinho e Games.
-- Termo Arcade sem vidas: **Uma Palavra (6)**, **Dueto (7)** e **Quarteto (9)** tentativas.
-- Palavra inexistente no Termo é rejeitada sem gastar tentativa.
+## Principais novidades
 
-## Antes de publicar
-Leia **FIREBASE-SETUP.md** e preencha `firebase-config.js`.
+- Arena para **2–8 jogadores**.
+- Reserva atômica de vagas: dois jogadores não conseguem ocupar a mesma vaga.
+- Presença em tempo real com indicador de conexão.
+- Reconexão automática após queda de internet ou recarregamento da página.
+- O dispositivo mais recente assume o controle da conta na Arena; o anterior fica somente para visualização.
+- Migração automática de anfitrião no lobby se o host desconectar e não voltar.
+- Horário sincronizado pelo Firebase (`serverTimeOffset`) para cronômetro e transições.
+- Máquina de estados de rodada: `waiting → playing → revealing → playing/finished`.
+- Respostas bloqueadas fora do estado `playing`.
+- ID único por submissão para reduzir efeitos de clique/reenvio duplicado.
+- Se alguém pular, a resposta correta aparece somente depois que todos os jogadores ativos terminarem.
+- Salas possuem expiração.
+- `protocolVersion: 12` impede misturar clientes antigos e novos.
+- Cache busting `?v=12.0.0` nos scripts.
+- Ranking detalhado com melhor partida, modalidade, universo, desafio, dificuldade, Arena e Termo.
+- Mosaico progressivo super escuro preservado.
 
-O backend IGDB continua usando as variáveis já existentes:
-- `IGDB_CLIENT_ID`
-- `IGDB_CLIENT_SECRET`
+## Atualização obrigatória do Firebase
 
-## Atualização via Git
+A V12 muda a estrutura das salas (`slots`, `presence`, `roundState`, `protocolVersion`).
+
+Publique o novo `database.rules.json` em:
+
+**Firebase Console → Realtime Database → Rules → Publish**
+
+Sem as regras V12, a entrada de novos jogadores pode retornar `PERMISSION_DENIED`.
+
+## Deploy
 
 ```bash
 git add .
-git commit -m "Game Guess V10 Termo Multi"
+git commit -m "Game Guess V12 Stability Ranked"
 git push origin main
 ```
 
-## Segurança
-O ranking é apropriado para uso casual. Para competição com prêmio ou proteção forte contra adulteração do próprio cliente, valide pontuações/resultados em backend confiável.
+Depois do deploy da Vercel, faça uma atualização forçada uma vez:
+
+- PC: `Ctrl + Shift + R`
+- celular: feche a aba e abra novamente.
+
+As próximas atualizações já usam `?v=12.0.0`, reduzindo cache de JavaScript antigo.
+
+## Segurança do Ranked
+
+A V12 melhora consistência, sessões, concorrência e regras do Realtime Database. O ranking continua adequado para competição casual.
+
+Um navegador autenticado ainda é capaz de alterar dados do próprio cliente. Para um ranking com dinheiro/prêmios ou anti-cheat forte, a autoridade sobre respostas, score e rating deve migrar para backend com Firebase Admin/App Check.
