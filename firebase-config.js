@@ -9,5 +9,5 @@ window.GAME_GUESS_FIREBASE_CONFIG = {
   projectId: "games-c5445",
   storageBucket: "games-c5445.firebasestorage.app",
   messagingSenderId: "579507147676",
-  appId: "COLE_SEU_APP_ID"
+  appId: "1:579507147676:web:ca9f8fca17f69b33d1ee59"
 };
