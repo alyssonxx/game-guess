@@ -4,6 +4,7 @@
   const PROFILE_KEY='gameGuessArcadeV4';
   const ROUND_SECONDS=35, TOTAL_ROUNDS=15, MIN_PLAYERS=2, MAX_PLAYERS=8, PROTOCOL_VERSION=13; // V13 Quiz Mundial + Arena
   let roomCode='', room=null, unsub=null, renderedRound=-1, clock=null, hintsUsed=0, localWrong=0, isSubmitting=false, isJoining=false, resuming=false, lastHostCheck=0;
+  const quizHistoryMarked=new Set();
 
   const UNIVERSE_LABELS={random:'🌌 Caos Multiverso',games:'🎮 Games IGDB',dragonball:'🐉 Dragon Ball',naruto:'🍥 Naruto',yugioh:'🃏 Yu-Gi-Oh!',saintseiya:'♈ Cavaleiros',lol:'⚔️ League of Legends',pokemon:'🔴 Pokémon',digimon:'🔵 Digimon',cartoons:'📺 Desenhos clássicos',globinho:'☀️ TV Globinho',quiz:'🧠 Quiz Mundial'};
   const CH_LABELS={random:'🎲 Aleatório',image:'🧩 Imagem',ability:'💥 Habilidade',origin:'🌍 Origem/Nação',group:'🛡️ Grupo/Afiliação',era:'🕰️ Saga/Geração',role:'🎭 Classe/Papel',dossier:'🕵️ Dossiê',blind:'🧠 Só pistas',quiz:'❓ Quiz'};
@@ -738,6 +739,7 @@
     const img=$('duelQuestionImage'),cover=$('duelImageCover');
 
     if(q.kind==='quiz'){
+      const hk=String(q.dedupeKey||q.id||'');if(hk&&!quizHistoryMarked.has(hk)){quizHistoryMarked.add(hk);FB()?.markQuizHistory?.([hk]).catch(()=>{});}
       prepareDuelMosaic(q,false);
       img.classList.add('hidden');cover.classList.remove('hidden');cover.innerHTML='🧠<span>QUIZ MUNDIAL</span>';
       $('duelPrimaryHint').innerHTML=`<strong>${esc(q.source||'Quiz Mundial')}</strong> • escolha uma alternativa`;

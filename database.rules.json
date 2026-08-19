@@ -70,6 +70,27 @@
           }
         }
       }
+    },
+    "quizHistory": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid",
+        "seen": {
+          "$hash": {
+            ".validate": "!newData.exists() || newData.isNumber()"
+          },
+          ".indexOn": [
+            ".value"
+          ]
+        }
+      }
+    },
+    "fightRooms": {
+      "$code": {
+        ".read": "auth != null",
+        ".write": "auth != null && ((!data.exists() && newData.child('hostUid').val() === auth.uid) || data.child('hostUid').val() === auth.uid || data.child('guestUid').val() === auth.uid || (!data.child('guestUid').exists() && newData.child('guestUid').val() === auth.uid) || (data.child('guestUid').val() === '' && newData.child('guestUid').val() === auth.uid))",
+        ".validate": "!newData.exists() || (newData.hasChildren(['hostUid','status','protocolVersion','game','gameId','players','expiresAt']) && newData.child('protocolVersion').val() === 1 && newData.child('game').val() === 'kf2k2mp2' && newData.child('gameId').isNumber())"
+      }
     }
   }
 }

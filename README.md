@@ -1,53 +1,57 @@
-# Game Guess V12 — Stability + Ranked
+# Game Guess V14 — Quiz Cloud + KOF Online
 
-A V12 consolida a Arena online de **2 a 8 jogadores**, o Multiverso, Termo Arcade e o ranking global com uma camada extra de estabilidade.
+A V14 mantém o Arcade/Multiverso, Termo, Quiz, temporadas, Ranked e Arena de 2–8 jogadores e adiciona duas integrações principais:
 
-## Principais novidades
+1. **Quiz com histórico persistente por conta**: hashing determinístico, deduplicação local + Firebase e sincronização entre dispositivos.
+2. **KOF 2002 Magic Plus II**: FBNeo/EmulatorJS, treino no navegador, lobby Firebase 1x1, presença/reconexão, netplay e Ranked KOF.
 
-- Arena para **2–8 jogadores**.
-- Reserva atômica de vagas: dois jogadores não conseguem ocupar a mesma vaga.
-- Presença em tempo real com indicador de conexão.
-- Reconexão automática após queda de internet ou recarregamento da página.
-- O dispositivo mais recente assume o controle da conta na Arena; o anterior fica somente para visualização.
-- Migração automática de anfitrião no lobby se o host desconectar e não voltar.
-- Horário sincronizado pelo Firebase (`serverTimeOffset`) para cronômetro e transições.
-- Máquina de estados de rodada: `waiting → playing → revealing → playing/finished`.
-- Respostas bloqueadas fora do estado `playing`.
-- ID único por submissão para reduzir efeitos de clique/reenvio duplicado.
-- Se alguém pular, a resposta correta aparece somente depois que todos os jogadores ativos terminarem.
-- Salas possuem expiração.
-- `protocolVersion: 12` impede misturar clientes antigos e novos.
-- Cache busting `?v=12.0.0` nos scripts.
-- Ranking detalhado com melhor partida, modalidade, universo, desafio, dificuldade, Arena e Termo.
-- Mosaico progressivo super escuro preservado.
+## Firebase obrigatório
 
-## Atualização obrigatória do Firebase
+Publique `database.rules.json` em **Firebase Console → Realtime Database → Rules**.
 
-A V12 muda a estrutura das salas (`slots`, `presence`, `roundState`, `protocolVersion`).
+As regras V14 adicionam:
 
-Publique o novo `database.rules.json` em:
+- `quizHistory/{uid}/seen`
+- `fightRooms/{code}`
+- confirmação idempotente do Ranked do KOF
 
-**Firebase Console → Realtime Database → Rules → Publish**
+## KOF
 
-Sem as regras V12, a entrada de novos jogadores pode retornar `PERMISSION_DENIED`.
+A ROM clone `kf2k2mp2.zip` enviada para esta atualização está em `roms/kf2k2mp2.zip`.
+O set é **split**, então cada aparelho também precisa importar uma vez:
+
+- `kof2002.zip` — ROM parent
+- `neogeo.zip` — BIOS Neo Geo
+
+Os dois arquivos ficam no IndexedDB do navegador e não são enviados ao Firebase.
+Também existe um seletor para importar `kf2k2mp2.zip` localmente caso você prefira não hospedar o clone no site.
+
+O emulador usa **EmulatorJS 4.2.3 + FBNeo**, com `EJS_gameParentUrl`, `EJS_biosUrl`, Game ID numérico da sala e servidor de netplay configurável.
+
+## Quiz
+
+Cada pergunta recebe `dedupeKey`. O navegador e a conta Firebase mantêm histórico de até **50.000 hashes ativos por leitura**, e as perguntas vistas na Arena também entram no histórico do participante.
+
+O backend mistura:
+
+- Tryvia API
+- banco local PT-BR
+- geradores procedurais/combinatórios
+
+Mesmo sem API externa, os geradores foram testados para produzir centenas de perguntas consecutivas sem repetição nas categorias principais.
 
 ## Deploy
 
 ```bash
 git add .
-git commit -m "Game Guess V12 Stability Ranked"
+git commit -m "Game Guess V14 Quiz Cloud KOF Online"
 git push origin main
 ```
 
-Depois do deploy da Vercel, faça uma atualização forçada uma vez:
+Depois do deploy, publique as regras V14 do Realtime Database.
 
-- PC: `Ctrl + Shift + R`
-- celular: feche a aba e abra novamente.
+## Observações de produção
 
-As próximas atualizações já usam `?v=12.0.0`, reduzindo cache de JavaScript antigo.
-
-## Segurança do Ranked
-
-A V12 melhora consistência, sessões, concorrência e regras do Realtime Database. O ranking continua adequado para competição casual.
-
-Um navegador autenticado ainda é capaz de alterar dados do próprio cliente. Para um ranking com dinheiro/prêmios ou anti-cheat forte, a autoridade sobre respostas, score e rating deve migrar para backend com Firebase Admin/App Check.
+- O Ranked continua sendo um sistema de competição casual; para competição com prêmio real, mova cálculo de score/elo para backend autoritativo.
+- O servidor de netplay do EmulatorJS é separado do Firebase. O lobby usa Firebase; a sessão do emulador usa o servidor Netplay/WebRTC.
+- Se você publicar ROMs no site, confirme que possui os direitos necessários para distribuí-las.

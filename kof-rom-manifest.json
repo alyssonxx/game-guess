@@ -1,0 +1,12 @@
+{
+  "set": "kf2k2mp2",
+  "title": "The King of Fighters 2002 Magic Plus II (bootleg)",
+  "cloneSha256": "6c6ab95604d3704f2bd805df4ec9df8ece6b77486a191da672bba8f9d8bf1f61",
+  "cloneFiles": [
+    {"name":"k2k2m2p1.bin","size":2097152,"crc32":"1016806c"},
+    {"name":"k2k2m2p2.bin","size":4194304,"crc32":"432fdf53"},
+    {"name":"k2k2m2s1.bin","size":131072,"crc32":"446e74c5"}
+  ],
+  "requires": ["kof2002.zip", "neogeo.zip"],
+  "emulator": "EmulatorJS 4.2.3 / FBNeo"
+}
