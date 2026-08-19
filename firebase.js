@@ -8,7 +8,7 @@ import {
   limitToLast, runTransaction, remove
 } from 'https://www.gstatic.com/firebasejs/12.17.1/firebase-database.js';
 
-const CONFIG = window.GAME_GUESS_FIREBASE_CONFIG || {};
+const CONFIG = window.GAME_GUESS_FIREBASE_CONFIG || {}; // V11.1: entrada multi-player sem transação na sala inteira
 const configured = Boolean(
   CONFIG.apiKey && CONFIG.databaseURL && CONFIG.projectId && CONFIG.appId &&
   !String(CONFIG.apiKey).includes('COLE_') && !String(CONFIG.projectId).includes('SEU-PROJETO')
@@ -234,66 +234,112 @@ async function joinDuelRoom(code){
   if(!initialSnapshot.exists())throw new Error('Sala não encontrada.');
 
   const initial=initialSnapshot.val();
+
+  // Se este usuário já está dentro, apenas reconecta.
   if(initial.players?.[currentUser.uid])return code;
+
   if(initial.status==='finished')throw new Error('Esta arena já foi finalizada.');
   if(initial.status==='playing')throw new Error('Esta arena já começou.');
+  if(initial.status!=='waiting')throw new Error('Esta arena não está aceitando novos jogadores.');
 
   const maxPlayers=Math.max(2,Math.min(8,Number(initial.config?.maxPlayers||2)));
-  if(Object.values(initial.players||{}).filter(p=>!p.left).length>=maxPlayers){
+  const activeBefore=Object.values(initial.players||{}).filter(p=>!p.left);
+
+  if(activeBefore.length>=maxPlayers){
     throw new Error('Esta arena já está cheia.');
   }
 
   const name=cleanName(currentUser.displayName||currentUser.email?.split('@')[0]);
+  const joinedAt=Date.now();
+  const playerRef=ref(db,`duels/${code}/players/${currentUser.uid}`);
 
-  const result=await runTransaction(roomRef,room=>{
-    if(!room)return;
+  const player={
+    uid:currentUser.uid,
+    name,
+    joinedAt,
+    lives:3,
+    correct:0,
+    score:0,
+    wrong:0,
+    roundWrong:0,
+    roundSolved:false,
+    roundResult:'',
+    eliminated:false,
+    left:false,
+    lastRound:-1
+  };
 
-    if(room.players?.[currentUser.uid])return room;
-    if(room.status!=='waiting')return;
-
-    const max=Math.max(2,Math.min(8,Number(room.config?.maxPlayers||2)));
-    const players=Object.values(room.players||{}).filter(p=>!p.left);
-
-    if(players.length>=max)return;
-
-    room.players=room.players||{};
-    room.players[currentUser.uid]={
-      uid:currentUser.uid,
-      name,
-      joinedAt:Date.now(),
-      lives:3,
-      correct:0,
-      score:0,
-      wrong:0,
-      roundWrong:0,
-      roundSolved:false,
-      roundResult:'',
-      eliminated:false,
-      left:false,
-      lastRound:-1
-    };
-
-    const count=Object.values(room.players).filter(p=>!p.left).length;
-
-    // Sala cheia: começa automaticamente.
-    if(count>=max){
-      room.status='playing';
-      room.startedAt=Date.now();
-      room.roundDeadline=Date.now()+35000;
-      room.timeoutRound=-1;
+  // IMPORTANTE:
+  // Não usa mais transação na sala inteira. Cada usuário escreve somente
+  // no próprio nó players/{uid}, evitando o falso "sala lotada/iniciada"
+  // causado pelo primeiro callback local nulo do Realtime Database.
+  try{
+    await set(playerRef,player);
+  }catch(error){
+    const msg=String(error?.code||error?.message||'');
+    if(msg.includes('PERMISSION_DENIED')||msg.includes('permission-denied')){
+      throw new Error('O Firebase recusou a entrada. Confirme se as regras V11 do Realtime Database foram publicadas.');
     }
+    throw error;
+  }
 
-    room.updatedAt=Date.now();
-    return room;
-  },{applyLocally:false});
+  // Recarrega a sala depois da entrada para validar lotação e estado.
+  const afterSnapshot=await get(roomRef);
 
-  if(!result.committed){
-    throw new Error('Não foi possível entrar. A sala pode ter lotado ou iniciado.');
+  if(!afterSnapshot.exists()){
+    await remove(playerRef).catch(()=>{});
+    throw new Error('A sala foi encerrada enquanto você entrava.');
+  }
+
+  const after=afterSnapshot.val();
+  const max=Math.max(2,Math.min(8,Number(after.config?.maxPlayers||maxPlayers)));
+
+  if(after.status==='finished'){
+    await remove(playerRef).catch(()=>{});
+    throw new Error('Esta arena foi finalizada enquanto você entrava.');
+  }
+
+  // Em caso de duas ou mais entradas exatamente ao mesmo tempo,
+  // mantém deterministicamente apenas os primeiros até o limite.
+  const ordered=Object.values(after.players||{})
+    .filter(p=>!p.left)
+    .sort((a,b)=>{
+      const ta=Number(a.joinedAt||0), tb=Number(b.joinedAt||0);
+      if(ta!==tb)return ta-tb;
+      return String(a.uid||'').localeCompare(String(b.uid||''));
+    });
+
+  const accepted=ordered.slice(0,max).some(p=>p.uid===currentUser.uid);
+
+  if(!accepted){
+    await remove(playerRef).catch(()=>{});
+    throw new Error('Esta arena acabou de ficar cheia.');
+  }
+
+  // Se o último jogador completar a lotação, inicia automaticamente.
+  // Aqui o usuário já faz parte de players, portanto a atualização é válida.
+  if(after.status==='waiting'&&ordered.length>=max){
+    const now=Date.now();
+    try{
+      await update(roomRef,{
+        status:'playing',
+        startedAt:now,
+        roundDeadline:now+35000,
+        timeoutRound:-1,
+        updatedAt:now
+      });
+    }catch(error){
+      // Se outro cliente/host iniciou no mesmo instante, isso não é falha de entrada.
+      const latest=(await get(roomRef)).val();
+      if(latest?.status!=='playing')throw error;
+    }
+  }else{
+    // Atualiza só o timestamp da sala, sem transação.
+    await update(roomRef,{updatedAt:Date.now()}).catch(()=>{});
   }
 
   return code;
 }
-
 async function startDuelRoom(code){
   if(!currentUser)throw new Error('Sessão expirada. Entre novamente.');
 

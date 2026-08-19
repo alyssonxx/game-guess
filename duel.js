@@ -2,8 +2,8 @@
   'use strict';
   const $=id=>document.getElementById(id), CORE=()=>window.GameGuessCore, FB=()=>window.GameGuessFirebase;
   const PROFILE_KEY='gameGuessArcadeV4';
-  const ROUND_SECONDS=35, TOTAL_ROUNDS=15, MIN_PLAYERS=2, MAX_PLAYERS=8; // V11: Arena 2–8 + anti-scroll + trava de resposta + mosaico super escuro
-  let roomCode='', room=null, unsub=null, renderedRound=-1, clock=null, advanceTimer=null, hintsUsed=0, localWrong=0, isSubmitting=false;
+  const ROUND_SECONDS=35, TOTAL_ROUNDS=15, MIN_PLAYERS=2, MAX_PLAYERS=8; // V11.1: Arena 2–8 + join robusto + anti-scroll + trava de resposta + mosaico super escuro
+  let roomCode='', room=null, unsub=null, renderedRound=-1, clock=null, advanceTimer=null, hintsUsed=0, localWrong=0, isSubmitting=false, isJoining=false;
 
   const UNIVERSE_LABELS={random:'🌌 Caos Multiverso',games:'🎮 Games IGDB',dragonball:'🐉 Dragon Ball',naruto:'🍥 Naruto',yugioh:'🃏 Yu-Gi-Oh!',saintseiya:'♈ Cavaleiros',lol:'⚔️ League of Legends',pokemon:'🔴 Pokémon',digimon:'🔵 Digimon',cartoons:'📺 Desenhos clássicos',globinho:'☀️ TV Globinho'};
   const CH_LABELS={random:'🎲 Aleatório',image:'🧩 Imagem',ability:'💥 Habilidade',origin:'🌍 Origem/Nação',group:'🛡️ Grupo/Afiliação',era:'🕰️ Saga/Geração',role:'🎭 Classe/Papel',dossier:'🕵️ Dossiê',blind:'🧠 Só pistas'};
@@ -550,15 +550,32 @@
   }
 
   async function joinRoom(){
+    if(isJoining)return;
     if(!user())return FB()?.openAuth?.('login');
+
     const code=$('joinDuelCode').value.trim().toUpperCase();
+    const btn=$('joinDuelButton');
+
+    isJoining=true;
+    if(btn){
+      btn.disabled=true;
+      btn.dataset.originalText=btn.textContent;
+      btn.textContent='ENTRANDO...';
+    }
+
     try{
       roomCode=await FB().joinDuelRoom(code);
       localStorage.setItem('gameGuessLastDuel',roomCode);
       watch(roomCode);
-      toast('Entrou na sala','Aguardando o anfitrião iniciar a arena.');
+      toast('Entrou na sala','Conectado à arena.');
     }catch(e){
       toast('Não consegui entrar',e.message,'error');
+    }finally{
+      isJoining=false;
+      if(btn){
+        btn.disabled=false;
+        btn.textContent=btn.dataset.originalText||'ENTRAR NA SALA';
+      }
     }
   }
 
