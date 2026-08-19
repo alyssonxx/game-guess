@@ -200,15 +200,16 @@ async function joinDuelRoom(code){
     throw new Error('Código inválido.');
   }
 
-  const r = ref(db, `duels/${code}`);
+  const roomRef = ref(db, `duels/${code}`);
+  const guestRef = ref(db, `duels/${code}/guestUid`);
+
   const name = cleanName(
     currentUser.displayName ||
     currentUser.email?.split('@')[0]
   );
 
-  // IMPORTANTE:
-  // primeiro carrega a sala do servidor antes da transação.
-  const initialSnapshot = await get(r);
+  // Primeiro verifica se a sala realmente existe
+  const initialSnapshot = await get(roomRef);
 
   if(!initialSnapshot.exists()){
     throw new Error('Sala não encontrada.');
@@ -216,9 +217,10 @@ async function joinDuelRoom(code){
 
   const initialRoom = initialSnapshot.val();
 
+  // Impede entrar na própria sala usando a mesma conta
   if(initialRoom.hostUid === currentUser.uid){
     throw new Error(
-      'Esta sala foi criada por esta mesma conta. Entre com outra conta no segundo aparelho.'
+      'Esta sala foi criada por esta mesma conta. Use outra conta no segundo aparelho.'
     );
   }
 
@@ -233,59 +235,88 @@ async function joinDuelRoom(code){
     throw new Error('Esta sala já está cheia.');
   }
 
-  // Agora que a sala está carregada,
-  // fazemos a transação para evitar dois jogadores
-  // entrarem simultaneamente.
-  const result = await runTransaction(
-    r,
-    room => {
-      if(!room){
-        return;
-      }
-
-      if(room.status === 'finished'){
-        return;
-      }
+  // Reserva somente a vaga guestUid
+  const claim = await runTransaction(
+    guestRef,
+    current => {
 
       if(
-        room.guestUid &&
-        room.guestUid !== currentUser.uid
+        current === null ||
+        current === undefined ||
+        current === ''
       ){
-        return;
+        return currentUser.uid;
       }
 
-      room.guestUid = currentUser.uid;
+      // Se já for este mesmo jogador,
+      // deixa continuar normalmente
+      if(current === currentUser.uid){
+        return current;
+      }
 
-      room.players = room.players || {};
-
-      room.players[currentUser.uid] =
-        room.players[currentUser.uid] || {
-          uid: currentUser.uid,
-          name,
-          lives: 3,
-          correct: 0,
-          score: 0,
-          wrong: 0,
-          roundWrong: 0,
-          roundSolved: false,
-          lastRound: -1
-        };
-
-      room.status = 'playing';
-      room.roundDeadline = Date.now() + 35000;
-      room.updatedAt = Date.now();
-
-      return room;
+      // Outro usuário ocupou a vaga
+      return;
     },
     {
       applyLocally: false
     }
   );
 
-  if(!result.committed){
+  if(
+    !claim.committed ||
+    claim.snapshot?.val() !== currentUser.uid
+  ){
     throw new Error(
-      'Não foi possível entrar. A sala pode ter sido ocupada por outro jogador.'
+      'A sala acabou de ser ocupada por outro jogador.'
     );
+  }
+
+  const player = {
+    uid: currentUser.uid,
+    name,
+    lives: 3,
+    correct: 0,
+    score: 0,
+    wrong: 0,
+    roundWrong: 0,
+    roundSolved: false,
+    lastRound: -1
+  };
+
+  try{
+
+    // Agora adiciona oficialmente o segundo jogador
+    await update(roomRef, {
+      [`players/${currentUser.uid}`]: player,
+
+      status: 'playing',
+
+      roundDeadline:
+        Date.now() + 35000,
+
+      updatedAt:
+        Date.now()
+    });
+
+  }catch(error){
+
+    // Se alguma coisa der errado depois de reservar
+    // a vaga, libera guestUid novamente
+    try{
+
+      const latest =
+        await get(guestRef);
+
+      if(
+        latest.val() ===
+        currentUser.uid
+      ){
+        await remove(guestRef);
+      }
+
+    }catch{}
+
+    throw error;
   }
 
   return code;
