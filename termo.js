@@ -11,7 +11,7 @@
     duet:{title:'Dueto',icon:'2️⃣',targets:2,attempts:7,scoreBase:460},
     quartet:{title:'Quarteto',icon:'4️⃣',targets:4,attempts:9,scoreBase:820}
   };
-  let state={mode:'single',targets:[],guesses:[],solvedAt:[],cells:Array(5).fill(''),cursor:0,ended:false,won:false,sessionScore:0,checking:false,typedPulseIndex:-1,justSolvedBoards:[]};
+  let state={mode:'single',targets:[],guesses:[],solvedAt:[],cells:Array(5).fill(''),cursor:0,ended:false,won:false,sessionScore:0,checking:false,typedPulseIndex:-1,justSolvedBoards:[],revealRow:-1};
   let keyboardLockY=0,keyboardBodyLocked=false;
   function norm(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z]/g,'');}
   function readProfile(){try{return JSON.parse(localStorage.getItem(PROFILE_KEY)||'{}')}catch{return {}}}
@@ -90,6 +90,7 @@
         for(let c=0;c<5;c++){
           const tile=document.createElement('button');tile.type='button';const active=!solved&&r===state.guesses.length&&!state.ended;
           tile.className='termo-tile'+(statuses[c]?` ${statuses[c]}`:'')+(letters[c]?' filled':'')+(active&&c===state.cursor?' selected':'')+(active&&c===state.typedPulseIndex?' typed-pulse':'')+(justSolved&&r===solvedAt?' win-tile':'');
+          if(r===state.revealRow){row.classList.add('reveal-row');tile.style.setProperty('--flip-delay',`${c*150}ms`);}
           if(justSolved&&r===solvedAt)tile.style.setProperty('--win-delay',`${c*65}ms`);
           tile.textContent=letters[c]||'';
           tile.setAttribute('aria-label',`Palavra ${b+1}, linha ${r+1}, coluna ${c+1}${letters[c]?`, letra ${letters[c]}`:''}`);
@@ -109,7 +110,7 @@
   function render(){renderBoards();renderKeyboard();renderStats();renderModeButtons();$('termoNextButton').classList.toggle('hidden',!state.ended);$('termoClearButton')?.classList.toggle('hidden',state.ended);$('termoFocusButton')?.classList.toggle('hidden',state.ended);syncNativeInput();}
   function message(text,type=''){const el=$('termoMessage');if(!el)return;el.className='termo-message'+(type?` ${type}`:'');el.textContent=text;void el.offsetWidth;el.classList.add('pulse');}
   function clearLine(){if(state.ended||state.checking)return;state.cells=Array(5).fill('');state.cursor=0;message('Linha limpa. Clique em qualquer casa ou digite normalmente.');renderBoards();}
-  function newRound(){const cfg=modeCfg();state.targets=pickTargets(cfg.targets);state.guesses=[];state.solvedAt=Array(cfg.targets).fill(null);state.cells=Array(5).fill('');state.cursor=0;state.ended=false;state.won=false;state.checking=false;state.typedPulseIndex=-1;state.justSolvedBoards=[];message(`${cfg.icon} ${cfg.title}: resolva ${cfg.targets===1?'a palavra':`as ${cfg.targets} palavras`} em até ${cfg.attempts} tentativas. Palavras inexistentes não contam.`);render();setTimeout(()=>syncNativeInput(),20);}
+  function newRound(){const cfg=modeCfg();state.targets=pickTargets(cfg.targets);state.guesses=[];state.solvedAt=Array(cfg.targets).fill(null);state.cells=Array(5).fill('');state.cursor=0;state.ended=false;state.won=false;state.checking=false;state.typedPulseIndex=-1;state.justSolvedBoards=[];state.revealRow=-1;message(`${cfg.icon} ${cfg.title}: resolva ${cfg.targets===1?'a palavra':`as ${cfg.targets} palavras`} em até ${cfg.attempts} tentativas. Palavras inexistentes não contam.`);render();setTimeout(()=>syncNativeInput(),20);}
   function setMode(mode){if(!MODES[mode]||mode===state.mode&&!state.ended)return;state.mode=mode;newRound();}
   function endRound(won){releaseNativeKeyboard();state.ended=true;state.won=won;const cfg=modeCfg(),p=readProfile();p.termPlayed=Number(p.termPlayed||0)+1;p.termWins=Number(p.termWins||0)+(won?1:0);p.termCurrentStreak=won?Number(p.termCurrentStreak||0)+1:0;p.termBestStreak=Math.max(Number(p.termBestStreak||0),Number(p.termCurrentStreak||0));p.termModeWins={...(p.termModeWins||{})};if(won)p.termModeWins[state.mode]=Number(p.termModeWins[state.mode]||0)+1;let pts=0;if(won){pts=Math.max(80,cfg.scoreBase-(state.guesses.length-1)*28);state.sessionScore+=pts;p.coins=Number(p.coins||0)+Math.max(8,Math.round(pts/18));p.highScore=Math.max(Number(p.highScore||0),state.sessionScore);CORE()?.playSound?.('win');CORE()?.spawnConfetti?.();message(`✅ ${cfg.title} concluído em ${state.guesses.length}/${cfg.attempts} tentativas • +${pts} pontos`,'success');}else{CORE()?.playSound?.('lose');message(`💥 GAME OVER • Limite de ${cfg.attempts} tentativas atingido. Respostas: ${state.targets.map(x=>x.toUpperCase()).join(' • ')}`,'error');}if(Number(p.termWins||0)>=10)unlock(p,'wordsmith','🔤 Mestre das Palavras',140);if(Number(p.termBestStreak||0)>=5)unlock(p,'termoStreak','♾️ Sequência Infinita',190);window.GameGuessRanked?.record?.(p,{kind:'termo',score:pts,mode:state.mode,universe:'termo',challenge:'palavra',difficulty:'termo',correct:won?1:0,wrong:won?Math.max(0,state.guesses.length-1):state.guesses.length,won});saveProfile(p);render();}
   async function validateWord(word){if(VALID_LOCAL.has(word))return true;try{const r=await fetch(WORD_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({word})});const d=await r.json();return Boolean(d.valid);}catch{return false;}}
@@ -121,12 +122,18 @@
     if(!valid){message(`“${guess.toUpperCase()}” não foi reconhecida como palavra válida. A tentativa não foi consumida.`,'error');CORE()?.playSound?.('error');return;}
     const rowIndex=state.guesses.length,newlySolved=[];state.guesses.push(guess);
     state.targets.forEach((t,i)=>{if(state.solvedAt[i]===null&&guess===norm(t)){state.solvedAt[i]=rowIndex;newlySolved.push(i);}});
-    state.justSolvedBoards=newlySolved;state.cells=Array(5).fill('');state.cursor=0;state.typedPulseIndex=-1;
-    if(newlySolved.length){renderBoards();CORE()?.playSound?.('win');setTimeout(()=>{state.justSolvedBoards=[];},1050);}
-    if(solvedCount()===cfg.targets)return setTimeout(()=>endRound(true),newlySolved.length?650:0);
-    CORE()?.playSound?.('error');
-    if(state.guesses.length>=cfg.attempts){render();return setTimeout(()=>endRound(false),220);}
-    message(`Tentativa ${state.guesses.length}/${cfg.attempts} • ${solvedCount()}/${cfg.targets} palavra(s) resolvida(s).`,'error');render();
+    state.justSolvedBoards=newlySolved;state.revealRow=rowIndex;state.cells=Array(5).fill('');state.cursor=0;state.typedPulseIndex=-1;
+    render();
+    if(newlySolved.length)CORE()?.playSound?.('win');
+    else CORE()?.playSound?.('error');
+    setTimeout(()=>{
+      state.revealRow=-1;
+      if(state.justSolvedBoards.length){state.justSolvedBoards=[];renderBoards();}
+      else renderBoards();
+    },1150);
+    if(solvedCount()===cfg.targets)return setTimeout(()=>endRound(true),1180);
+    if(state.guesses.length>=cfg.attempts){return setTimeout(()=>endRound(false),1180);}
+    message(`Tentativa ${state.guesses.length}/${cfg.attempts} • ${solvedCount()}/${cfg.targets} palavra(s) resolvida(s).`,'error');
   }
   function placeLetter(k){
     const l=norm(k).toUpperCase();if(!/^[A-Z]$/.test(l))return;

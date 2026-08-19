@@ -2,11 +2,11 @@
   'use strict';
   const $=id=>document.getElementById(id), CORE=()=>window.GameGuessCore, FB=()=>window.GameGuessFirebase;
   const PROFILE_KEY='gameGuessArcadeV4';
-  const ROUND_SECONDS=35, TOTAL_ROUNDS=15, MIN_PLAYERS=2, MAX_PLAYERS=8, PROTOCOL_VERSION=12; // V12 Stability + Ranked
+  const ROUND_SECONDS=35, TOTAL_ROUNDS=15, MIN_PLAYERS=2, MAX_PLAYERS=8, PROTOCOL_VERSION=13; // V13 Quiz Mundial + Arena
   let roomCode='', room=null, unsub=null, renderedRound=-1, clock=null, hintsUsed=0, localWrong=0, isSubmitting=false, isJoining=false, resuming=false, lastHostCheck=0;
 
-  const UNIVERSE_LABELS={random:'🌌 Caos Multiverso',games:'🎮 Games IGDB',dragonball:'🐉 Dragon Ball',naruto:'🍥 Naruto',yugioh:'🃏 Yu-Gi-Oh!',saintseiya:'♈ Cavaleiros',lol:'⚔️ League of Legends',pokemon:'🔴 Pokémon',digimon:'🔵 Digimon',cartoons:'📺 Desenhos clássicos',globinho:'☀️ TV Globinho'};
-  const CH_LABELS={random:'🎲 Aleatório',image:'🧩 Imagem',ability:'💥 Habilidade',origin:'🌍 Origem/Nação',group:'🛡️ Grupo/Afiliação',era:'🕰️ Saga/Geração',role:'🎭 Classe/Papel',dossier:'🕵️ Dossiê',blind:'🧠 Só pistas'};
+  const UNIVERSE_LABELS={random:'🌌 Caos Multiverso',games:'🎮 Games IGDB',dragonball:'🐉 Dragon Ball',naruto:'🍥 Naruto',yugioh:'🃏 Yu-Gi-Oh!',saintseiya:'♈ Cavaleiros',lol:'⚔️ League of Legends',pokemon:'🔴 Pokémon',digimon:'🔵 Digimon',cartoons:'📺 Desenhos clássicos',globinho:'☀️ TV Globinho',quiz:'🧠 Quiz Mundial'};
+  const CH_LABELS={random:'🎲 Aleatório',image:'🧩 Imagem',ability:'💥 Habilidade',origin:'🌍 Origem/Nação',group:'🛡️ Grupo/Afiliação',era:'🕰️ Saga/Geração',role:'🎭 Classe/Papel',dossier:'🕵️ Dossiê',blind:'🧠 Só pistas',quiz:'❓ Quiz'};
   const DIFF_MULT={easy:.9,normal:1,hard:1.25,insane:1.5};
   const PROMPTS={
     games:{image:'Qual é o jogo escondido nesta imagem?',ability:'Que jogo combina com esta característica de gameplay?',origin:'Qual jogo combina com esta plataforma/origem?',group:'Qual jogo pertence a esta plataforma?',era:'Qual jogo foi lançado nesta época?',role:'Que jogo pertence a este gênero?',dossier:'Plataforma, gênero e época: qual é o jogo?',blind:'Sem imagem: descubra o jogo apenas pelas pistas.'},
@@ -52,7 +52,7 @@
   function realUniverse(q){return q?.universe||q?.meta?.universeKey||room?.config?.universe||'random';}
   function duelUsesLives(r=room){const d=r?.config?.difficulty||'normal';return d==='hard'||d==='insane'}
   function duelChanceLeft(p){return Math.max(0,3-Number(p?.roundWrong||0))}
-  function questionPrompt(q){const u=realUniverse(q),ch=q?.challenge||'image';return PROMPTS[u]?.[ch]||PROMPTS.random[ch]||'Descubra antes do seu rival.';}
+  function questionPrompt(q){if(q?.kind==='quiz')return q.prompt||'Responda antes dos outros jogadores.';const u=realUniverse(q),ch=q?.challenge||'image';return PROMPTS[u]?.[ch]||PROMPTS.random[ch]||'Descubra antes do seu rival.';}
   function clueFor(q,kind){return (q?.clues||[]).find(c=>c.kind===kind)||null;}
   function pick(a){return a[Math.floor(Math.random()*a.length)];}
   function resolveChallenge(item,wanted){
@@ -146,8 +146,8 @@
         backdrop-filter:none !important;
 
         box-shadow:
-          inset 0 0 55px rgba(0,0,0,.92),
-          inset 0 0 15px rgba(90,120,190,.08) !important;
+          inset 0 0 40px rgba(0,0,0,.92),
+          inset 0 0 8px rgba(90,120,190,.08) !important;
 
         transition:
           opacity .28s ease,
@@ -270,7 +270,7 @@
 
     if(
       !mask ||
-      q?.challenge!=='image' ||
+      q?.challenge==='blind' ||
       mask.classList.contains('hidden')
     ){
       return;
@@ -320,6 +320,11 @@
 
   async function fetchQuestions(config){
     const universe=config.universe;
+    if(universe==='quiz'){
+      const bank=window.GameGuessQuizBank;
+      if(!bank)throw new Error('Banco do Quiz ainda não carregou. Atualize a página.');
+      return bank.getQuestions({category:config.category||'random',count:22}).map(bank.toDuelQuestion);
+    }
     if(universe==='games'){
       const ids=[7,8,9,48,167,11,12,49,169,6,18,19,4,21,5,41,130];
       const r=await fetch('/api/igdb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'session',platformIds:ids,startYear:1985,endYear:new Date().getFullYear()+1,category:'all',limit:32})});const d=await r.json();if(!r.ok)throw new Error(d.error||'IGDB indisponível.');
@@ -332,7 +337,7 @@
   async function buildRoomQuestions(config){
     const base=await fetchQuestions(config);if(base.length<5)throw new Error('Poucas perguntas disponíveis para este duelo.');
     for(let i=base.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[base[i],base[j]]=[base[j],base[i]];}
-    return base.slice(0,Math.min(TOTAL_ROUNDS,base.length)).map(q=>({...q,challenge:resolveChallenge(q,config.challenge)}));
+    return base.slice(0,Math.min(TOTAL_ROUNDS,base.length)).map(q=>q.kind==='quiz'?({...q,challenge:'quiz'}):({...q,challenge:resolveChallenge(q,config.challenge)}));
   }
 
   function ensureArenaUI(){
@@ -427,6 +432,7 @@
     }
     if(send)send.disabled=Boolean(locked);
     if(skip)skip.disabled=Boolean(locked);
+    document.querySelectorAll('#duelHints .duel-quiz-option').forEach(b=>b.disabled=Boolean(locked));
     box?.classList.toggle('arena-answer-locked',Boolean(locked));
 
     if(message && $('duelFeedback'))$('duelFeedback').textContent=message;
@@ -532,10 +538,12 @@
     ensureArenaUI();
 
     const maxPlayers=Math.max(MIN_PLAYERS,Math.min(MAX_PLAYERS,Number($('duelMaxPlayersSelect')?.value||2)));
+    const selectedUniverse=$('duelUniverseSelect').value;
     const config={
-      universe:$('duelUniverseSelect').value,
+      universe:selectedUniverse,
       difficulty:$('duelDifficultySelect').value,
-      challenge:$('duelChallengeSelect').value,
+      challenge:selectedUniverse==='quiz'?'quiz':$('duelChallengeSelect').value,
+      category:selectedUniverse==='quiz'?($('duelQuizCategorySelect')?.value||'random'):'',
       rounds:TOTAL_ROUNDS,
       maxPlayers
     };
@@ -672,10 +680,11 @@
       if($('duelFeedback'))$('duelFeedback').textContent='As respostas foram bloqueadas neste aparelho para evitar comandos duplicados.';
     }else if(stateNow==='revealing'){
       $('duelWaitOpponent')?.classList.remove('hidden');
+      if(q.kind==='quiz')document.querySelectorAll('#duelHints .duel-quiz-option').forEach(b=>{if(norm(b.textContent).includes(norm(q.name)))b.classList.add('correct');});
       const left=Math.max(0,Math.ceil((Number(room.revealUntil||0)-now())/1000));
-      if(room.roundHadSkip){
+      if(room.roundHadSkip||q.kind==='quiz'){
         if($('duelWaitOpponent'))$('duelWaitOpponent').textContent=`📢 Resposta correta: ${q.name}`;
-        if($('duelFeedback'))$('duelFeedback').innerHTML=`⏭️ Alguém pulou esta rodada. <strong>Resposta correta: ${esc(q.name)}</strong><br>Próxima rodada em ${left}s...`;
+        if($('duelFeedback'))$('duelFeedback').innerHTML=`${q.kind==='quiz'?'🧠 Quiz encerrado.':'⏭️ Alguém pulou esta rodada.'} <strong>Resposta correta: ${esc(q.name)}</strong><br>Próxima rodada em ${left}s...`;
       }else{
         if($('duelWaitOpponent'))$('duelWaitOpponent').textContent='✅ Rodada encerrada. Preparando a próxima...';
         if($('duelFeedback'))$('duelFeedback').textContent=`Próxima rodada em ${left}s...`;
@@ -719,7 +728,26 @@
     $('duelWaitOpponent').classList.add('hidden');
     setAnswerLocked(roundState()!=='playing'||!ownsSession()||Boolean(me()?.roundSolved)||Boolean(me()?.eliminated));
 
+    const guessBox=$('duelGuessInput')?.closest('.guess-box');
+    const inputWrap=$('duelGuessInput')?.closest('.input-wrapper');
+    const sendBtn=$('duelGuessButton'),skipBtn=$('duelSkipButton');
     const img=$('duelQuestionImage'),cover=$('duelImageCover');
+
+    if(q.kind==='quiz'){
+      prepareDuelMosaic(q,false);
+      img.classList.add('hidden');cover.classList.remove('hidden');cover.innerHTML='🧠<span>QUIZ MUNDIAL</span>';
+      $('duelPrimaryHint').innerHTML=`<strong>${esc(q.source||'Quiz Mundial')}</strong> • escolha uma alternativa`;
+      const box=$('duelHints');box.innerHTML='';box.classList.add('duel-quiz-options');
+      (q.options||[]).forEach((option,i)=>{const b=document.createElement('button');b.className='duel-quiz-option';b.innerHTML=`<span>${String.fromCharCode(65+i)}</span><b>${esc(option)}</b>`;b.onclick=()=>submit(option,false);box.appendChild(b);});
+      if(inputWrap)inputWrap.classList.add('hidden');if(sendBtn)sendBtn.classList.add('hidden');if(skipBtn){skipBtn.classList.remove('hidden');skipBtn.textContent='PULAR';}
+      if(guessBox)guessBox.classList.add('duel-quiz-guessbox');
+      $('duelFeedback').textContent='Uma resposta por rodada. Acerte antes dos outros jogadores.';
+      setAnswerLocked(roundState()!=='playing'||!ownsSession()||Boolean(me()?.roundSolved)||Boolean(me()?.eliminated));
+      return;
+    }
+
+    $('duelHints')?.classList.remove('duel-quiz-options');if(inputWrap)inputWrap.classList.remove('hidden');if(sendBtn)sendBtn.classList.remove('hidden');if(skipBtn){skipBtn.classList.remove('hidden');skipBtn.textContent='PULAR RODADA';}if(guessBox)guessBox.classList.remove('duel-quiz-guessbox');
+
     const imageAllowed=q.challenge!=='blind'&&await probe(q.image);
     img.classList.toggle('hidden',!imageAllowed);
     cover.classList.toggle('hidden',imageAllowed);
@@ -727,7 +755,7 @@
     if(imageAllowed){
       img.src=q.image;
       img.classList.toggle('silhouette',q.challenge==='silhouette');
-      prepareDuelMosaic(q,q.challenge==='image');
+      prepareDuelMosaic(q,q.challenge!=='blind');
       updateDuelMosaic(q,me());
     }else{
       prepareDuelMosaic(q,false);
@@ -817,10 +845,10 @@
           if(skip){
             p.roundSolved=true;
             p.roundResult='skip';
-
-            // Marca a rodada inteira. A resposta correta só será
-            // exibida quando TODOS os jogadores ativos terminarem.
             r.roundHadSkip=true;
+          }else if(q.kind==='quiz'){
+            p.roundSolved=true;
+            p.roundResult='failed';
           }else if(!withLives&&p.roundWrong>=3){
             p.roundSolved=true;
             p.roundResult='failed';
@@ -861,6 +889,10 @@
           $('duelFeedback').innerHTML=duelUsesLives()
             ? '⏭️ Você pulou a rodada e perdeu <strong>1 ❤️</strong>.'
             : '⏭️ Você pulou a rodada.';
+        }else if(q.kind==='quiz'){
+          $('duelFeedback').innerHTML=duelUsesLives()
+            ? '❌ Resposta incorreta. <strong>-1 ❤️</strong> Aguarde os outros jogadores.'
+            : '❌ Resposta incorreta. Aguarde os outros jogadores.';
         }else{
           $('duelFeedback').innerHTML=duelUsesLives()
             ? '❌ Resposta incorreta. <strong>-1 ❤️</strong>'
@@ -945,7 +977,7 @@
         if(!activeNow.every(p=>p.roundSolved))return r;
         const t=now();
         r.roundState='revealing';
-        r.revealUntil=t+(r.roundHadSkip?4000:1200);
+        const qNow=(r.questions||[])[expected];r.revealUntil=t+(qNow?.kind==='quiz'?3000:(r.roundHadSkip?4000:1200));
         r.roundDeadline=0;
         r.lastEvent={type:'reveal',round:expected,at:t};
         return r;
@@ -1018,7 +1050,7 @@
     const p=CORE()?.getProfile?.()||{},mine=me(),winner=room.winnerUid,tie=winner==='tie',won=winner===user().uid;
     p.duelPlayed=Number(p.duelPlayed||0)+1;if(won)p.duelWins=Number(p.duelWins||0)+1;else if(!tie)p.duelLosses=Number(p.duelLosses||0)+1;
     p.duelBestScore=Math.max(Number(p.duelBestScore||0),Number(mine?.score||0));
-    window.GameGuessRanked?.record?.(p,{kind:'arena',score:Number(mine?.score||0),mode:arenaName(playerList().filter(x=>!x.left).length),universe:room.config?.universe||'random',challenge:room.config?.challenge||'random',difficulty:room.config?.difficulty||'normal',correct:Number(mine?.correct||0),wrong:Number(mine?.wrong||0),won,tie,players:playerList().filter(x=>!x.left).length});
+    window.GameGuessRanked?.record?.(p,{kind:'arena',score:Number(mine?.score||0),mode:arenaName(playerList().filter(x=>!x.left).length),universe:room.config?.universe||'random',challenge:(room.config?.universe==='quiz'?(room.config?.category||'misto'):(room.config?.challenge||'random')),difficulty:room.config?.difficulty||'normal',correct:Number(mine?.correct||0),wrong:Number(mine?.wrong||0),won,tie,players:playerList().filter(x=>!x.left).length});
     CORE()?.replaceProfile?.(p);CORE()?.saveProfile?.();FB()?.syncLocalProfile?.(p);
   }
 
@@ -1114,6 +1146,8 @@
 
   function bind(){
     ensureArenaUI();
+    const syncQuizArenaFields=()=>{const quiz=$('duelUniverseSelect')?.value==='quiz';$('duelQuizCategoryField')?.classList.toggle('hidden',!quiz);const challengeField=$('duelChallengeSelect')?.closest('label');challengeField?.classList.toggle('hidden',quiz);};
+    $('duelUniverseSelect')?.addEventListener('change',syncQuizArenaFields);syncQuizArenaFields();
 
     $('duelButton')?.addEventListener('click',openLobby);
     $('homeDuelButton')?.addEventListener('click',openLobby);

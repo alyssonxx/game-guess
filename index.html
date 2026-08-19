@@ -4,12 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#090b18">
-  <title>Game Guess V12.3 — Mobile Compatibility</title>
+  <title>Game Guess V13 — Quiz Mundial</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/styles.css?v=12.4.0">
+  <link rel="stylesheet" href="/styles.css?v=13.0.0">
 </head>
 <body>
   <div class="bg-grid"></div>
@@ -21,7 +21,7 @@
     <header class="topbar">
       <button class="brand" id="brandButton" aria-label="Voltar ao menu principal">
         <span class="brand-icon">🎮</span>
-        <span><b>GAME GUESS</b><small>SEASONS + MOBILE V12.3</small></span>
+        <span><b>GAME GUESS</b><small>QUIZ MUNDIAL + ARENA V13</small></span>
       </button>
       <div class="top-actions">
         <span class="status-pill" id="apiStatus"><i></i> Pronto</span>
@@ -39,7 +39,7 @@
       <div class="hero">
         <p class="eyebrow">ADIVINHE. ARRISQUE. FAÇA COMBO.</p>
         <h1>Quanto você conhece de <span>games e personagens?</span></h1>
-        <p>Games, campeões, Pokémon, Digimon, Dragon Ball, Yu-Gi-Oh!, Naruto, Cavaleiros do Zodíaco, TV clássica, ranking global e duelos 1x1 em tempo real.</p>
+        <p>Games, personagens, Termo, Quiz Mundial, conhecimentos gerais, ranking por temporada e Arena online com até 8 jogadores.</p>
         <div class="hero-stats">
           <div><b id="homeBestStreak">0</b><span>Melhor sequência</span></div>
           <div><b id="homeAccuracy">0%</b><span>Taxa de acerto</span></div>
@@ -49,6 +49,19 @@
       </div>
 
       <div class="mode-grid" id="modeGrid"></div>
+
+      <section class="quiz-home-banner">
+        <div class="quiz-home-icon">🧠</div>
+        <div class="quiz-home-copy">
+          <p class="eyebrow">🌍 QUIZ MUNDIAL</p>
+          <h2>Perguntas de tudo um pouco</h2>
+          <p>Jogue com categorias aleatórias ou escolha História, Geografia, Matemática, Português, Ciências, Filmes, Games, Desenhos & Anime, Esportes, Tecnologia, Música e muito mais.</p>
+        </div>
+        <div class="quiz-home-actions">
+          <button class="primary-btn" id="homeQuizButton">🧠 JOGAR QUIZ</button>
+          <button class="secondary-btn" id="homeQuizArenaButton">⚔️ QUIZ NA ARENA</button>
+        </div>
+      </section>
 
       <section class="online-arena-banner">
         <div>
@@ -71,7 +84,34 @@
 
       <div class="home-footer">
         <button class="secondary-btn" id="tutorialButton">❔ Como jogar</button>
-        <span>Jogos: IGDB • LoL: Riot • Pokémon: PokéAPI • Digimon: DAPI • animes/desenhos: curadoria + Wikipedia/Fandom • Termo Arcade: palavras locais.</span>
+        <span>Jogos: IGDB • LoL: Riot • Pokémon: PokéAPI • Digimon: DAPI • animes/desenhos: curadoria + Wikipedia/Fandom • Termo Arcade: palavras locais • Quiz Mundial: banco PT-BR local.</span>
+      </div>
+    </section>
+
+    <section class="screen" id="quizSetupScreen">
+      <div class="section-heading quiz-section-heading">
+        <button class="back-link" id="quizBackButton">← Voltar</button>
+        <div><p class="eyebrow">🧠 QUIZ MUNDIAL</p><h2>Escolha como quer jogar</h2><p>Responda perguntas de múltipla escolha em português. A pontuação entra no ranking da temporada.</p></div>
+      </div>
+      <div class="quiz-setup-layout">
+        <div class="quiz-setup-main">
+          <div class="setup-card"><div class="setup-card-title"><span>🌍 Categoria</span><small>Aleatório mistura tudo</small></div><div class="quiz-choice-grid" id="quizCategoryChoices"></div></div>
+          <div class="setup-card"><div class="setup-card-title"><span>🎯 Dificuldade</span><small>Altera tempo e pontuação</small></div><div class="quiz-choice-grid quiz-diff-grid" id="quizDifficultyChoices"></div></div>
+          <div class="setup-card"><div class="setup-card-title"><span>🔢 Quantidade</span><small>5 a 20 perguntas</small></div><select class="quiz-select" id="quizQuestionCount"><option value="5">5 perguntas</option><option value="10" selected>10 perguntas</option><option value="15">15 perguntas</option><option value="20">20 perguntas</option></select></div>
+        </div>
+        <aside class="setup-summary"><div class="summary-icon">🧠</div><h3>Quiz Mundial</h3><div class="summary-list" id="quizSetupSummary"></div><button class="primary-btn huge" id="quizStartButton">COMEÇAR QUIZ ▶</button><small>Cada acerto vale pontos; respostas rápidas e sequências aumentam a pontuação.</small></aside>
+      </div>
+    </section>
+
+    <section class="screen quiz-game-screen" id="quizGameScreen">
+      <div class="quiz-game-topbar">
+        <button class="back-link" id="quizQuitButton">← Sair</button>
+        <div class="quiz-game-metrics"><span id="quizCategoryBadge">🌍 Geral</span><span>🎯 <b id="quizRound">1 / 10</b></span><span>⭐ <b id="quizScore">0</b></span><span id="quizStreak">🔥 0</span><span id="quizTimer">⏱️ 20</span></div>
+      </div>
+      <div class="quiz-stage">
+        <div class="quiz-question-card"><p class="eyebrow">PERGUNTA</p><h2 id="quizQuestion">Carregando pergunta...</h2></div>
+        <div class="quiz-options" id="quizOptions"></div>
+        <div class="quiz-feedback" id="quizFeedback">Escolha uma alternativa.</div>
       </div>
     </section>
 
@@ -322,9 +362,10 @@
         <div class="duel-panel">
           <span class="duel-panel-icon">⚔️</span><h3>Criar sala</h3>
           <label>Universo<select id="duelUniverseSelect">
-            <option value="random">🌌 Caos Multiverso</option><option value="games">🎮 Games IGDB</option><option value="dragonball">🐉 Dragon Ball</option><option value="naruto">🍥 Naruto</option><option value="yugioh">🃏 Yu-Gi-Oh!</option><option value="saintseiya">♈ Cavaleiros</option><option value="lol">⚔️ League of Legends</option><option value="pokemon">🔴 Pokémon</option><option value="digimon">🔵 Digimon</option><option value="cartoons">📺 Desenhos clássicos</option><option value="globinho">☀️ TV Globinho</option>
+            <option value="random">🌌 Caos Multiverso</option><option value="games">🎮 Games IGDB</option><option value="dragonball">🐉 Dragon Ball</option><option value="naruto">🍥 Naruto</option><option value="yugioh">🃏 Yu-Gi-Oh!</option><option value="saintseiya">♈ Cavaleiros</option><option value="lol">⚔️ League of Legends</option><option value="pokemon">🔴 Pokémon</option><option value="digimon">🔵 Digimon</option><option value="cartoons">📺 Desenhos clássicos</option><option value="globinho">☀️ TV Globinho</option><option value="quiz">🧠 Quiz Mundial</option>
           </select></label>
           <label>Dificuldade<select id="duelDifficultySelect"><option value="easy">🌱 Fácil</option><option value="normal" selected>🎯 Normal</option><option value="hard">🔥 Difícil</option><option value="insane">💀 Insano</option></select></label>
+          <label id="duelQuizCategoryField" class="hidden">Categoria do Quiz<select id="duelQuizCategorySelect"><option value="random">🎲 Aleatório</option><option value="geral">🌍 Conhecimentos Gerais</option><option value="historia">🏛️ História</option><option value="geografia">🗺️ Geografia</option><option value="matematica">➗ Matemática</option><option value="portugues">📚 Português</option><option value="ciencias">🔬 Ciências</option><option value="filmes">🎬 Filmes & Séries</option><option value="games">🎮 Games</option><option value="desenhos">📺 Desenhos & Anime</option><option value="esportes">⚽ Esportes</option><option value="tecnologia">💻 Tecnologia</option><option value="musica">🎵 Música</option></select></label>
           <label>Tipo de desafio<select id="duelChallengeSelect"><option value="random">🎲 Aleatório</option><option value="image">🧩 Imagem</option><option value="ability">💥 Habilidade</option><option value="origin">🌍 Origem/Nação</option><option value="group">🛡️ Grupo/Afiliação</option><option value="era">🕰️ Saga/Geração</option><option value="role">🎭 Classe/Papel</option><option value="dossier">🕵️ Dossiê</option><option value="blind">🧠 Só pistas</option></select></label>
           <button class="primary-btn huge" id="createDuelButton">CRIAR SALA</button>
         </div>
@@ -511,6 +552,12 @@
     </div>
   </div>
 
+  <div class="overlay" id="quizResultOverlay" aria-hidden="true">
+    <div class="result-modal quiz-result-modal">
+      <div class="result-icon">🧠</div><p class="eyebrow">QUIZ FINALIZADO</p><h2 id="quizResultTitle">Mandou bem!</h2><div class="quiz-result-score" id="quizResultScore">0 pts</div><div class="quiz-result-stats" id="quizResultStats"></div><div class="modal-actions"><button class="primary-btn" id="quizResultAgain">JOGAR DE NOVO</button><button class="secondary-btn" id="quizResultHome">VOLTAR AO INÍCIO</button></div>
+    </div>
+  </div>
+
   <div class="overlay" id="confirmOverlay" aria-hidden="true">
     <div class="panel-modal compact">
       <div class="result-icon">🚪</div>
@@ -526,8 +573,10 @@
   <script src="/firebase-config.js?v=12.0.0" defer></script>
   <script src="/app.js?v=12.3.0" defer></script>
   <script src="/multiverse.js?v=12.3.0" defer></script>
-  <script src="/termo.js?v=12.5.0" defer></script>
-  <script type="module" src="/firebase.js?v=12.4.0"></script>
-  <script src="/duel.js?v=12.2.0" defer></script>
+  <script src="/termo.js?v=12.6.0" defer></script>
+  <script src="/quiz-bank.js?v=13.0.0" defer></script>
+  <script src="/quiz.js?v=13.0.0" defer></script>
+  <script type="module" src="/firebase.js?v=13.0.0"></script>
+  <script src="/duel.js?v=13.0.0" defer></script>
 </body>
 </html>

@@ -281,3 +281,110 @@ button,.termo-tile,.termo-key,.choice-btn,.select-btn,.hint-btn{
     transition:none !important;
   }
 }
+
+
+/* =========================================================
+   V12.4 — Termo motion + teclado sem puxar a tela
+========================================================= */
+.termo-tile.typed-pulse{animation:termoTypeSoft .22s cubic-bezier(.2,.8,.2,1) !important;border-color:#77f0bd !important;box-shadow:0 0 0 2px rgba(99,230,165,.10),0 5px 14px rgba(0,0,0,.16) !important}
+.termo-board-wrap.just-solved{animation:termoSolvedBoard .7s cubic-bezier(.2,.8,.2,1) !important;border-color:rgba(99,230,165,.72) !important}
+.termo-row.winning-row .termo-tile.win-tile{animation:termoWinTile .55s cubic-bezier(.18,.9,.25,1) var(--win-delay,0ms) both !important}
+.termo-message.pulse{animation:termoMessageSoft .24s ease !important}
+@keyframes termoTypeSoft{0%{transform:scale(.88);opacity:.5}55%{transform:scale(1.045)}100%{transform:scale(1);opacity:1}}
+@keyframes termoSolvedBoard{0%{transform:scale(.985);box-shadow:0 0 0 rgba(99,230,165,0)}50%{transform:scale(1.012);box-shadow:0 0 28px rgba(99,230,165,.18)}100%{transform:scale(1);box-shadow:inset 0 0 25px rgba(99,230,165,.04)}}
+@keyframes termoWinTile{0%{transform:translateY(0) scale(1)}40%{transform:translateY(-7px) scale(1.06)}70%{transform:translateY(2px) scale(.99)}100%{transform:translateY(0) scale(1)}}
+@keyframes termoMessageSoft{from{opacity:.45;transform:translateY(4px)}to{opacity:1;transform:none}}
+.termo-native-input{position:fixed !important;left:50% !important;top:45dvh !important;bottom:auto !important;width:16px !important;height:16px !important;transform:translate(-50%,-50%) !important;opacity:.001 !important;z-index:1 !important}
+body[data-gg-keyboard-lock="1"]{overscroll-behavior:none !important;touch-action:pan-x !important}
+.termo-screen.native-keyboard-open{min-height:var(--gg-visual-height,100dvh)}
+@media(prefers-reduced-motion:reduce){.termo-tile.typed-pulse,.termo-board-wrap.just-solved,.termo-row.winning-row .termo-tile.win-tile,.termo-message.pulse{animation:none !important}}
+
+
+/* ===== V12.6 — Termo estilo termo.ooo com cores do Game Guess ===== */
+.termo-screen{padding:18px 16px 44px !important;min-height:100dvh;background:
+  radial-gradient(circle at 50% -10%, rgba(68,214,255,.09), transparent 38%),
+  linear-gradient(180deg, rgba(10,17,31,.98), rgba(7,12,24,1)) !important;}
+.termo-screen:before,.termo-screen:after{display:none !important}
+.termo-toolbar{max-width:900px !important;margin:0 auto 16px !important;display:flex !important;flex-direction:column !important;align-items:center !important;gap:10px !important}
+.termo-toolbar .back-link{align-self:flex-start !important}
+.termo-title-wrap{text-align:center !important;max-width:760px}
+.termo-title-wrap .eyebrow{font:800 .82rem 'Rajdhani',sans-serif !important;letter-spacing:.18em;color:#7fe8ff !important;margin-bottom:4px}
+.termo-title-wrap h2{font:900 clamp(2rem,5vw,3.3rem) 'Rajdhani',sans-serif !important;letter-spacing:.06em !important;color:#f4fbff !important;text-transform:uppercase}
+.termo-title-wrap h2 span{color:#63e6a5 !important}
+.termo-title-wrap > p:last-child{max-width:640px;margin:4px auto 0;color:#91a0bd !important;font-size:.98rem}
+.termo-stats{justify-content:center !important;gap:8px !important}
+.termo-stats span{border:1px solid rgba(109,126,162,.32) !important;background:#0f1628 !important;border-radius:999px !important;padding:8px 12px !important;font:700 .86rem 'Rajdhani',sans-serif !important;color:#edf7ff !important}
+.termo-layout{display:block !important;max-width:900px !important;margin:0 auto !important}
+.termo-side-card{display:none !important}
+.termo-main-card{padding:0 !important;border:none !important;background:transparent !important;box-shadow:none !important}
+.termo-mode-switch{max-width:580px !important;grid-template-columns:repeat(3,minmax(0,1fr)) !important;gap:8px !important;margin:0 auto 14px !important}
+.termo-mode-btn{border-radius:12px !important;border:1px solid rgba(90,108,146,.42) !important;background:#11192b !important;padding:10px 12px !important;text-align:center !important}
+.termo-mode-btn b{font:900 .9rem 'Rajdhani',sans-serif !important;letter-spacing:.03em}
+.termo-mode-btn small{font-size:.76rem !important}
+.termo-mode-btn:hover,.termo-mode-btn.active{border-color:#4ad7ff !important;background:rgba(74,215,255,.08) !important;box-shadow:0 0 0 2px rgba(74,215,255,.08) !important}
+.termo-legend{justify-content:center !important;gap:12px !important;margin:6px auto 14px !important;color:#96a4bf !important;font:700 .88rem 'Rajdhani',sans-serif !important}
+.termo-boards{gap:18px !important;justify-content:center !important}
+.termo-boards.mode-single{max-width:100% !important}
+.termo-board-wrap{background:transparent !important;border:none !important;padding:0 !important;box-shadow:none !important}
+.termo-board-head{justify-content:center !important;padding:0 0 10px !important;color:#9aa7c2 !important}
+.termo-board-head b{font:900 .8rem 'Rajdhani',sans-serif !important;letter-spacing:.1em;color:#d9f6ff !important}
+.termo-board-head span{font:700 .8rem 'Rajdhani',sans-serif !important}
+.termo-board{width:min(100%,340px) !important;gap:6px !important}
+.termo-row{gap:6px !important}
+.termo-tile{aspect-ratio:1 !important;border-radius:6px !important;border:2px solid rgba(174,188,219,.18) !important;background:#11192c !important;color:#f5fbff !important;box-shadow:none !important;font:900 clamp(1.35rem,4vw,2.08rem) 'Rajdhani',sans-serif !important;letter-spacing:.02em !important;text-transform:uppercase;transform-style:preserve-3d;backface-visibility:hidden}
+.termo-row.editing .termo-tile{cursor:pointer}
+.termo-tile.filled{border-color:#7e91ba !important;background:#16233d !important}
+.termo-tile.selected{border-color:#4ad7ff !important;box-shadow:0 0 0 3px rgba(74,215,255,.1), inset 0 0 18px rgba(74,215,255,.05) !important}
+.termo-tile.correct{--tile-final:#2a9f67;background:#2a9f67 !important;border-color:#2a9f67 !important;color:#fff !important}
+.termo-tile.present{--tile-final:#c99a28;background:#c99a28 !important;border-color:#c99a28 !important;color:#fff !important}
+.termo-tile.absent{--tile-final:#33415d;background:#33415d !important;border-color:#33415d !important;color:#fff !important}
+.termo-row.reveal-row .termo-tile{animation:termoRevealGuess .62s cubic-bezier(.25,.8,.25,1) var(--flip-delay,0ms) both !important}
+.termo-row.winning-row .termo-tile.win-tile{animation:termoWinBounce .52s cubic-bezier(.17,.9,.25,1) calc(var(--flip-delay,0ms) + 780ms) both !important}
+@keyframes termoRevealGuess{0%{transform:rotateX(0deg);background:#16233d;border-color:#7e91ba;color:#f5fbff}45%{transform:rotateX(90deg);background:#16233d;border-color:#7e91ba;color:transparent}55%{transform:rotateX(90deg);background:var(--tile-final,#16233d);border-color:var(--tile-final,#16233d);color:transparent}100%{transform:rotateX(0deg);background:var(--tile-final,#16233d);border-color:var(--tile-final,#16233d);color:#fff}}
+@keyframes termoWinBounce{0%{transform:translateY(0)}35%{transform:translateY(-10px)}60%{transform:translateY(0)}80%{transform:translateY(-4px)}100%{transform:translateY(0)}}
+.termo-edit-help{max-width:640px !important;margin:14px auto 8px !important;background:transparent !important;border:none !important;color:#9aacbf !important;font:700 .86rem 'Rajdhani',sans-serif !important}
+.termo-message{max-width:640px !important;margin:0 auto 10px !important;min-height:38px !important;border-radius:10px !important;background:transparent !important;font:700 .94rem 'Rajdhani',sans-serif !important}
+.termo-message.success{background:rgba(42,159,103,.09) !important}.termo-message.error{background:rgba(255,102,121,.08) !important}
+.termo-keyboard{max-width:660px !important;margin:8px auto 0 !important;display:grid !important;gap:8px !important}
+.termo-key-row{display:flex !important;justify-content:center !important;gap:6px !important}
+.termo-key{min-width:42px !important;height:56px !important;border-radius:6px !important;border:1px solid rgba(174,188,219,.2) !important;background:#1b2437 !important;color:#fff !important;font:900 1.12rem 'Rajdhani',sans-serif !important;letter-spacing:.02em !important;box-shadow:none !important}
+.termo-key:hover{transform:translateY(-1px) !important;border-color:#4ad7ff !important}
+.termo-key.wide{min-width:82px !important;font-size:.95rem !important}
+.termo-key.correct{background:#2a9f67 !important;border-color:#2a9f67 !important}.termo-key.present{background:#c99a28 !important;border-color:#c99a28 !important}.termo-key.absent{background:#33415d !important;border-color:#33415d !important;color:#c2ccde !important}
+.termo-actions{gap:10px !important;margin-top:18px !important}
+.termo-actions button{min-height:46px !important;border-radius:12px !important}
+.termo-input-tools{margin:8px 0 4px !important}
+@media (max-width: 760px){
+  .termo-title-wrap > p:last-child{font-size:.9rem !important}
+  .termo-mode-switch{grid-template-columns:1fr !important;max-width:360px !important}
+  .termo-stats{gap:6px !important}
+  .termo-stats span{padding:7px 10px !important;font-size:.82rem !important}
+  .termo-board{width:min(100%,320px) !important}
+  .termo-key{height:50px !important;min-width:0 !important;flex:1 1 0 !important;font-size:1rem !important}
+  .termo-key.wide{flex:1.45 1 0 !important;font-size:.82rem !important}
+}
+@media (max-width: 480px){
+  .termo-screen{padding:12px 10px 28px !important}
+  .termo-toolbar{gap:8px !important;margin-bottom:10px !important}
+  .termo-title-wrap h2{font-size:2rem !important}
+  .termo-title-wrap > p:last-child{display:none !important}
+  .termo-legend{font-size:.8rem !important;gap:8px !important}
+  .termo-board{width:min(100%,300px) !important}
+  .termo-tile{font-size:1.35rem !important}
+  .termo-edit-help{font-size:.78rem !important}
+  .termo-keyboard{gap:6px !important}
+  .termo-key-row{gap:4px !important}
+  .termo-key{height:46px !important;font-size:.92rem !important}
+  .termo-key.wide{font-size:.72rem !important}
+}
+
+/* ===== V13 — Quiz Mundial ===== */
+.quiz-home-banner{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:18px;align-items:center;margin:22px 0;padding:22px;border:1px solid rgba(89,220,255,.2);border-radius:22px;background:linear-gradient(135deg,rgba(12,35,58,.88),rgba(28,16,54,.88));box-shadow:0 18px 48px rgba(0,0,0,.2)}
+.quiz-home-icon{font-size:3.2rem;width:74px;height:74px;display:grid;place-items:center;border-radius:20px;background:rgba(66,232,255,.08);border:1px solid rgba(66,232,255,.16)}
+.quiz-home-copy h2{font:800 clamp(1.35rem,3vw,2rem) 'Orbitron',sans-serif;margin:2px 0 7px}.quiz-home-copy>p:last-child{color:#9da9c6;line-height:1.4}.quiz-home-actions{display:flex;gap:9px;flex-wrap:wrap;justify-content:flex-end}
+.quiz-setup-layout{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:20px;align-items:start}.quiz-setup-main{display:grid;gap:14px}.quiz-choice-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:9px}.quiz-diff-grid{grid-template-columns:repeat(3,1fr)}
+.quiz-choice{border:1px solid #34405f;background:#131a2f;color:#eef5ff;border-radius:13px;padding:13px 12px;cursor:pointer;text-align:left;transition:.18s}.quiz-choice:hover{transform:translateY(-1px);border-color:#55dfff}.quiz-choice.active{border-color:#55dfff;background:linear-gradient(145deg,rgba(34,84,105,.72),rgba(22,33,62,.94));box-shadow:inset 0 0 20px rgba(85,223,255,.07)}.quiz-choice span{font-size:1.35rem}.quiz-choice b{display:block;margin-top:7px}.quiz-choice small{color:#8190af}.quiz-select{width:100%;border:1px solid #34405f;background:#10172a;color:#fff;border-radius:12px;padding:13px 14px;outline:none}
+.quiz-game-topbar{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin:18px 0}.quiz-game-metrics{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.quiz-game-metrics>span{border:1px solid #303c5c;background:#11192d;border-radius:999px;padding:8px 12px;color:#dfe8fb;font-weight:700}.quiz-stage{width:min(900px,100%);margin:28px auto 0}.quiz-question-card{border:1px solid #334362;border-radius:22px;padding:26px;background:linear-gradient(145deg,rgba(18,30,53,.96),rgba(12,17,34,.98));box-shadow:0 20px 50px rgba(0,0,0,.22)}.quiz-question-card h2{font:800 clamp(1.45rem,3.4vw,2.4rem) 'Rajdhani',sans-serif;line-height:1.18;margin-top:4px}.quiz-options{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0}.quiz-option{border:1px solid #33415e;background:#151d32;color:#f4f7ff;border-radius:15px;padding:16px;text-align:left;cursor:pointer;display:flex;align-items:center;gap:12px;min-height:72px;transition:.18s}.quiz-option:hover:not(:disabled){transform:translateY(-2px);border-color:#56dfff}.quiz-option>span{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:#202b46;color:#6fe9ff;font:800 .9rem 'Orbitron'}.quiz-option b{font-size:1.06rem}.quiz-option.correct{border-color:#43d993;background:rgba(31,128,88,.35)}.quiz-option.wrong{border-color:#ff6b7d;background:rgba(139,43,58,.36)}.quiz-option:disabled{cursor:default}.quiz-feedback{min-height:48px;padding:12px 14px;border-radius:12px;text-align:center;color:#9daac5}.quiz-feedback.success{color:#7df4bd;background:rgba(46,176,118,.08)}.quiz-feedback.error{color:#ff9baa;background:rgba(255,92,112,.08)}.quiz-result-score{text-align:center;font:900 2.2rem 'Orbitron';color:#5ef1c2;margin:10px 0 18px}.quiz-result-stats{display:grid;grid-template-columns:1fr 1fr;gap:9px}.quiz-result-stats>div{border:1px solid #2d3856;border-radius:12px;padding:11px 13px;background:#10172a;display:flex;justify-content:space-between;gap:12px}.quiz-result-stats span{color:#8897b5}
+.duel-quiz-options{display:grid!important;grid-template-columns:1fr 1fr!important;gap:10px!important;margin:12px 0!important}.duel-quiz-option{border:1px solid #33415f;background:#151d32;color:#f4f7ff;border-radius:13px;padding:13px;cursor:pointer;display:flex;align-items:center;gap:10px;text-align:left;transition:.18s}.duel-quiz-option:hover:not(:disabled){border-color:#56dfff;transform:translateY(-1px)}.duel-quiz-option:disabled{opacity:.64;cursor:default}.duel-quiz-option>span{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;background:#202b46;color:#69e8ff;font:800 .75rem 'Orbitron'}.duel-quiz-option b{font-size:.98rem}.duel-quiz-guessbox{grid-template-columns:1fr!important}.duel-quiz-guessbox .skip-btn{justify-self:end}
+@media(max-width:850px){.quiz-home-banner{grid-template-columns:auto 1fr}.quiz-home-actions{grid-column:1/-1;justify-content:flex-start}.quiz-setup-layout{grid-template-columns:1fr}.quiz-diff-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:620px){.quiz-home-banner{grid-template-columns:1fr}.quiz-home-icon{width:58px;height:58px;font-size:2.4rem}.quiz-choice-grid{grid-template-columns:1fr 1fr}.quiz-diff-grid{grid-template-columns:1fr}.quiz-options,.duel-quiz-options{grid-template-columns:1fr!important}.quiz-option{min-height:62px;padding:13px}.quiz-question-card{padding:20px}.quiz-game-topbar{align-items:flex-start}.quiz-game-metrics{width:100%}.quiz-result-stats{grid-template-columns:1fr}}
