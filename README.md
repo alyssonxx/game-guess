@@ -1,41 +1,32 @@
-# Game Guess V7 — Multiverso Caos
+# Game Guess V10 — Online Arena
 
-Jogo web para Vercel com videogames via IGDB e um multiverso de personagens.
+Versão ampliada do Game Guess com Games IGDB, Multiverso, Termo Arcade, contas Firebase, ranking global e duelo 1x1 em tempo real.
 
-## Universos
-- Videogames / IGDB + Famosos no Brasil
-- League of Legends
-- Pokémon
-- Digimon
-- Dragon Ball — 109 personagens/variações
-- Yu-Gi-Oh! — 69 personagens/variações
-- Naruto — 104 personagens/variações
-- Cavaleiros do Zodíaco — 101 personagens
-- Desenhos clássicos
-- TV Globinho
-- Caos Multiverso
-- Termo Arcade ∞
+## Destaques
+- 3 vidas somente nas dificuldades **Difícil** e **Insano**.
+- Fácil e Normal usam tentativas por rodada, sem corações.
+- Perguntas e pistas específicas para cada franquia/universo.
+- Registro/login com Firebase Authentication.
+- Progresso sincronizado e ranking global.
+- Duelo 1x1: Difícil/Insano usam 3 vidas; Fácil/Normal usam 3 tentativas por rodada.
+- Dragon Ball, Naruto, Yu-Gi-Oh!, Cavaleiros, Pokémon, Digimon, LoL, desenhos, TV Globinho e Games.
+- Termo Arcade sem vidas: **Uma Palavra (6)**, **Dueto (7)** e **Quarteto (9)** tentativas.
+- Palavra inexistente no Termo é rejeitada sem gastar tentativa.
 
-## Desafios de personagem
-- 🧩 Mosaico
-- 💥 Habilidade / técnica
-- 🌍 Origem / nação / vila / universo
-- 🕵️ Dossiê
-- 🧠 Só pistas
-- 🎲 Aleatório
+## Antes de publicar
+Leia **FIREBASE-SETUP.md** e preencha `firebase-config.js`.
 
-## Modos
-- Clássico
-- Survival
-- Blitz
-- Caos
-
-## Compatibilidade
-As imagens externas passam por `/api/asset`. Se uma fonte externa falhar, a API devolve uma imagem de fallback do próprio Game Guess, então a rodada continua jogável por pistas. Progresso e conquistas ficam em `localStorage`.
-
-## Vercel
-Mantenha:
+O backend IGDB continua usando as variáveis já existentes:
 - `IGDB_CLIENT_ID`
 - `IGDB_CLIENT_SECRET`
 
-Nenhuma chave nova é necessária para os universos de personagens.
+## Atualização via Git
+
+```bash
+git add .
+git commit -m "Game Guess V10 Termo Multi"
+git push origin main
+```
+
+## Segurança
+O ranking é apropriado para uso casual. Para competição com prêmio ou proteção forte contra adulteração do próprio cliente, valide pontuações/resultados em backend confiável.

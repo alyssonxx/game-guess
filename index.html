@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#090b18">
-  <title>Game Guess V7 — Multiverso Caos</title>
+  <title>Game Guess V10 — Online Arena</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -21,12 +21,15 @@
     <header class="topbar">
       <button class="brand" id="brandButton" aria-label="Voltar ao menu principal">
         <span class="brand-icon">🎮</span>
-        <span><b>GAME GUESS</b><small>MULTIVERSO V7</small></span>
+        <span><b>GAME GUESS</b><small>ONLINE ARENA V10</small></span>
       </button>
       <div class="top-actions">
         <span class="status-pill" id="apiStatus"><i></i> Pronto</span>
         <button class="mini-pill" id="coinsTop" title="Moedas">🪙 <b>0</b></button>
         <button class="mini-pill" id="recordTop" title="Recorde">🏆 <b>0</b></button>
+        <button class="mini-pill online-pill" id="duelButton" title="Duelo 1x1">⚔️ <b>1x1</b></button>
+        <button class="mini-pill" id="rankingButton" title="Ranking global">🌍 <b>Ranking</b></button>
+        <button class="mini-pill account-pill" id="accountButton" title="Conta"><span>👤</span> <b id="accountLabel">Entrar</b></button>
         <button class="icon-btn" id="achievementsButton" title="Conquistas">🏅</button>
         <button class="icon-btn" id="soundButton" title="Som">🔊</button>
       </div>
@@ -36,20 +39,33 @@
       <div class="hero">
         <p class="eyebrow">ADIVINHE. ARRISQUE. FAÇA COMBO.</p>
         <h1>Quanto você conhece de <span>games e personagens?</span></h1>
-        <p>Games, campeões, Pokémon, Digimon, Dragon Ball, Yu-Gi-Oh!, Naruto, TV clássica e um modo de palavras infinito.</p>
+        <p>Games, campeões, Pokémon, Digimon, Dragon Ball, Yu-Gi-Oh!, Naruto, Cavaleiros do Zodíaco, TV clássica, ranking global e duelos 1x1 em tempo real.</p>
         <div class="hero-stats">
           <div><b id="homeBestStreak">0</b><span>Melhor sequência</span></div>
           <div><b id="homeAccuracy">0%</b><span>Taxa de acerto</span></div>
           <div><b id="homeAchievements">0</b><span>Conquistas</span></div>
+          <div><b>3 ❤️</b><span>Vidas em todos os modos</span></div>
         </div>
       </div>
 
       <div class="mode-grid" id="modeGrid"></div>
 
+      <section class="online-arena-banner">
+        <div>
+          <p class="eyebrow">⚡ ONLINE ARENA</p>
+          <h2>Conta, ranking global e duelo 1x1</h2>
+          <p>Entre com sua conta para salvar o progresso na nuvem, disputar posições no ranking e desafiar outro jogador. As 3 vidas aparecem somente no Difícil e Insano.</p>
+        </div>
+        <div class="online-arena-actions">
+          <button class="primary-btn" id="homeDuelButton">⚔️ ENTRAR NO 1x1</button>
+          <button class="secondary-btn" id="homeRankingButton">🌍 VER RANKING</button>
+        </div>
+      </section>
+
       <div class="multiverse-heading">
         <p class="eyebrow">🌌 GAME GUESS MULTIVERSO</p>
         <h2>Outros universos para adivinhar</h2>
-        <p>Descubra campeões, criaturas e personagens com a mesma mecânica de fragmentos e pistas.</p>
+        <p>Descubra campeões, criaturas e personagens por imagem, habilidade, origem, grupo, saga, classe, silhueta ou dossiê — inclusive em Caos, Escalada e Maratona infinita.</p>
       </div>
       <div class="universe-grid" id="universeGrid"></div>
 
@@ -131,7 +147,7 @@
         </div>
         <div class="game-metrics">
           <span id="roundMetric">🎮 1 / 20</span>
-          <span id="livesMetric" class="hidden">❤️❤️❤️</span>
+          <span id="livesMetric">❤️❤️❤️</span>
           <span id="timerMetric" class="timer-metric hidden">⏱️ 30</span>
           <span>⭐ <b id="scoreMetric">0</b></span>
           <span>🪙 <b id="coinsMetric">0</b></span>
@@ -247,7 +263,7 @@
         <div class="game-metrics">
           <span id="universeRoundMetric">🎯 1 / 25</span>
           <span id="universeChallengeMetric">🧩 Mosaico</span>
-          <span id="universeLivesMetric" class="hidden">❤️❤️❤️</span>
+          <span id="universeLivesMetric">❤️❤️❤️</span>
           <span id="universeTimerMetric" class="timer-metric hidden">⏱️ 120</span>
           <span>⭐ <b id="universeScoreMetric">0</b></span>
           <span id="universeStreakMetric">🔥 x1</span>
@@ -278,33 +294,115 @@
       </div>
     </section>
 
+    <section class="screen" id="rankingScreen">
+      <div class="section-heading">
+        <button class="back-link" id="rankingBackButton">← Voltar</button>
+        <div><p class="eyebrow">🌍 RANKING GLOBAL</p><h2>Hall dos jogadores</h2><p>Pontuação combinada de recordes, acertos, sequência e vitórias em duelos.</p></div>
+      </div>
+      <div class="ranking-layout">
+        <div class="ranking-card">
+          <div class="ranking-head"><span>POS</span><span>JOGADOR</span><span>RATING</span><span>1x1</span></div>
+          <div id="rankingList" class="ranking-list"><div class="ranking-empty">Entre na sua conta para carregar o ranking.</div></div>
+        </div>
+        <aside class="ranking-side">
+          <div class="rank-orb">🏆</div>
+          <h3>Sua posição</h3>
+          <div id="myRankCard" class="my-rank-card"><span>Faça login para aparecer no ranking.</span></div>
+          <button class="primary-btn" id="rankingLoginButton">👤 ENTRAR / CRIAR CONTA</button>
+        </aside>
+      </div>
+    </section>
+
+    <section class="screen" id="duelLobbyScreen">
+      <div class="section-heading">
+        <button class="back-link" id="duelBackButton">← Voltar</button>
+        <div><p class="eyebrow">⚔️ DUELO ONLINE 1x1</p><h2>Um contra um. Um vencedor.</h2><p>Os dois recebem a mesma pergunta. No Difícil/Insano cada erro tira 1 das 3 vidas; no Fácil/Normal cada rodada oferece 3 tentativas.</p></div>
+      </div>
+      <div class="duel-lobby-grid">
+        <div class="duel-panel">
+          <span class="duel-panel-icon">⚔️</span><h3>Criar sala</h3>
+          <label>Universo<select id="duelUniverseSelect">
+            <option value="random">🌌 Caos Multiverso</option><option value="games">🎮 Games IGDB</option><option value="dragonball">🐉 Dragon Ball</option><option value="naruto">🍥 Naruto</option><option value="yugioh">🃏 Yu-Gi-Oh!</option><option value="saintseiya">♈ Cavaleiros</option><option value="lol">⚔️ League of Legends</option><option value="pokemon">🔴 Pokémon</option><option value="digimon">🔵 Digimon</option><option value="cartoons">📺 Desenhos clássicos</option><option value="globinho">☀️ TV Globinho</option>
+          </select></label>
+          <label>Dificuldade<select id="duelDifficultySelect"><option value="easy">🌱 Fácil</option><option value="normal" selected>🎯 Normal</option><option value="hard">🔥 Difícil</option><option value="insane">💀 Insano</option></select></label>
+          <label>Tipo de desafio<select id="duelChallengeSelect"><option value="random">🎲 Aleatório</option><option value="image">🧩 Imagem</option><option value="ability">💥 Habilidade</option><option value="origin">🌍 Origem/Nação</option><option value="group">🛡️ Grupo/Afiliação</option><option value="era">🕰️ Saga/Geração</option><option value="role">🎭 Classe/Papel</option><option value="dossier">🕵️ Dossiê</option><option value="blind">🧠 Só pistas</option></select></label>
+          <button class="primary-btn huge" id="createDuelButton">CRIAR SALA</button>
+        </div>
+        <div class="duel-panel">
+          <span class="duel-panel-icon">🔗</span><h3>Entrar com código</h3>
+          <p>Peça o código de 6 caracteres ao outro jogador.</p>
+          <input class="guess-input duel-code-input" id="joinDuelCode" maxlength="6" placeholder="ABC123" autocomplete="off">
+          <button class="secondary-btn huge" id="joinDuelButton">ENTRAR NA SALA</button>
+          <div class="duel-auth-warning" id="duelAuthWarning">Você precisa estar logado para jogar online.</div>
+        </div>
+      </div>
+      <div id="duelRoomWaiting" class="duel-waiting hidden">
+        <div class="duel-room-code"><span>CÓDIGO DA SALA</span><b id="duelRoomCode">------</b><button id="copyDuelCode" class="secondary-btn">📋 Copiar</button></div>
+        <div class="arcade-loader"><span></span><span></span><span></span></div><h3 id="duelWaitingTitle">Esperando adversário...</h3><p id="duelWaitingText">Compartilhe o código acima.</p>
+      </div>
+    </section>
+
+    <section class="screen duel-game-screen" id="duelGameScreen">
+      <div class="duel-topbar">
+        <button class="back-link" id="duelQuitButton">← Abandonar</button>
+        <div class="duel-round-center"><span id="duelRoomBadge">SALA ------</span><b id="duelRoundCounter">RODADA 1 / 15</b><small id="duelChallengeBadge">🎲 Aleatório</small></div>
+        <div class="duel-connection" id="duelConnection">🟢 Online</div>
+      </div>
+      <div class="duel-versus">
+        <div class="duel-player me" id="duelPlayerMe"><span class="avatar">👤</span><div><b id="duelMeName">Você</b><small id="duelMeScore">0 acertos • 0 pts</small></div><strong id="duelMeLives">❤️❤️❤️</strong></div>
+        <div class="duel-vs">VS</div>
+        <div class="duel-player rival" id="duelPlayerRival"><strong id="duelRivalLives">❤️❤️❤️</strong><div><b id="duelRivalName">Rival</b><small id="duelRivalScore">0 acertos • 0 pts</small></div><span class="avatar">🎭</span></div>
+      </div>
+      <div class="duel-board">
+        <div class="duel-visual">
+          <div class="duel-image-shell" id="duelImageShell"><img id="duelQuestionImage" alt="Imagem da rodada"><div class="duel-image-cover" id="duelImageCover">🧠<span>RODADA POR PISTAS</span></div></div>
+          <div class="duel-question-tag" id="duelQuestionSource">MULTIVERSO</div>
+        </div>
+        <div class="duel-play">
+          <p class="eyebrow" id="duelQuestionEyebrow">QUEM É?</p><h2 id="duelQuestionTitle">Descubra antes do seu rival</h2>
+          <div class="hint-display active" id="duelPrimaryHint">A primeira pista aparece aqui.</div>
+          <div class="duel-hints" id="duelHints"></div>
+          <div class="guess-box"><div class="input-wrapper"><input id="duelGuessInput" class="guess-input" placeholder="Digite sua resposta..." autocomplete="off"><div id="duelSuggestions" class="suggestions"></div></div><button id="duelGuessButton" class="primary-btn">ENVIAR</button><button id="duelSkipButton" class="skip-btn">PULAR RODADA</button></div>
+          <div class="duel-feedback" id="duelFeedback">No Difícil/Insano os erros custam vidas; nos demais, custam tentativas da rodada.</div>
+          <div class="duel-wait-opponent hidden" id="duelWaitOpponent">✅ Você acertou esta rodada. Esperando o rival...</div>
+        </div>
+      </div>
+    </section>
+
     <section class="screen termo-screen" id="termoScreen">
       <div class="termo-toolbar">
         <button class="back-link" id="termoQuitButton">← Voltar</button>
         <div class="termo-title-wrap">
           <p class="eyebrow">♾️ DESAFIO DE PALAVRAS</p>
           <h2>TERMO ARCADE <span>∞</span></h2>
-          <p>Descubra uma palavra de 5 letras em até 6 tentativas. Terminou? Outra começa na hora.</p>
+          <p>Escolha entre Uma Palavra, Dueto ou Quarteto. Não há vidas: você perde somente quando o limite de tentativas termina.</p>
         </div>
         <div class="termo-stats">
           <span>✅ <b id="termoWins">0</b></span>
           <span>🔥 <b id="termoStreak">0</b></span>
           <span>🏆 <b id="termoBest">0</b></span>
           <span>⭐ <b id="termoScore">0</b></span>
+          <span id="termoProgress">🎯 0/1 • 0/6</span>
         </div>
       </div>
       <div class="termo-layout">
         <div class="termo-main-card">
+          <div class="termo-mode-switch" id="termoModeSwitch">
+            <button class="termo-mode-btn active" data-termo-mode="single"><b>1️⃣ Uma palavra</b><small>6 tentativas</small></button>
+            <button class="termo-mode-btn" data-termo-mode="duet"><b>2️⃣ Dueto</b><small>2 palavras • 7 tentativas</small></button>
+            <button class="termo-mode-btn" data-termo-mode="quartet"><b>4️⃣ Quarteto</b><small>4 palavras • 9 tentativas</small></button>
+          </div>
           <div class="termo-legend">
             <span><i class="correct"></i> lugar certo</span>
             <span><i class="present"></i> existe em outro lugar</span>
             <span><i class="absent"></i> não está na palavra</span>
           </div>
-          <div class="termo-board" id="termoBoard" aria-label="Tabuleiro do Termo Arcade"></div>
-          <div class="termo-message" id="termoMessage">Digite uma palavra de 5 letras.</div>
+          <div class="termo-boards mode-single" id="termoBoards" aria-label="Tabuleiros do Termo Arcade"></div>
+          <div class="termo-edit-help">⌨️ Digite da esquerda para a direita • clique em qualquer casa • use ← → para mover • Backspace apaga</div><div class="termo-message" id="termoMessage">Digite uma palavra válida de 5 letras.</div>
           <div class="termo-keyboard" id="termoKeyboard"></div>
           <div class="termo-actions">
             <button class="primary-btn hidden" id="termoNextButton">PRÓXIMA PALAVRA ▶</button>
+            <button class="secondary-btn" id="termoClearButton">🧹 Limpar linha</button>
             <button class="secondary-btn" id="termoShareButton">📤 Copiar resultado</button>
             <button class="secondary-btn" id="termoResetButton">🔄 Reiniciar sequência</button>
           </div>
@@ -312,17 +410,47 @@
         <aside class="termo-side-card">
           <div class="termo-infinity">∞</div>
           <h3>Sem palavra do dia</h3>
-          <p>Este modo é infinito: cada rodada sorteia outra palavra comum em português e mantém sua sequência local.</p>
+          <p>Este modo é infinito: cada rodada sorteia uma, duas ou quatro palavras comuns em português. Palpites fora da lista local são validados antes de consumir uma tentativa.</p>
           <div class="termo-side-stats">
             <div><span>Palavras jogadas</span><b id="termoPlayed">0</b></div>
             <div><span>Taxa de acerto</span><b id="termoRate">0%</b></div>
             <div><span>Maior sequência</span><b id="termoSideBest">0</b></div>
           </div>
-          <small>Acentos não alteram a comparação. O visual é próprio do Game Guess; a mecânica segue o formato clássico de palavra de 5 letras com feedback por posição.</small>
+          <small>Acentos não alteram a comparação. Palavras inexistentes não gastam tentativa. Você pode selecionar e editar qualquer posição da linha.</small>
         </aside>
       </div>
     </section>
   </main>
+
+  <div class="overlay" id="duelResultOverlay" aria-hidden="true">
+    <div class="result-modal" id="duelResultModal">
+      <div class="result-icon" id="duelResultIcon">🏆</div>
+      <p class="eyebrow">⚔️ DUELO FINALIZADO</p>
+      <h2 id="duelResultTitle">Vitória!</h2>
+      <div class="duel-final-score" id="duelFinalScore"></div>
+      <div class="reward-line" id="duelResultMessage"></div>
+      <div class="modal-actions"><button class="primary-btn" id="duelRematchButton">NOVA SALA ⚔️</button><button class="secondary-btn" id="duelHomeButton">VOLTAR AO MENU</button></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="authOverlay" aria-hidden="true">
+    <div class="panel-modal auth-modal">
+      <button class="modal-close" id="authCloseButton">×</button>
+      <p class="eyebrow">👤 GAME GUESS ID</p><h2 id="authTitle">Entrar</h2>
+      <p class="modal-subtitle">Sua conta sincroniza ranking e libera o duelo 1x1 em qualquer PC.</p>
+      <div class="auth-tabs"><button class="active" id="loginTabButton">ENTRAR</button><button id="registerTabButton">CRIAR CONTA</button></div>
+      <form id="authForm" class="auth-form">
+        <label id="displayNameField" class="hidden">Nome de jogador<input id="authDisplayName" maxlength="20" placeholder="Seu nick"></label>
+        <label>E-mail<input id="authEmail" type="email" autocomplete="email" placeholder="voce@email.com" required></label>
+        <label>Senha<input id="authPassword" type="password" autocomplete="current-password" minlength="6" placeholder="Mínimo 6 caracteres" required></label>
+        <button class="primary-btn huge" id="authSubmitButton" type="submit">ENTRAR</button>
+      </form>
+      <div class="auth-divider"><span>ou</span></div>
+      <button class="secondary-btn huge" id="googleLoginButton">🔵 CONTINUAR COM GOOGLE</button>
+      <div id="authError" class="auth-error hidden"></div>
+      <div id="signedInPanel" class="signed-in-panel hidden"><div class="account-avatar">👤</div><h3 id="signedInName">Jogador</h3><p id="signedInEmail"></p><div class="account-stats" id="signedInStats"></div><button class="danger-btn" id="logoutButton">SAIR DA CONTA</button></div>
+    </div>
+  </div>
 
   <div class="overlay" id="universeResultOverlay" aria-hidden="true">
     <div class="result-modal" id="universeResultModal">
@@ -358,9 +486,9 @@
   <div class="overlay" id="achievementsOverlay" aria-hidden="true">
     <div class="panel-modal wide">
       <button class="modal-close" data-close-achievements>×</button>
-      <p class="eyebrow">CONQUISTAS LOCAIS</p>
+      <p class="eyebrow">CONQUISTAS</p>
       <h2>🏅 Sala de Troféus</h2>
-      <p class="modal-subtitle">Ficam salvas neste navegador. Não é necessário criar conta.</p>
+      <p class="modal-subtitle">Sem login ficam neste navegador; com conta, seu progresso e ranking também são sincronizados.</p>
       <div class="achievement-grid" id="achievementGrid"></div>
     </div>
   </div>
@@ -372,11 +500,11 @@
       <h2>🎮 Game Guess Arcade</h2>
       <div class="tutorial-grid">
         <div><b>1</b><span>Uma parte da imagem pode começar aberta, dependendo da dificuldade.</span></div>
-        <div><b>2</b><span>Erros e pistas revelam novos fragmentos, mas diminuem o valor da rodada.</span></div>
+        <div><b>2</b><span><strong>3 vidas aparecem apenas no Difícil e Insano.</strong> Fácil e Normal usam apenas as tentativas da rodada.</span></div>
         <div><b>3</b><span>Acertos em sequência aumentam o multiplicador de combo.</span></div>
         <div><b>4</b><span>Use moedas para comprar ajuda quando estiver travado.</span></div>
         <div><b>5</b><span>No Quente ou Frio, um chute errado pode virar uma pista útil.</span></div>
-        <div><b>6</b><span>Survival usa vidas; Blitz desafia você a acertar o máximo em 2 minutos. No Termo Arcade, descubra palavras de 5 letras em até 6 tentativas.</span></div>
+        <div><b>6</b><span>No 1x1, Difícil/Insano usam 3 vidas e Fácil/Normal usam 3 tentativas por rodada. No Termo não existem vidas: Uma Palavra tem 6, Dueto 7 e Quarteto 9 tentativas.</span></div>
       </div>
       <button class="primary-btn" data-close-tutorial>ENTENDER!</button>
     </div>
@@ -394,8 +522,11 @@
     </div>
   </div>
 
+  <script src="/firebase-config.js" defer></script>
   <script src="/app.js" defer></script>
   <script src="/multiverse.js" defer></script>
   <script src="/termo.js" defer></script>
+  <script type="module" src="/firebase.js"></script>
+  <script src="/duel.js" defer></script>
 </body>
 </html>

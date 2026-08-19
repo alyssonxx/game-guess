@@ -1,0 +1,28 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "profiles": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "newData.hasChildren(['displayName','profile','updatedAt'])"
+      }
+    },
+    "leaderboard": {
+      ".read": "auth != null",
+      ".indexOn": ["rating", "duelWins"],
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "newData.hasChildren(['displayName','rating','wins','played','bestStreak','duelWins','duelLosses','updatedAt']) && newData.child('rating').isNumber() && newData.child('rating').val() >= 0 && newData.child('wins').isNumber() && newData.child('played').isNumber() && newData.child('duelWins').isNumber() && newData.child('duelLosses').isNumber()"
+      }
+    },
+    "duels": {
+      "$code": {
+        ".read": "auth != null",
+        ".write": "auth != null && ((!data.exists() && newData.child('hostUid').val() === auth.uid) || data.child('hostUid').val() === auth.uid || data.child('guestUid').val() === auth.uid || (!data.child('guestUid').exists() && newData.child('guestUid').val() === auth.uid))",
+        ".validate": "newData.hasChildren(['hostUid','status','config','players','questions','roundIndex'])"
+      }
+    }
+  }
+}

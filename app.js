@@ -3,7 +3,7 @@
 
   const API_URL = '/api/igdb';
   const CURRENT_YEAR = new Date().getFullYear();
-  const STORAGE_KEY = 'gameGuessArcadeV4'; // mantido para preservar progresso da V4
+  const STORAGE_KEY = 'gameGuessArcadeV4'; // preserva progresso das versões anteriores // mantido para preservar progresso da V4
 
   const CONSOLES = {
     ps1:{name:'PlayStation 1',short:'PS1',icon:'🎮',id:7,years:[1994,2000],family:'playstation'},
@@ -26,20 +26,20 @@
   };
 
   const MODES = {
-    quick:{title:'Jogo Rápido',icon:'⚡',glow:'#42e8ff',desc:'Entre e jogue imediatamente. Um desafio totalmente aleatório.',tag:'1 rodada • sem configuração',setup:false},
-    classic:{title:'Clássico',icon:'🧠',glow:'#a97cff',desc:'Escolha plataforma, época, tema e dificuldade. O Game Guess tradicional turbinado.',tag:'20 rodadas',setup:true},
-    survival:{title:'Survival',icon:'❤️',glow:'#ff6277',desc:'Você começa com 3 vidas. Cada jogo perdido custa uma vida. Até onde consegue chegar?',tag:'3 vidas • recorde de sobrevivência',setup:true},
-    blitz:{title:'Blitz',icon:'⏱️',glow:'#ffc857',desc:'Dois minutos. Acerte o máximo de jogos possível antes do relógio zerar.',tag:'120 segundos',setup:true},
-    mystery:{title:'Console Misterioso',icon:'🕵️',glow:'#56f39a',desc:'As plataformas são misturadas e você não sabe de qual console veio cada jogo.',tag:'plataforma vira pista',setup:true},
-    decades:{title:'Décadas',icon:'📼',glow:'#ff9d5c',desc:'Viaje pelos anos 80, 90, 2000, 2010 ou 2020 misturando plataformas da época.',tag:'nostalgia pura',setup:true},
-    themed:{title:'Temático',icon:'👻',glow:'#ff54e8',desc:'Terror, corrida, RPG, tiro, aventura ou famílias de consoles.',tag:'sessões por categoria',setup:true},
-    random:{title:'Caos Aleatório',icon:'🎲',glow:'#74f6d2',desc:'Plataformas, screenshots, pistas e até a dificuldade mudam durante a partida.',tag:'tudo randomizado',setup:false}
+    quick:{title:'Jogo Rápido',icon:'⚡',glow:'#42e8ff',desc:'Entre e jogue imediatamente. No Fácil/Normal você usa tentativas; no Difícil/Insano entram 3 vidas.',tag:'1 rodada • vidas só no difícil',setup:false},
+    classic:{title:'Clássico',icon:'🧠',glow:'#a97cff',desc:'Escolha plataforma, época, tema e dificuldade. Corações aparecem somente no Difícil e Insano.',tag:'30 rodadas • dificuldade ajustável',setup:true},
+    survival:{title:'Survival',icon:'❤️',glow:'#ff6277',desc:'Sobreviva o máximo possível. No Difícil/Insano são 3 vidas; no Fácil/Normal valem as tentativas da rodada.',tag:'recorde de sobrevivência',setup:true},
+    blitz:{title:'Blitz',icon:'⏱️',glow:'#ffc857',desc:'Dois minutos para acertar o máximo. 3 vidas aparecem apenas no Difícil/Insano.',tag:'120 segundos',setup:true},
+    mystery:{title:'Console Misterioso',icon:'🕵️',glow:'#56f39a',desc:'As plataformas são misturadas; descubra o jogo sem saber o console. Vidas só no Difícil/Insano.',tag:'plataforma vira pista',setup:true},
+    decades:{title:'Décadas',icon:'📼',glow:'#ff9d5c',desc:'Viaje pelos anos 80, 90, 2000, 2010 ou 2020. Vidas só entram no Difícil/Insano.',tag:'nostalgia pura',setup:true},
+    themed:{title:'Temático',icon:'👻',glow:'#ff54e8',desc:'Terror, corrida, RPG, tiro, aventura ou famílias de consoles. Corações só no Difícil/Insano.',tag:'categoria',setup:true},
+    random:{title:'Caos Aleatório',icon:'🎲',glow:'#74f6d2',desc:'Plataformas, screenshots, pistas e dificuldade mudam durante a partida. Corações só nas rodadas difíceis.',tag:'tudo randomizado',setup:false}
   };
 
   const DIFFICULTIES = {
     easy:{title:'Fácil',icon:'🌱',attempts:6,initialPieces:2,scoreMult:.85,zoom:1,redaction:.30,clueLevel:0,coinBonus:0},
-    normal:{title:'Normal',icon:'🎯',attempts:6,initialPieces:1,scoreMult:1,zoom:1,redaction:.52,clueLevel:1,coinBonus:10},
-    hard:{title:'Difícil',icon:'🔥',attempts:5,initialPieces:0,scoreMult:1.35,zoom:1.15,redaction:.72,clueLevel:2,coinBonus:25},
+    normal:{title:'Normal',icon:'🎯',attempts:5,initialPieces:1,scoreMult:1,zoom:1,redaction:.52,clueLevel:1,coinBonus:10},
+    hard:{title:'Difícil',icon:'🔥',attempts:3,initialPieces:0,scoreMult:1.35,zoom:1.15,redaction:.72,clueLevel:2,coinBonus:25},
     insane:{title:'Insano',icon:'💀',attempts:3,initialPieces:0,scoreMult:1.8,zoom:1.38,redaction:.88,clueLevel:3,coinBonus:45}
   };
 
@@ -220,6 +220,7 @@
   function saveProfile() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
     updatePersistentUI();
+    window.GameGuessFirebase?.syncLocalProfile?.(profile);
   }
 
   function escapeHTML(value) {
@@ -383,7 +384,7 @@
       if(!games.length) throw new Error('Nenhum jogo elegível foi encontrado com esses filtros. Tente outra plataforma, época ou categoria.');
       qsa('.loading-steps span').forEach((el,i)=>el.classList.toggle('active',i===1));
       session={
-        config:finalConfig,games,index:0,score:0,wins:0,losses:0,streak:0,lives:finalConfig.mode==='survival'?3:null,
+        config:finalConfig,games,index:0,score:0,wins:0,losses:0,streak:0,lives:3,
         currentGame:null,currentDifficulty:null,attemptsLeft:0,hintsUsed:new Set(),assistsUsed:new Set(),revealed:new Set(),pieceOrder:[],
         roundResolved:false,roundStart:0,roundDeadline:null,blitzEndsAt:null,blitzStarted:false,roundErrors:0,purchases:0,
         lastHotCold:null,ended:false,imageSkips:0,totalRounds:finalConfig.mode==='quick'?1:['survival','blitz'].includes(finalConfig.mode)?games.length:Math.min(30,games.length)
@@ -395,6 +396,9 @@
     }
   }
 
+  function difficultyUsesLives(key) { return key==='hard'||key==='insane'; }
+  function roundUsesLives() { return Boolean(session&&difficultyUsesLives(session.currentDifficulty)); }
+
   function getRoundDifficulty() {
     if(session.config.dynamicDifficulty) return randomChoice(['easy','normal','hard']);
     return session.config.difficulty || 'normal';
@@ -402,6 +406,7 @@
 
   async function loadRound() {
     if(!session || isResolving) return;
+    if(Number(session.lives||0)<=0) return endSession('lives');
     if(session.index>=session.games.length || (session.config.mode!=='survival' && session.config.mode!=='blitz' && session.index>=session.totalRounds)) return endSession('complete');
     const game=session.games[session.index]; session.currentGame=game; session.currentDifficulty=getRoundDifficulty();
     const diff=DIFFICULTIES[session.currentDifficulty];
@@ -587,10 +592,10 @@
     isGuessing=true;
     try {
       if(isCorrectGuess(raw,session.currentGame.name)) { winRound(); return; }
-      session.attemptsLeft--; session.roundErrors++; revealNextPiece(true); playSound('error');
-      $('hintDisplay').className='hint-display error'; $('hintDisplay').innerHTML='<strong>❌ Não é esse.</strong> Um novo fragmento foi liberado. Use o Quente ou Frio para aproveitar o erro.';
+      session.attemptsLeft--; session.roundErrors++; const withLives=roundUsesLives(); if(withLives)session.lives=Math.max(0,Number(session.lives||0)-1); revealNextPiece(true); playSound('error');
+      $('hintDisplay').className='hint-display error'; $('hintDisplay').innerHTML=withLives?`<strong>❌ Não é esse. -1 ❤️</strong> Você ainda tem ${session.lives} vida(s). Um novo fragmento foi liberado.`:`<strong>❌ Não é esse.</strong> Restam ${session.attemptsLeft} tentativa(s) nesta rodada. Um novo fragmento foi liberado.`;
       await updateHotCold(raw); if(!session||session.roundResolved)return; $('guessInput').value=''; updateGameUI();
-      if(session.attemptsLeft<=0) loseRound('tentativas'); else $('guessInput').focus();
+      if(roundUsesLives()&&session.lives<=0) loseRound('vidas',false); else if(session.attemptsLeft<=0) loseRound('tentativas',false); else $('guessInput').focus();
     } finally { isGuessing=false; }
   }
 
@@ -626,13 +631,15 @@
     showRoundResult(true,{points:finalPoints,coins:coinsEarned,elapsed}); isResolving=false;
   }
 
-  function loseRound(reason='tentativas') {
-    if(!session||session.roundResolved)return; session.roundResolved=true; isResolving=true; session.losses++; profile.gamesPlayed++; session.streak=0; if(session.config.mode==='survival')session.lives=Math.max(0,session.lives-1); rememberCurrentGame();saveProfile();revealAllPieces();playSound('lose');updateGameUI();
-    if(session.config.mode==='blitz'){toast(reason==='tempo'?'⏱️ Tempo da rodada!':'❌ Passou',`Era ${session.currentGame.name}.`,'error');setTimeout(()=>advanceRound(),650);isResolving=false;return;}
+  function loseRound(reason='tentativas',consumeLife=true) {
+    if(!session||session.roundResolved)return;
+    const withLives=roundUsesLives(); if(consumeLife&&withLives) session.lives=Math.max(0,Number(session.lives||0)-1);
+    session.roundResolved=true; isResolving=true; session.losses++; profile.gamesPlayed++; session.streak=0; rememberCurrentGame();saveProfile();revealAllPieces();playSound('lose');updateGameUI();
+    if(session.config.mode==='blitz'&&(!withLives||session.lives>0)){toast(reason==='tempo'?(withLives?'⏱️ Tempo da rodada! -1 ❤️':'⏱️ Tempo da rodada!'):(withLives?'❌ Rodada perdida -1 ❤️':'❌ Rodada perdida'),`Era ${session.currentGame.name}.`,'error');setTimeout(()=>advanceRound(),650);isResolving=false;return;}
     showRoundResult(false,{reason}); isResolving=false;
   }
 
-  function skipRound(){if(!session||session.roundResolved)return;loseRound('pulo');}
+  function skipRound(){if(!session||session.roundResolved)return;loseRound('pulo',true);}
   function rememberCurrentGame(){const id=Number(session?.currentGame?.id);if(!id)return;profile.recentGameIds=[id,...profile.recentGameIds.filter(x=>Number(x)!==id)].slice(0,100);}
 
   function getCover(game){return igdbImage(game?.cover,'cover_big_2x')||game?._puzzleImage||'';}
@@ -646,10 +653,10 @@
     $('resultIcon').textContent=won?'✅':'❌'; $('resultEyebrow').textContent=won?'VOCÊ ACERTOU!':data.reason==='tempo'?'TEMPO ESGOTADO':'RESPOSTA REVELADA'; $('resultGameName').textContent=game.name;
     const img=$('resultImage'); const url=getCover(game); if(url){img.src=url;img.style.display='block';img.onerror=()=>{img.src=game._puzzleImage||'';};}else img.style.display='none';
     $('resultInfo').innerHTML=gameInfoHTML(game);
-    $('rewardLine').innerHTML=won?`⭐ <b>+${data.points} pontos</b> &nbsp; 🪙 <b>+${data.coins} moedas</b> &nbsp; 🔥 combo x${comboMultiplier(session.streak)}`:`A sequência foi zerada.${session.config.mode==='survival'?` Restam <b>${session.lives}</b> vida(s).`:''}`;
+    $('rewardLine').innerHTML=won?`⭐ <b>+${data.points} pontos</b> &nbsp; 🪙 <b>+${data.coins} moedas</b> &nbsp; 🔥 combo x${comboMultiplier(session.streak)}`:(roundUsesLives()?`A sequência foi zerada. Restam <b>${session.lives}</b> vida(s).`:'A sequência foi zerada. A próxima rodada começa com novas tentativas.');
     $('learnButton').classList.toggle('hidden',!game.url); $('learnButton').onclick=()=>{if(game.url)window.open(game.url,'_blank','noopener,noreferrer');};
-    $('nextButton').textContent=session.config.mode==='quick'?(won?'OUTRO JOGO ▶':'TENTAR OUTRO ▶'):(session.config.mode==='survival'&&session.lives===0?'VER RESULTADO ▶':'PRÓXIMO ▶');
-    resultAction=()=>{closeOverlay('resultOverlay'); if(session.config.mode==='quick')startSession({...session.config}); else if(session.config.mode==='survival'&&session.lives===0)endSession('lives'); else advanceRound();};
+    $('nextButton').textContent=(roundUsesLives()&&session.lives===0)?'VER RESULTADO ▶':session.config.mode==='quick'?(won?'OUTRO JOGO ▶':'TENTAR OUTRO ▶'):'PRÓXIMO ▶';
+    resultAction=()=>{closeOverlay('resultOverlay'); if(roundUsesLives()&&session.lives===0)endSession('lives'); else if(session.config.mode==='quick')startSession({...session.config}); else advanceRound();};
     openOverlay('resultOverlay');
   }
 
@@ -670,7 +677,7 @@
   function updateGameUI() {
     if(!session)return; const mode=MODES[session.config.mode],diff=DIFFICULTIES[session.currentDifficulty];
     $('modeBadge').textContent=mode.title.toUpperCase(); $('roundMetric').textContent=`🎮 ${session.index+1} / ${session.config.mode==='survival'||session.config.mode==='blitz'?'∞':session.totalRounds}`;
-    $('livesMetric').classList.toggle('hidden',session.config.mode!=='survival'); if(session.config.mode==='survival')$('livesMetric').textContent='❤️'.repeat(session.lives)+'🖤'.repeat(3-session.lives);
+    $('livesMetric').classList.toggle('hidden',!roundUsesLives()); if(roundUsesLives())$('livesMetric').textContent='❤️'.repeat(session.lives)+'🖤'.repeat(Math.max(0,3-session.lives));
     $('scoreMetric').textContent=session.score; $('coinsMetric').textContent=profile.coins; $('difficultyLabel').textContent=diff.title.toUpperCase();
     $('roundEyebrow').textContent=session.config.category==='brazil'?'🇧🇷 CLÁSSICO DO BRASIL • QUE JOGO É ESSE?':session.config.mode==='mystery'?'CONSOLE DESCONHECIDO • QUE JOGO É ESSE?':'QUE JOGO É ESSE?';
     $('roundTitle').textContent=session.config.mode==='blitz'?'Seja rápido. O relógio não para.':session.config.category==='brazil'?'Um jogo muito lembrado pelos brasileiros':'Observe a imagem e arrisque';
@@ -730,7 +737,9 @@
   window.GameGuessCore={
     showScreen, toast, spawnConfetti, playSound,
     syncProfile(){profile=loadProfile();updatePersistentUI();},
-    getProfile(){return JSON.parse(JSON.stringify(profile));}
+    getProfile(){return JSON.parse(JSON.stringify(profile));},
+    replaceProfile(next){ if(!next||typeof next!=='object')return; profile={...DEFAULT_PROFILE,...profile,...next}; localStorage.setItem(STORAGE_KEY,JSON.stringify(profile)); updatePersistentUI(); },
+    saveProfile(){saveProfile();}
   };
   function init(){renderModes();createParticles();bindEvents();updatePersistentUI();setApiStatus('','Pronto para jogar');if(!profile.tutorialSeen)setTimeout(()=>openOverlay('tutorialOverlay'),450);}
   init();

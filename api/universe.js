@@ -1,4 +1,5 @@
 import { EXTRA_DRAGON_BALL, EXTRA_YUGIOH, EXTRA_NARUTO, SAINT_SEIYA, LEGACY_DETAILS } from './data/expanded.js';
+import { V8_DRAGON_BALL, V8_YUGIOH, V8_NARUTO, V8_SAINT_SEIYA, V8_CARTOONS } from './data/v8-extra.js';
 const CACHE_TTL = 30 * 60 * 1000;
 const cache = new Map();
 
@@ -6,7 +7,7 @@ function json(res,status,body){res.statusCode=status;res.setHeader('Content-Type
 function shuffle(a){a=[...a];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 function sample(a,n){return shuffle(a).slice(0,n);}
 function cap(s){s=String(s||'');return s? s[0].toUpperCase()+s.slice(1):s;}
-async function getJson(url,timeout=9000){const c=new AbortController();const t=setTimeout(()=>c.abort(),timeout);try{const r=await fetch(url,{signal:c.signal,headers:{'Accept':'application/json','User-Agent':'GameGuess-V7/1.0'}});if(!r.ok)throw new Error(`HTTP ${r.status}`);return await r.json();}finally{clearTimeout(t)}}
+async function getJson(url,timeout=9000){const c=new AbortController();const t=setTimeout(()=>c.abort(),timeout);try{const r=await fetch(url,{signal:c.signal,headers:{'Accept':'application/json','User-Agent':'GameGuess-V8/1.0'}});if(!r.ok)throw new Error(`HTTP ${r.status}`);return await r.json();}finally{clearTimeout(t)}}
 async function cached(key,fn){const x=cache.get(key);if(x&&Date.now()-x.at<CACHE_TTL)return x.data;const data=await fn();cache.set(key,{at:Date.now(),data});return data;}
 
 const PT_TAG={Fighter:'Lutador',Tank:'Tanque',Mage:'Mago',Assassin:'Assassino',Marksman:'Atirador',Support:'Suporte'};
@@ -241,9 +242,11 @@ const NARUTO = [
 ];
 
 function uniqueRows(rows){const seen=new Set();return rows.filter(r=>{const k=String(r?.[0]||'').toLowerCase();if(!k||seen.has(k))return false;seen.add(k);return true;});}
-const DRAGON_BALL_V7=uniqueRows([...DRAGON_BALL,...EXTRA_DRAGON_BALL]);
-const YUGIOH_V7=uniqueRows([...YUGIOH,...EXTRA_YUGIOH]);
-const NARUTO_V7=uniqueRows([...NARUTO,...EXTRA_NARUTO]);
+const DRAGON_BALL_V8=uniqueRows([...DRAGON_BALL,...EXTRA_DRAGON_BALL,...V8_DRAGON_BALL]);
+const YUGIOH_V8=uniqueRows([...YUGIOH,...EXTRA_YUGIOH,...V8_YUGIOH]);
+const NARUTO_V8=uniqueRows([...NARUTO,...EXTRA_NARUTO,...V8_NARUTO]);
+const SAINT_SEIYA_V8=uniqueRows([...SAINT_SEIYA,...V8_SAINT_SEIYA]);
+const CHARACTER_CLASSICS_V8=uniqueRows([...CHARACTER_CLASSICS,...V8_CARTOONS]);
 
 function normalizeFranchiseCharacter(row,universe,seriesKey,source){
   const [name,filter,era,c1,c2,title,aliases=[],rawDetails={}]=row;
@@ -261,19 +264,20 @@ function normalizeFranchiseCharacter(row,universe,seriesKey,source){
     {kind:'name',label:'🔤 Nome',text:`O nome possui ${String(name).replace(/[^A-Za-zÀ-ÿ]/g,'').length} letras, sem contar espaços e símbolos.`}
   ].filter(Boolean);
   const result=[`📺 ${era}`,details.origin?`🌍 ${details.origin}`:'',details.group?`🛡️ ${details.group}`:'',details.ability?`💥 ${details.ability}`:'',`🌌 ${source}`].filter(Boolean);
-  return {id:`${universe}:${filter}:${name}`,name,aliases,image:`/api/asset?src=franchise&series=${seriesKey}&title=${encodeURIComponent(title||name)}`,meta:{era,filter,universeKey:universe,...details},clues,result,source};
+  const alts=[name,...aliases].filter(Boolean).join('|');
+  return {id:`${universe}:${filter}:${name}`,name,aliases,image:`/api/asset?src=franchise&series=${seriesKey}&title=${encodeURIComponent(title||name)}&context=${encodeURIComponent(era||source)}&alts=${encodeURIComponent(alts)}`,meta:{era,filter,universeKey:universe,...details},clues,result,source};
 }
 function franchiseSession(data,limit,filter,universe,seriesKey,source){let pool=data;if(filter==='variants')pool=pool.filter(x=>Boolean(x?.[7]?.variant));else if(filter&&filter!=='all')pool=pool.filter(x=>String(x[1]).toLowerCase()===filter);return sample(pool,limit).map(x=>normalizeFranchiseCharacter(x,universe,seriesKey,source));}
 
-function normalizeCharacter(row,universe){const [name,show,era,c1,c2,wikiTitle,aliases=[]]=row;return {id:`${universe}:${name}`,name,aliases,image:`/api/asset?src=wiki&title=${encodeURIComponent(wikiTitle)}`,meta:{show,era,universeKey:universe},clues:[{kind:'group',label:'📺 Universo',text:universe==='globinho'?'Fez parte de uma atração/desenho associado à TV Globinho.':`Aparece em ${show}.`},{kind:'era',label:'🕰️ Época',text:`Muito lembrado no Brasil nos ${era}.`},{kind:'trait',label:'🧩 Característica',text:c1},{kind:'trait',label:'🔎 Outra pista',text:c2}],result:[`📺 ${show}`,`🕰️ ${era}`],source:universe==='globinho'?'TV Globinho':'Curadoria'};}
+function normalizeCharacter(row,universe){const [name,show,era,c1,c2,wikiTitle,aliases=[]]=row;const alts=[name,...aliases].filter(Boolean).join('|');return {id:`${universe}:${name}`,name,aliases,image:`/api/asset?src=wiki&title=${encodeURIComponent(wikiTitle||name)}&context=${encodeURIComponent(show||'')}&alts=${encodeURIComponent(alts)}`,meta:{show,era,universeKey:universe},clues:[{kind:'group',label:'📺 Universo',text:universe==='globinho'?'Fez parte de uma atração/desenho associado à TV Globinho.':`Aparece em ${show}.`},{kind:'era',label:'🕰️ Época',text:`Muito lembrado no Brasil nos ${era}.`},{kind:'trait',label:'🧩 Característica',text:c1},{kind:'trait',label:'🔎 Outra pista',text:c2}],result:[`📺 ${show}`,`🕰️ ${era}`],source:universe==='globinho'?'TV Globinho':'Curadoria'};}
 
 function randomCuratedSession(limit){
   const all=[
-    ...DRAGON_BALL_V7.map(x=>normalizeFranchiseCharacter(x,'dragonball','db','Dragon Ball')),
-    ...YUGIOH_V7.map(x=>normalizeFranchiseCharacter(x,'yugioh','ygo','Yu-Gi-Oh!')),
-    ...NARUTO_V7.map(x=>normalizeFranchiseCharacter(x,'naruto','naruto','Naruto')),
-    ...SAINT_SEIYA.map(x=>normalizeFranchiseCharacter(x,'saintseiya','saintseiya','Cavaleiros do Zodíaco')),
-    ...CHARACTER_CLASSICS.map(x=>normalizeCharacter(x,'cartoons')),
+    ...DRAGON_BALL_V8.map(x=>normalizeFranchiseCharacter(x,'dragonball','db','Dragon Ball')),
+    ...YUGIOH_V8.map(x=>normalizeFranchiseCharacter(x,'yugioh','ygo','Yu-Gi-Oh!')),
+    ...NARUTO_V8.map(x=>normalizeFranchiseCharacter(x,'naruto','naruto','Naruto')),
+    ...SAINT_SEIYA_V8.map(x=>normalizeFranchiseCharacter(x,'saintseiya','saintseiya','Cavaleiros do Zodíaco')),
+    ...CHARACTER_CLASSICS_V8.map(x=>normalizeCharacter(x,'cartoons')),
     ...GLOBINHO.map(x=>normalizeCharacter(x,'globinho'))
   ];
   const seen=new Set();
@@ -299,14 +303,14 @@ export default async function handler(req,res){
     if(universe==='lol')items=await leagueSession(limit,filter);
     else if(universe==='pokemon')items=await pokemonSession(limit,filter);
     else if(universe==='digimon')items=await digimonSession(limit,filter);
-    else if(universe==='dragonball')items=franchiseSession(DRAGON_BALL_V7,limit,filter,'dragonball','db','Dragon Ball');
-    else if(universe==='yugioh')items=franchiseSession(YUGIOH_V7,limit,filter,'yugioh','ygo','Yu-Gi-Oh!');
-    else if(universe==='naruto')items=franchiseSession(NARUTO_V7,limit,filter,'naruto','naruto','Naruto');
-    else if(universe==='saintseiya')items=franchiseSession(SAINT_SEIYA,limit,filter,'saintseiya','saintseiya','Cavaleiros do Zodíaco');
+    else if(universe==='dragonball')items=franchiseSession(DRAGON_BALL_V8,limit,filter,'dragonball','db','Dragon Ball');
+    else if(universe==='yugioh')items=franchiseSession(YUGIOH_V8,limit,filter,'yugioh','ygo','Yu-Gi-Oh!');
+    else if(universe==='naruto')items=franchiseSession(NARUTO_V8,limit,filter,'naruto','naruto','Naruto');
+    else if(universe==='saintseiya')items=franchiseSession(SAINT_SEIYA_V8,limit,filter,'saintseiya','saintseiya','Cavaleiros do Zodíaco');
     else if(universe==='random')items=randomCuratedSession(limit);
-    else if(universe==='cartoons')items=sample(CHARACTER_CLASSICS,limit).map(x=>normalizeCharacter(x,'cartoons'));
+    else if(universe==='cartoons')items=sample(CHARACTER_CLASSICS_V8,limit).map(x=>normalizeCharacter(x,'cartoons'));
     else if(universe==='globinho')items=sample(GLOBINHO,limit).map(x=>normalizeCharacter(x,'globinho'));
     else return json(res,400,{error:'Universo inválido.'});
-    return json(res,200,{universe,items,returned:items.length,random:true,counts:{dragonball:DRAGON_BALL_V7.length,yugioh:YUGIOH_V7.length,naruto:NARUTO_V7.length,saintseiya:SAINT_SEIYA.length}});
+    return json(res,200,{universe,items,returned:items.length,random:true,counts:{dragonball:DRAGON_BALL_V8.length,yugioh:YUGIOH_V8.length,naruto:NARUTO_V8.length,saintseiya:SAINT_SEIYA_V8.length,cartoons:CHARACTER_CLASSICS_V8.length,globinho:GLOBINHO.length}});
   }catch(e){console.error('universe',e);return json(res,e?.status||502,{error:'Não consegui montar este universo agora.',detail:String(e?.message||e)});}
 }
