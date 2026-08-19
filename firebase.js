@@ -186,19 +186,109 @@ async function createDuelRoom(payload){
   }
   throw new Error('Não consegui gerar um código de sala. Tente novamente.');
 }
+
 async function joinDuelRoom(code){
-  if(!currentUser)throw new Error('Faça login antes de entrar no duelo.');
-  code=String(code||'').trim().toUpperCase();if(!/^[A-Z2-9]{6}$/.test(code))throw new Error('Código inválido.');
-  const r=ref(db,`duels/${code}`),name=cleanName(currentUser.displayName||currentUser.email?.split('@')[0]);
-  const result=await runTransaction(r,room=>{
-    if(!room)return;
-    if(room.hostUid===currentUser.uid)return room;
-    if(room.status==='finished')return;
-    if(room.guestUid&&room.guestUid!==currentUser.uid)return;
-    room.guestUid=currentUser.uid;room.players=room.players||{};room.players[currentUser.uid]=room.players[currentUser.uid]||{uid:currentUser.uid,name,lives:3,correct:0,score:0,wrong:0,roundWrong:0,roundSolved:false,lastRound:-1};
-    room.status='playing';room.roundDeadline=Date.now()+35000;room.updatedAt=Date.now();return room;
-  });
-  if(!result.committed)throw new Error('Sala inexistente, cheia ou já finalizada.');return code;
+  if(!currentUser){
+    throw new Error('Faça login antes de entrar no duelo.');
+  }
+
+  code = String(code || '')
+    .trim()
+    .toUpperCase();
+
+  if(!/^[A-Z2-9]{6}$/.test(code)){
+    throw new Error('Código inválido.');
+  }
+
+  const r = ref(db, `duels/${code}`);
+  const name = cleanName(
+    currentUser.displayName ||
+    currentUser.email?.split('@')[0]
+  );
+
+  // IMPORTANTE:
+  // primeiro carrega a sala do servidor antes da transação.
+  const initialSnapshot = await get(r);
+
+  if(!initialSnapshot.exists()){
+    throw new Error('Sala não encontrada.');
+  }
+
+  const initialRoom = initialSnapshot.val();
+
+  if(initialRoom.hostUid === currentUser.uid){
+    throw new Error(
+      'Esta sala foi criada por esta mesma conta. Entre com outra conta no segundo aparelho.'
+    );
+  }
+
+  if(initialRoom.status === 'finished'){
+    throw new Error('Esta sala já foi finalizada.');
+  }
+
+  if(
+    initialRoom.guestUid &&
+    initialRoom.guestUid !== currentUser.uid
+  ){
+    throw new Error('Esta sala já está cheia.');
+  }
+
+  // Agora que a sala está carregada,
+  // fazemos a transação para evitar dois jogadores
+  // entrarem simultaneamente.
+  const result = await runTransaction(
+    r,
+    room => {
+      if(!room){
+        return;
+      }
+
+      if(room.status === 'finished'){
+        return;
+      }
+
+      if(
+        room.guestUid &&
+        room.guestUid !== currentUser.uid
+      ){
+        return;
+      }
+
+      room.guestUid = currentUser.uid;
+
+      room.players = room.players || {};
+
+      room.players[currentUser.uid] =
+        room.players[currentUser.uid] || {
+          uid: currentUser.uid,
+          name,
+          lives: 3,
+          correct: 0,
+          score: 0,
+          wrong: 0,
+          roundWrong: 0,
+          roundSolved: false,
+          lastRound: -1
+        };
+
+      room.status = 'playing';
+      room.roundDeadline = Date.now() + 35000;
+      room.updatedAt = Date.now();
+
+      return room;
+    },
+    {
+      applyLocally: false
+    }
+  );
+
+  if(!result.committed){
+    throw new Error(
+      'Não foi possível entrar. A sala pode ter sido ocupada por outro jogador.'
+    );
+  }
+
+  return code;
 }
 function watchDuel(code,cb){if(!db)return()=>{};return onValue(ref(db,`duels/${code}`),s=>cb(s.val()),e=>cb(null,e));}
 async function mutateDuel(code,fn){
