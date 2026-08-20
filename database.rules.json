@@ -117,6 +117,48 @@
           }
         }
       }
+    },
+    "publicProfiles": {
+      ".read": "auth != null",
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "!newData.exists() || (newData.child('uid').val() === $uid && newData.child('name').isString())"
+      }
+    },
+    "userPresence": {
+      ".read": "auth != null",
+      "$uid": {
+        "$session": {
+          ".write": "auth != null && auth.uid === $uid"
+        }
+      }
+    },
+    "friendRequests": {
+      "$target": {
+        ".read": "auth != null && auth.uid === $target",
+        "$sender": {
+          ".write": "auth != null && (auth.uid === $sender || auth.uid === $target)",
+          ".validate": "!newData.exists() || (newData.child('fromUid').val() === $sender && newData.child('fromName').isString())"
+        }
+      }
+    },
+    "friends": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        "$friendUid": {
+          ".write": "auth != null && (auth.uid === $uid || auth.uid === $friendUid)",
+          ".validate": "!newData.exists() || newData.child('uid').val() === $friendUid"
+        }
+      }
+    },
+    "gameInvites": {
+      "$target": {
+        ".read": "auth != null && auth.uid === $target",
+        "$sender": {
+          ".write": "auth != null && (auth.uid === $sender || auth.uid === $target)",
+          ".validate": "!newData.exists() || (newData.child('fromUid').val() === $sender && newData.child('game').isString() && newData.child('expiresAt').isNumber())"
+        }
+      }
     }
   }
 }

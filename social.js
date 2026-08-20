@@ -2,173 +2,214 @@
 'use strict';
 const $=id=>document.getElementById(id), CORE=()=>window.GameGuessCore, FB=()=>window.GameGuessFirebase;
 const KEY='gameGuessArcadeV4';
+
+/* V17: o avatar base foi redesenhado como um mascote 3D arredondado/"bean".
+   A roupa galáxia enviada como referência virou um look inicial completo, mas cada
+   camada pode ser trocada na loja. */
 const SLOT_META={
-  hair:{label:'Cabelos',icon:'💇',base:'Cabelo'},
-  eyes:{label:'Olhos',icon:'👁️',base:'Olhos'},
-  headwear:{label:'Cabeça',icon:'🧢',base:'Acessório'},
-  face:{label:'Rosto',icon:'🕶️',base:'Rosto'},
-  top:{label:'Camisetas',icon:'👕',base:'Camiseta'},
-  outerwear:{label:'Casacos',icon:'🧥',base:'Casaco'},
-  hands:{label:'Mãos',icon:'🧤',base:'Luvas'},
-  bottom:{label:'Parte de baixo',icon:'👖',base:'Calça'},
-  shoes:{label:'Calçados',icon:'👟',base:'Tênis'},
+  hood:{label:'Capuzes',icon:'🪐',base:'Capuz'},
+  faceplate:{label:'Faceplate',icon:'🥽',base:'Faceplate'},
+  upper:{label:'Trajes',icon:'👕',base:'Traje'},
+  sleeves:{label:'Mangas',icon:'🧥',base:'Mangas'},
+  gloves:{label:'Luvas',icon:'🧤',base:'Luvas'},
+  lower:{label:'Parte inferior',icon:'🩳',base:'Parte inferior'},
+  shoes:{label:'Calçados',icon:'🥾',base:'Calçado'},
+  chest:{label:'Peitoral',icon:'🌙',base:'Peitoral'},
+  head:{label:'Cabeça',icon:'⭐',base:'Acessório'},
   back:{label:'Costas',icon:'🎒',base:'Costas'}
 };
 const SLOT_ORDER=Object.keys(SLOT_META);
-const ADJ=['Arcade','Neon','Pixel','Cosmic','Turbo','Street','Galaxy','Royal','Cyber','Solar'];
-const NOUNS={
-  hair:['Casual','Spike','Lateral','Rebelde','Coque','Ondulado','Curto'],
-  eyes:['Brilhantes','Estrela','Cyber','Focados','Doces','Ninja','Anime'],
-  headwear:['Livre','Boné','Gorro','Coroa','Chapéu','Headset','Tiara'],
-  face:['Livre','Óculos','Máscara','Visor','Bandana','Monóculo','Pintura'],
-  top:['GG','Esportiva','Oversized','Gamer','College','Tech','Retro'],
-  outerwear:['Livre','Moletom','Jaqueta','Colete','Parka','Bomber','Capa'],
-  hands:['Livres','Luvas','Munhequeira','Bracelete','Manopla','Manga','Pulseira'],
-  bottom:['Casual','Cargo','Short','Jogger','Saia','Techwear','Esportiva'],
-  shoes:['Básico','Runner','High-top','Street','Bota','Slip-on','Neon'],
-  back:['Livre','Mochila','Asas','Capa','Jetpack','Escudo','Cauda']
+const FAMILIES={
+  hood:['Clássico','Galáxia','Astronauta','Oversized','Tech','Royal','Nuvem','Street','Neon','Arcade'],
+  faceplate:['Clássico','Dourado','Neon','Cyber','Cristal','Dark','Royal','Holográfico','Pixel','Solar'],
+  upper:['Básico','Galáxia','Varsity','Techwear','Royal','Sport','Cosmic','Street','Arcade','Nebulosa'],
+  sleeves:['Básicas','Galáxia','Listradas','Puffer','Tech','Armadura','Oversized','Sport','Neon','Cosmic'],
+  gloves:['Básicas','Galáxia','Douradas','Tech','Puffer','Arcade','Sport','Robô','Neon','Cosmic'],
+  lower:['Básica','Galáxia','Cargo','Sport','Tech','Royal','Arcade','Street','Neon','Cosmic'],
+  shoes:['Básicos','Galáxia','Runner','High-top','Botas','Tech','Royal','Arcade','Neon','Cosmic'],
+  chest:['Livre','Lua & estrelas','Bolso clássico','Zíper','Badge','Harness','Emblema','Arcade','Royal','Cosmic'],
+  head:['Livre','Estrela','Coroa','Halo','Antena','Headset','Orelhas','Boné','Tiara','Planeta'],
+  back:['Livre','Mochila','Asas','Capa','Jetpack','Escudo','Cauda','Nuvem','Arcade','Cosmic']
 };
+const THEMES=['Arcade','Nova','Pixel','Cosmic','Turbo','Dream','Galaxy'];
 const RARITY=['Inicial','Comum','Comum','Raro','Raro','Épico','Épico','Lendário'];
-const SKINS=['#f7d6be','#edc4a6','#dda57e','#ca8b64','#ad704d','#895335','#653821','#3e2618'];
-const HAIR_COLORS=['#10131b','#30201b','#573624','#83552d','#b77d3e','#d8b66a','#e4e5e8','#d85b72','#764fff','#2d9fc7','#28a36a','#cb4937'];
-const EYE_COLORS=['#151724','#225fb7','#2f9f75','#6e43bd','#b86632','#d23f67','#55cfe8','#d6b243'];
-const CLOTH_COLORS=['#171d31','#5d3fd3','#1875c9','#0a9c75','#bd3b5e','#e58a27','#e7e7ea','#252525','#d84f3d','#75429c','#4a85d9','#3d9661'];
-const ACCENT_COLORS=['#63e7ff','#ffdc65','#ff76b7','#7cf0a8','#ff8d66','#b39cff','#ffffff','#a6b4cb','#ff5252','#5cffd1'];
-const legacyMap={
-  hair_basic:'hair_01',hair_spike:'hair_02',hair_side:'hair_03',hair_messy:'hair_04',hair_bun:'hair_05',hair_mohawk:'hair_06',
-  eye_round:'eyes_01',eye_star:'eyes_02',eye_cyber:'eyes_03',top_basic:'top_01',top_hoodie:'outerwear_02',top_jacket:'outerwear_03',top_sport:'top_02',
-  bottom_basic:'bottom_01',bottom_short:'bottom_03',bottom_cargo:'bottom_02',shoes_basic:'shoes_01',shoes_runner:'shoes_02',shoes_neon:'shoes_07',
-  acc_none:'headwear_01',acc_glasses:'face_02',acc_headset:'headwear_06',acc_cap:'headwear_02',acc_wings:'back_03',acc_mask:'face_03'
-};
-function priceFor(n){if(n===1)return 0;const tier=Math.floor((n-2)/10);return 20+tier*15+((n-2)%5)*5;}
-function rarityFor(n){if(n===1)return 'Inicial';return RARITY[Math.min(7,1+Math.floor((n-2)/10))];}
+const PRIMARY=['#7455df','#9b67dd','#ef76bd','#5f8fe8','#56bde5','#e15f91','#3fc6a0','#f08c4f','#30384d','#eee9f5','#c84cff','#4a74d8'];
+const SECONDARY=['#ef8dcc','#b983e8','#6e82ea','#65c8ef','#f3a4d5','#ffbe70','#67dfbf','#7865e8','#4a5267','#d9dded','#f0659f','#4fc2e8'];
+const ACCENT=['#ffd56a','#ffe08e','#ffb352','#7af1ff','#ff81ce','#a5ffca','#ffffff','#bba4ff','#ff6e74','#68b8ff'];
+const METAL=['#f4c45d','#f7df9e','#dce4ef','#93a9c9','#efb06a','#de87d8','#5ce6ff','#ffffff'];
+const FACE=['#fff5eb','#fffaf4','#f0f6ff','#e6f9ff','#f4e9ff','#d9e4ef','#161b29','#f8edf6'];
+const STARTER={hood:'hood_02',faceplate:'faceplate_02',upper:'upper_02',sleeves:'sleeves_02',gloves:'gloves_02',lower:'lower_02',shoes:'shoes_02',chest:'chest_02',head:'head_02',back:'back_01'};
+
+function priceFor(n){if(n<=2)return 0;const tier=Math.floor((n-3)/10);return 25+tier*15+((n-3)%5)*5;}
+function rarityFor(n){if(n<=2)return 'Inicial';return RARITY[Math.min(7,1+Math.floor((n-3)/10))];}
 function makeCatalog(){
   const out=[];
   for(const slot of SLOT_ORDER){
     for(let n=1;n<=70;n++){
-      const noun=NOUNS[slot][(n-1)%NOUNS[slot].length],adj=ADJ[Math.floor((n-1)/NOUNS[slot].length)%ADJ.length];
-      const isNone=['headwear','face','outerwear','hands','back'].includes(slot)&&n===1;
-      out.push({id:`${slot}_${String(n).padStart(2,'0')}`,slot,name:isNone?`Sem ${SLOT_META[slot].label.toLowerCase()}`:`${noun} ${adj}`,price:priceFor(n),rarity:rarityFor(n),icon:SLOT_META[slot].icon,variant:n-1});
+      const family=FAMILIES[slot][(n-1)%10],theme=THEMES[Math.floor((n-1)/10)%THEMES.length];
+      const isNone=['chest','head','back'].includes(slot)&&n===1;
+      out.push({id:`${slot}_${String(n).padStart(2,'0')}`,slot,name:isNone?`Sem ${SLOT_META[slot].label.toLowerCase()}`:`${family} ${theme}`,price:priceFor(n),rarity:rarityFor(n),icon:SLOT_META[slot].icon,variant:n-1,family:(n-1)%10,tier:Math.floor((n-1)/10)});
     }
   }
   return out;
 }
-const CATALOG=makeCatalog();
-const CATALOG_BY_ID=new Map(CATALOG.map(x=>[x.id,x]));
-const STARTER=SLOT_ORDER.map(s=>`${s}_01`);
+const CATALOG=makeCatalog(),CATALOG_BY_ID=new Map(CATALOG.map(x=>[x.id,x]));
+const STARTER_IDS=Object.values(STARTER);
+const LEGACY_SLOTS={hair:'head',eyes:'faceplate',headwear:'head',face:'faceplate',top:'upper',outerwear:'hood',hands:'gloves',bottom:'lower',shoes:'shoes',back:'back'};
+
 function read(){try{return CORE()?.getProfile?.()||JSON.parse(localStorage.getItem(KEY)||'{}')}catch{return {}}}
 function write(p){CORE()?.replaceProfile?.(p);CORE()?.saveProfile?.();try{FB()?.syncLocalProfile?.(p)}catch{}}
-function migrateAvatar(p={}){
-  const old=p.avatar||{},a={...old};
-  a.bodyType=a.bodyType==='feminino'?'feminino':'masculino';
-  a.skin=a.skin||'#f7d6be';a.hairColor=a.hairColor||'#15151d';a.eyeColor=a.eyeColor||'#225fb7';a.clothColor=a.clothColor||'#5d3fd3';a.accentColor=a.accentColor||'#63e7ff';
-  a.hair=legacyMap[a.hair]||a.hair||'hair_01';a.eyes=legacyMap[a.eyes]||a.eyes||'eyes_01';a.top=legacyMap[a.top]||a.top||'top_01';a.bottom=legacyMap[a.bottom]||a.bottom||'bottom_01';a.shoes=legacyMap[a.shoes]||a.shoes||'shoes_01';
-  a.headwear=a.headwear||legacyMap[old.accessory]||'headwear_01';
-  a.face=a.face||((old.accessory&&legacyMap[old.accessory]?.startsWith('face_'))?legacyMap[old.accessory]:'face_01');
-  a.back=a.back||((old.accessory&&legacyMap[old.accessory]?.startsWith('back_'))?legacyMap[old.accessory]:'back_01');
-  a.outerwear=a.outerwear||((old.top&&legacyMap[old.top]?.startsWith('outerwear_'))?legacyMap[old.top]:'outerwear_01');
-  a.hands=a.hands||'hands_01';
-  for(const s of SLOT_ORDER)if(!CATALOG_BY_ID.has(a[s]))a[s]=`${s}_01`;
+function normalizeAvatar(input={}){
+  const old=input?.avatar&&typeof input.avatar==='object'?input.avatar:input||{};
+  const a={
+    primaryColor:old.primaryColor||old.clothColor||'#7455df',
+    secondaryColor:old.secondaryColor||'#ef8dcc',
+    accentColor:old.accentColor||'#ffd56a',
+    metalColor:old.metalColor||'#f4c45d',
+    faceColor:old.faceColor||'#fff5eb',
+    eyeColor:old.eyeColor||'#11131a'
+  };
+  for(const slot of SLOT_ORDER){
+    let id=old[slot];
+    if(!id){const legacyKey=Object.entries(LEGACY_SLOTS).find(([,to])=>to===slot)?.[0];if(legacyKey&&old[legacyKey])id=STARTER[slot];}
+    a[slot]=CATALOG_BY_ID.has(id)?id:STARTER[slot];
+  }
   return a;
 }
 function defaults(p={}){
-  const migratedOwned=(p.avatarOwned||[]).map(id=>legacyMap[id]||id).filter(id=>CATALOG_BY_ID.has(id));
-  const owned=new Set([...migratedOwned,...STARTER]);
-  return {...p,avatarOwned:[...owned],nickname:String(p.nickname||''),bio:String(p.bio||'Explorador, jogador e colecionador de desafios.'),favoriteGame:String(p.favoriteGame||'Game Guess'),avatar:migrateAvatar(p)};
+  const owned=new Set([...(p.avatarOwned||[]).filter(id=>CATALOG_BY_ID.has(id)),...STARTER_IDS]);
+  return {...p,avatarOwned:[...owned],nickname:String(p.nickname||''),bio:String(p.bio||'Explorador, jogador e colecionador de desafios.'),favoriteGame:String(p.favoriteGame||'Game Guess'),avatar:normalizeAvatar(p)};
 }
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function item(id){return CATALOG_BY_ID.get(id)||CATALOG[0]}
 function variant(a,slot){return item(a[slot]).variant||0}
+function family(a,slot){return item(a[slot]).family||0}
+function hash(str){let h=2166136261;for(const c of String(str)){h^=c.charCodeAt(0);h=Math.imul(h,16777619)}return (h>>>0).toString(36)}
+
 function svgAvatar(cfg={},size='large'){
-  const a=migrateAvatar({avatar:cfg}),f=a.bodyType==='feminino',hv=variant(a,'hair'),ev=variant(a,'eyes'),tv=variant(a,'top'),ov=variant(a,'outerwear'),bv=variant(a,'bottom'),sv=variant(a,'shoes'),head=variant(a,'headwear'),face=variant(a,'face'),back=variant(a,'back');
-  const bodyW=f?104:114,hipW=f?108:96;
-  const hair=hv%7===4?`<circle cx="190" cy="70" r="26" fill="${a.hairColor}"/><path d="M70 118q7-70 70-70t70 70q-40-30-140 0z" fill="${a.hairColor}"/>`:hv%7===1?`<path d="M69 118L82 58l21 18 11-40 27 31 22-40 10 44 32-25-7 72q-61-32-129 0z" fill="${a.hairColor}"/>`:`<path d="M69 118q10-70 71-70t71 70q-55-27-142 0z" fill="${a.hairColor}"/>`;
-  const eyes=ev%4===1?`<text x="91" y="158" font-size="36" fill="${a.eyeColor}">★</text><text x="157" y="158" font-size="36" fill="${a.eyeColor}">★</text>`:`<ellipse cx="108" cy="148" rx="17" ry="21" fill="#fff"/><ellipse cx="172" cy="148" rx="17" ry="21" fill="#fff"/><ellipse cx="108" cy="151" rx="9" ry="13" fill="${a.eyeColor}"/><ellipse cx="172" cy="151" rx="9" ry="13" fill="${a.eyeColor}"/>`;
-  const glasses=face%7===1?`<g fill="none" stroke="#e9f7ff" stroke-width="5"><rect x="85" y="134" width="44" height="31" rx="12"/><rect x="151" y="134" width="44" height="31" rx="12"/><path d="M129 146h22"/></g>`:face%7===2?`<path d="M100 169q40 20 80 0v28q-40 22-80 0z" fill="#171d2d"/><path d="M116 180h48" stroke="${a.accentColor}" stroke-width="4"/>`:'';
-  const hat=head%7===1?`<path d="M75 93q18-48 67-48t64 48q-65-18-131 0z" fill="${a.accentColor}"/><path d="M137 91q49-10 81 6-29 16-71 11z" fill="#233d74"/>`:head%7===3?`<path d="M89 58l18 24 31-37 30 37 20-24 10 51H80z" fill="${a.accentColor}"/>`:'';
-  const backShape=back%7===2?`<path d="M82 238Q25 200 29 275q24-24 60-8M198 238q57-38 53 37-24-24-60-8" fill="#eafaff" stroke="${a.accentColor}" stroke-width="4"/>`:back%7===1?`<rect x="92" y="218" width="96" height="105" rx="28" fill="#26354d" stroke="${a.accentColor}" stroke-width="5"/>`:'';
-  const outer=ov===0?'':ov%5===1?`<path d="M${140-bodyW/2} 221q8-37 ${bodyW/2} -40q${bodyW/2} 3 ${bodyW/2} 40v88H${140-bodyW/2}z" fill="none" stroke="${a.accentColor}" stroke-width="12"/>`:ov%5===2?`<path d="M92 215q48-45 96 0l-13 28h-70z" fill="#20283c"/>`:'';
-  return `<svg class="gg-avatar-svg ${size}" viewBox="0 0 280 380" role="img" aria-label="Avatar estilizado"><ellipse cx="140" cy="360" rx="78" ry="12" fill="#000" opacity=".26"/><g>${backShape}<rect x="${140-hipW/2}" y="277" width="${hipW}" height="59" rx="25" fill="${bv%5===2?a.accentColor:'#26395e'}"/><rect x="102" y="320" width="30" height="38" rx="14" fill="${a.skin}"/><rect x="148" y="320" width="30" height="38" rx="14" fill="${a.skin}"/><ellipse cx="115" cy="353" rx="29" ry="15" fill="${sv%6===0?'#171b26':a.accentColor}"/><ellipse cx="165" cy="353" rx="29" ry="15" fill="${sv%6===0?'#171b26':a.accentColor}"/><rect x="${140-bodyW/2}" y="205" width="${bodyW}" height="111" rx="50" fill="${a.clothColor}"/><path d="M105 244h70" stroke="${a.accentColor}" stroke-width="${6+(tv%4)*2}" stroke-linecap="round" opacity=".9"/>${outer}<ellipse cx="79" cy="254" rx="20" ry="49" fill="${a.clothColor}" transform="rotate(10 79 254)"/><ellipse cx="201" cy="254" rx="20" ry="49" fill="${a.clothColor}" transform="rotate(-10 201 254)"/><circle cx="73" cy="297" r="18" fill="${a.skin}"/><circle cx="207" cy="297" r="18" fill="${a.skin}"/><ellipse cx="140" cy="139" rx="82" ry="88" fill="${a.skin}"/><ellipse cx="140" cy="120" rx="56" ry="42" fill="#fff" opacity=".12"/>${eyes}<path d="M129 185q11 10 22 0" fill="none" stroke="#8b4f47" stroke-width="4" stroke-linecap="round"/>${hair}${glasses}${hat}</g></svg>`;
+  const a=normalizeAvatar(cfg),id=`gg${hash(JSON.stringify(a))}`;
+  const upper=family(a,'upper'),hood=family(a,'hood'),fp=family(a,'faceplate'),chest=family(a,'chest'),head=family(a,'head'),back=family(a,'back'),shoe=family(a,'shoes'),glove=family(a,'gloves'),lower=family(a,'lower');
+  const fabric=`url(#${id}fabric)`;
+  const star=(x,y,s=1)=>`<path d="M${x} ${y-6*s}l${2*s} ${4*s} ${5*s} ${1*s}-${4*s} ${3*s} ${1*s} ${5*s}-${4*s}-${2*s}-${4*s} ${2*s} ${1*s}-${5*s}-${4*s}-${3*s} ${5*s}-${1*s}z" fill="${a.accentColor}" opacity=".9"/>`;
+  const sparkles=upper===1||upper===6||upper===9?`${star(85,78,.55)}${star(190,72,.42)}${star(88,188,.38)}${star(176,223,.48)}${star(118,272,.34)}${star(205,180,.32)}<circle cx="70" cy="230" r="2.8" fill="#fff"/><circle cx="205" cy="125" r="2" fill="#fff"/><circle cx="157" cy="60" r="2" fill="#fff"/>`:'';
+  const backSvg=back===1?`<rect x="86" y="145" width="108" height="135" rx="42" fill="#28304a" stroke="${a.accentColor}" stroke-width="6"/>`:back===2?`<g fill="#dff8ff" stroke="${a.accentColor}" stroke-width="5"><ellipse cx="60" cy="200" rx="42" ry="70" transform="rotate(-20 60 200)"/><ellipse cx="220" cy="200" rx="42" ry="70" transform="rotate(20 220 200)"/></g>`:back===3?`<path d="M82 154h116l28 164q-86 35-172 0z" fill="${a.secondaryColor}" opacity=".9"/>`:'';
+  const headSvg=head===1?`<g transform="translate(69 73) rotate(-20)">${star(0,0,2.8)}</g>`:head===2?`<path d="M96 52l16 16 28-28 28 28 17-16 9 48H87z" fill="${a.accentColor}" stroke="${a.metalColor}" stroke-width="4"/>`:head===3?`<ellipse cx="140" cy="47" rx="62" ry="17" fill="none" stroke="${a.accentColor}" stroke-width="8"/>`:head===4?`<path d="M140 49v-25" stroke="${a.metalColor}" stroke-width="7"/><circle cx="140" cy="18" r="10" fill="${a.accentColor}"/>`:head===5?`<path d="M74 105q3-65 66-65t67 65" fill="none" stroke="#242b42" stroke-width="13"/><rect x="62" y="97" width="23" height="48" rx="10" fill="${a.accentColor}"/><rect x="195" y="97" width="23" height="48" rx="10" fill="${a.accentColor}"/>`:'';
+  const pocket=chest===0?'':chest===1?`<path d="M91 218h98l-9 58H100z" fill="${a.primaryColor}" stroke="${a.metalColor}" stroke-width="5"/><path d="M145 232a17 17 0 1 0 14 25 20 20 0 1 1-14-25z" fill="${a.accentColor}"/>${star(168,251,.7)}`:chest===2?`<path d="M89 221h102l-8 55H97z" fill="${a.secondaryColor}" stroke="${a.accentColor}" stroke-width="4"/>`:chest===3?`<path d="M140 187v91" stroke="${a.metalColor}" stroke-width="5"/><circle cx="140" cy="225" r="5" fill="${a.accentColor}"/>`:chest===4?`<circle cx="140" cy="230" r="27" fill="${a.accentColor}"/><text x="140" y="239" text-anchor="middle" font-size="26" font-weight="900" fill="#1a1930">GG</text>`:`<path d="M98 196l84 70M182 196l-84 70" stroke="${a.accentColor}" stroke-width="7" opacity=".9"/>`;
+  const faceStroke=fp===2?'#6df0ff':fp===5?'#34394b':fp===6?'#ffe28c':a.metalColor;
+  const faceFill=fp===5?'#1b2230':fp===4?'#dff8ff':a.faceColor;
+  return `<svg class="gg-avatar-svg ${size}" viewBox="0 0 280 380" role="img" aria-label="Avatar mascote 3D estilizado">
+  <defs><linearGradient id="${id}fabric" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${a.primaryColor}"/><stop offset=".47" stop-color="${a.secondaryColor}"/><stop offset="1" stop-color="${upper===1?'#65b7ed':a.primaryColor}"/></linearGradient><filter id="${id}shadow"><feGaussianBlur stdDeviation="7"/></filter></defs>
+  <ellipse cx="140" cy="350" rx="76" ry="13" fill="#000" opacity=".27" filter="url(#${id}shadow)"/>${backSvg}
+  <g>${/* short bean legs */''}<rect x="101" y="290" width="34" height="42" rx="17" fill="${fabric}"/><rect x="145" y="290" width="34" height="42" rx="17" fill="${fabric}"/>
+  <rect x="88" y="316" width="54" height="29" rx="14" fill="${shoe===1?fabric:a.primaryColor}" stroke="${a.metalColor}" stroke-width="${shoe===1?4:2}"/><rect x="138" y="316" width="54" height="29" rx="14" fill="${shoe===1?fabric:a.primaryColor}" stroke="${a.metalColor}" stroke-width="${shoe===1?4:2}"/>
+  <ellipse cx="140" cy="180" rx="87" ry="137" fill="${fabric}" stroke="rgba(255,255,255,.22)" stroke-width="3"/>${sparkles}
+  <rect x="43" y="166" width="38" height="102" rx="20" fill="${family(a,'sleeves')===1?fabric:a.primaryColor}" transform="rotate(10 62 217)"/><rect x="199" y="166" width="38" height="102" rx="20" fill="${family(a,'sleeves')===1?fabric:a.primaryColor}" transform="rotate(-10 218 217)"/>
+  <circle cx="57" cy="265" r="21" fill="${glove===1?fabric:a.primaryColor}"/><circle cx="223" cy="265" r="21" fill="${glove===1?fabric:a.primaryColor}"/>
+  <path d="M49 235q18 10 35 1M196 236q18 9 35-1" stroke="${a.metalColor}" stroke-width="8" fill="none"/>
+  <path d="M64 157q23-32 76-32t77 32" fill="none" stroke="${hood===1?a.secondaryColor:a.primaryColor}" stroke-width="18" stroke-linecap="round"/>
+  <ellipse cx="140" cy="113" rx="62" ry="52" fill="${faceFill}" stroke="${faceStroke}" stroke-width="7"/>
+  <rect x="111" y="95" width="14" height="35" rx="7" fill="${fp===5?'#f4f8ff':'#11131a'}"/><rect x="155" y="95" width="14" height="35" rx="7" fill="${fp===5?'#f4f8ff':'#11131a'}"/>
+  ${headSvg}${pocket}${lower===1?`<path d="M85 286q55 18 110 0" fill="none" stroke="${a.metalColor}" stroke-width="5"/>`:''}
+  ${hood===1?`<path d="M115 157v38M165 157v38" stroke="${a.metalColor}" stroke-width="5"/><circle cx="115" cy="196" r="8" fill="${a.accentColor}"/><circle cx="165" cy="196" r="8" fill="${a.accentColor}"/>`:''}</g></svg>`;
 }
-let avatar3D=null;
-function dispose3D(){if(!avatar3D)return;try{cancelAnimationFrame(avatar3D.raf);avatar3D.ro?.disconnect?.();avatar3D.renderer?.dispose?.();avatar3D.host?.replaceChildren();}catch{}avatar3D=null;}
+
+let avatar3D=null,avatarMotion='idle';
+function disposeMaterial(m){if(!m)return;(Array.isArray(m)?m:[m]).forEach(x=>{x.map?.dispose?.();x.dispose?.()})}
+function dispose3D(){if(!avatar3D)return;try{cancelAnimationFrame(avatar3D.raf);avatar3D.ro?.disconnect?.();avatar3D.renderer?.dispose?.();avatar3D.scene?.traverse?.(n=>{n.geometry?.dispose?.();disposeMaterial(n.material)});avatar3D.host?.replaceChildren();}catch{}avatar3D=null;}
+function fabricTexture(THREE,a,seed=1,style=1){
+  const c=document.createElement('canvas');c.width=c.height=256;const x=c.getContext('2d'),g=x.createLinearGradient(0,0,256,256);g.addColorStop(0,a.primaryColor);g.addColorStop(.5,a.secondaryColor);g.addColorStop(1,style===1?'#5ab8e8':a.primaryColor);x.fillStyle=g;x.fillRect(0,0,256,256);
+  if([1,6,9].includes(style)){let s=(seed+17)*92821;const rnd=()=>{s=(s*1664525+1013904223)>>>0;return s/4294967296};for(let i=0;i<34;i++){const px=rnd()*256,py=rnd()*256,r=1+rnd()*2.8;x.globalAlpha=.55+rnd()*.4;x.fillStyle=i%4===0?a.accentColor:'#fff';x.beginPath();x.arc(px,py,r,0,Math.PI*2);x.fill();if(i%7===0){x.fillRect(px-5,py-.8,10,1.6);x.fillRect(px-.8,py-5,1.6,10)}}x.globalAlpha=1;}
+  if(style===2||style===7){x.globalAlpha=.18;x.fillStyle=a.accentColor;for(let y=0;y<256;y+=34)x.fillRect(0,y,256,8);x.globalAlpha=1}
+  if(style===3){x.globalAlpha=.2;x.strokeStyle=a.accentColor;x.lineWidth=4;for(let i=-256;i<256;i+=36){x.beginPath();x.moveTo(i,0);x.lineTo(i+256,256);x.stroke()}x.globalAlpha=1}
+  const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.wrapS=t.wrapT=THREE.RepeatWrapping;t.anisotropy=4;return t;
+}
 function renderAvatar3D(cfg={}){
-  const host=$('avatarPreview');if(!host||!window.THREE){if(host)host.innerHTML=svgAvatar(cfg);return;}
-  const THREE=window.THREE,a=migrateAvatar({avatar:cfg}),f=a.bodyType==='feminino';
-  if(!avatar3D){
-    host.innerHTML='';const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});renderer.setPixelRatio(Math.min(2,window.devicePixelRatio||1));renderer.setClearColor(0x000000,0);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;host.appendChild(renderer.domElement);
-    const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(29,1,.1,100);camera.position.set(0,.9,9.2);camera.lookAt(0,.45,0);scene.add(new THREE.HemisphereLight(0xd6f3ff,0x23162f,2.3));const key=new THREE.DirectionalLight(0xffffff,3.4);key.position.set(4,7,7);key.castShadow=true;scene.add(key);const rim=new THREE.DirectionalLight(0x7b5cff,2.6);rim.position.set(-5,3,-4);scene.add(rim);const group=new THREE.Group();scene.add(group);
-    const resize=()=>{const r=host.getBoundingClientRect(),w=Math.max(260,r.width),h=Math.max(400,r.height);renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix()};resize();const ro=new ResizeObserver(resize);ro.observe(host);let dragging=false,lastX=0,targetY=0;renderer.domElement.addEventListener('pointerdown',e=>{dragging=true;lastX=e.clientX;renderer.domElement.setPointerCapture?.(e.pointerId)});renderer.domElement.addEventListener('pointermove',e=>{if(!dragging)return;targetY+=(e.clientX-lastX)*.012;lastX=e.clientX});renderer.domElement.addEventListener('pointerup',()=>dragging=false);renderer.domElement.addEventListener('pointercancel',()=>dragging=false);
-    const animate=()=>{if(!avatar3D)return;group.rotation.y+=(targetY-group.rotation.y)*.08;group.position.y=Math.sin(performance.now()/900)*.025;renderer.render(scene,camera);avatar3D.raf=requestAnimationFrame(animate)};avatar3D={host,renderer,scene,camera,group,ro,raf:0};animate();
-  }
-  const g=avatar3D.group;while(g.children.length){const o=g.children.pop();o.traverse?.(n=>{n.geometry?.dispose?.();if(n.material){(Array.isArray(n.material)?n.material:[n.material]).forEach(m=>m.dispose?.())}})}
-  const mat=(color,rough=.62,metal=.04,transparent=false,opacity=1)=>new THREE.MeshStandardMaterial({color,roughness:rough,metalness:metal,transparent,opacity});
-  const skin=mat(a.skin,.72),hair=mat(a.hairColor,.77),cloth=mat(a.clothColor,.6),accent=mat(a.accentColor,.45,.12),dark=mat('#171d2d',.72),white=mat('#f7fbff',.5),eye=mat(a.eyeColor,.3,.08);
-  const add=(geo,m,x,y,z,sx=1,sy=1,sz=1,rx=0,ry=0,rz=0,parent=g)=>{const o=new THREE.Mesh(geo,m);o.position.set(x,y,z);o.scale.set(sx,sy,sz);o.rotation.set(rx,ry,rz);o.castShadow=true;o.receiveShadow=true;parent.add(o);return o};
-  const sphere=(r,m,x,y,z,sx=1,sy=1,sz=1,parent=g)=>add(new THREE.SphereGeometry(r,32,24),m,x,y,z,sx,sy,sz,0,0,0,parent);
-  const cyl=(rt,rb,h,m,x,y,z,sx=1,sy=1,sz=1,rx=0,ry=0,rz=0,parent=g)=>add(new THREE.CylinderGeometry(rt,rb,h,24),m,x,y,z,sx,sy,sz,rx,ry,rz,parent);
-  const box=(w,h,d,m,x,y,z,sx=1,sy=1,sz=1,rx=0,ry=0,rz=0,parent=g)=>add(new THREE.BoxGeometry(w,h,d),m,x,y,z,sx,sy,sz,rx,ry,rz,parent);
-  const hv=variant(a,'hair'),ev=variant(a,'eyes'),head=variant(a,'headwear'),face=variant(a,'face'),tv=variant(a,'top'),ov=variant(a,'outerwear'),handv=variant(a,'hands'),bv=variant(a,'bottom'),sv=variant(a,'shoes'),back=variant(a,'back');
-  // Costas primeiro para ficarem atrás do corpo.
-  if(back>0){const t=back%6;if(t===1){box(1.35,1.55,.45,dark,0,-.35,-.72,1,1,1,.05);box(.9,.09,.18,accent,0,.25,-.98)}else if(t===2){for(const x of [-1,1])sphere(.85,white,x*.98,-.15,-.62,.45,1.3,.2)}else if(t===3){const cape=box(1.55,2.35,.08,accent,0,-.45,-.77,1,1,1,-.08);cape.material.transparent=true;cape.material.opacity=.85}else if(t===4){for(const x of [-.42,.42]){cyl(.22,.25,1.1,dark,x,-.38,-.8);sphere(.19,accent,x,-1.0,-.8)}}else if(t===5){sphere(.9,dark,0,-.25,-.75,1,.85,.28);sphere(.55,accent,0,-.25,-.95,1,.85,.18)}}
-  // Pernas compactas e pés grandes, linguagem visual de party-platformer.
-  const legY=-1.45;for(const x of [-.37,.37]){cyl(.25,.28,.85,skin,x,legY,0,.95,1,1);const shoeMat=sv===0?dark:(sv%4===0?accent:mat(['#edf2f8','#262b38',a.accentColor,'#d85a4b'][sv%4],.5));sphere(.42,shoeMat,x,-1.93,.28,1.18,.55,1.5);if(sv%5===2)box(.55,.09,.72,accent,x,-2.12,.34)}
-  // Quadril/parte inferior.
-  if(bv%6===4){cyl(.88,.98,.55,accent,0,-.88,0,1,1,.86)}else{sphere(.82,bv%5===2?accent:dark,0,-.92,0,f?1.18:1.05,.66,.82);if(bv%5===1){for(const x of [-.58,.58])box(.34,.38,.16,accent,x,-.87,.68)}}
-  // Corpo arredondado.
-  sphere(1.05,cloth,0,-.06,0,f?.96:1.08,1.2,.84);sphere(.8,cloth,0,-.68,0,f?1.14:1.02,.7,.82);
-  if(tv%7===1)box(1.45,.12,.1,accent,0,.0,.86);else if(tv%7===2){const badge=cyl(.25,.25,.04,white,0,-.18,.88,1,1,1,Math.PI/2);badge.rotation.x=Math.PI/2;}else if(tv%7===3){for(const x of [-.38,0,.38])box(.09,1.2,.06,accent,x,-.1,.85)}else if(tv%7===4){box(1.2,.42,.06,accent,0,-.05,.86);box(.18,.18,.08,white,0,-.05,.93)}
-  // Casacos / sobreposições.
-  if(ov>0){const t=ov%6;if(t===1){const collar=new THREE.TorusGeometry(.63,.11,10,30,Math.PI*1.25);add(collar,dark,0,.48,-.05,1,1,1,Math.PI/2,0,-.4)}else if(t===2){box(.08,1.65,.08,white,0,-.08,.88);for(const x of [-.43,.43])box(.45,.22,.06,dark,x,-.42,.88)}else if(t===3){cyl(.98,1.02,1.55,dark,0,-.1,0,1,1,.9);box(.07,1.35,.08,accent,0,-.1,.91)}else if(t===4){const collar=new THREE.TorusGeometry(.8,.16,10,36,Math.PI*1.3);add(collar,accent,0,.48,.0,1,1,1,Math.PI/2,0,-.48)}else if(t===5){for(const x of [-.75,.75])box(.22,1.45,.12,accent,x,-.12,.62,1,1,1,0,0,x<0?.15:-.15)}}
-  // Braços e mãos.
-  for(const x of [-1,1]){cyl(.2,.24,1.15,cloth,x*.96,-.25,0,1,1,1,0,0,x<0?.22:-.22);sphere(.28,handv===0?skin:accent,x*1.08,-.82,.03,1,1,1);if(handv>0&&handv%4===2)cyl(.3,.3,.25,dark,x*1.04,-.66,.02,1,1,1)}
-  // Cabeça maior, suave e amigável.
-  sphere(1.23,skin,0,1.36,.02,1.02,.96,.92);sphere(.2,skin,-1.18,1.32,0);sphere(.2,skin,1.18,1.32,0);
-  // Olhos.
-  if(ev%5===2){for(const x of [-.43,.43])box(.58,.28,.09,eye,x,1.42,1.08)}else{for(const x of [-.43,.43]){sphere(.27,white,x,1.43,1.04,1,.92,.35);sphere(.16,eye,x,1.41,1.23,1,1,.3);if(ev%5===1)add(new THREE.OctahedronGeometry(.075,0),white,x,1.44,1.32)}}
-  // Boca.
-  const mouth=new THREE.Mesh(new THREE.TorusGeometry(.17,.024,8,24,Math.PI),mat('#8e4b53',.65));mouth.position.set(0,.98,1.15);mouth.rotation.z=Math.PI;g.add(mouth);
-  // Cabelo procedural: 70 itens = 10 famílias x 7 silhuetas/variações.
-  sphere(1.25,hair,0,1.75,-.08,1,.56,.95);const cone=new THREE.ConeGeometry(.22,.66,12);const spike=(x,y,z,rz=0,s=.9)=>add(cone,hair,x,y,z,s,s,s,0,0,rz);
-  const ht=hv%7;if(ht===1||ht===3||ht===5){const count=ht===5?5:8;for(let i=0;i<count;i++){const q=i-(count-1)/2;spike(q*(ht===5?.16:.27),2.18-Math.abs(q)*.04,.1,-q*.1,.86+(hv%10)*.012)}}else if(ht===2){for(let i=0;i<5;i++)spike(-.72+i*.3,1.93,1.0,-.55+i*.15,.7)}else if(ht===4){sphere(.42,hair,.84,2.13,-.15);if(hv>34)sphere(.32,hair,-.82,2.03,-.1)}else if(ht===6){for(const x of [-.72,.72]){sphere(.34,hair,x,1.62,.08);cyl(.2,.12,.75,hair,x,1.14,.08)}}else{for(let i=0;i<4;i++)spike(-.48+i*.32,1.94,1.02,-.34+i*.2,.63)}
-  // Cabeça: boné, gorro, coroa, chapéu, headset, tiara...
-  if(head>0){const t=head%7;if(t===1){sphere(1.27,accent,0,1.96,.0,1,.35,.95);box(1.05,.09,.48,dark,.36,1.91,1.0,1,1,1,0,.12)}else if(t===2){sphere(1.28,accent,0,2.0,-.02,1,.4,.95);sphere(.24,white,0,2.42,-.02)}else if(t===3){const crown=new THREE.Group();g.add(crown);box(1.35,.28,.1,accent,0,2.15,.05,1,1,1,0,0,0,crown);for(const x of [-.48,0,.48])spike(x,2.48,.04,0,.65)}else if(t===4){cyl(.85,1.02,.55,dark,0,2.13,0);cyl(1.38,1.38,.08,accent,0,1.88,.02)}else if(t===5){const tor=new THREE.TorusGeometry(1.28,.09,10,40,Math.PI);add(tor,accent,0,1.55,-.05);box(.24,.65,.32,dark,-1.2,1.43,.02);box(.24,.65,.32,dark,1.2,1.43,.02)}else if(t===6){const tor=new THREE.TorusGeometry(1.22,.05,8,36,Math.PI);add(tor,accent,0,1.92,.0)}}
-  // Rosto: óculos, máscara, visor, bandana etc.
-  if(face>0){const t=face%7;if(t===1){const tor=new THREE.TorusGeometry(.34,.035,10,32);add(tor,dark,-.43,1.42,1.3,1,1,.28);add(tor,dark,.43,1.42,1.3,1,1,.28);box(.24,.04,.04,dark,0,1.42,1.32)}else if(t===2){box(.9,.38,.12,dark,0,1.02,1.08,1,1,1,.1);box(.58,.04,.04,accent,0,1.05,1.16)}else if(t===3){box(1.55,.42,.08,mat(a.eyeColor,.28,.18,true,.68),0,1.42,1.28)}else if(t===4){box(1.36,.24,.1,accent,0,1.08,1.15,1,1,1,.05)}else if(t===5){const tor=new THREE.TorusGeometry(.38,.04,10,32);add(tor,accent,.45,1.43,1.29,1,1,.28);box(.05,.62,.05,accent,.8,1.08,1.18,1,1,1,0,0,.2)}else if(t===6){for(const x of [-.72,.72])sphere(.12,accent,x,1.1,1.1,1,.45,.2)}}
-  g.rotation.y=0;
+  const host=$('avatarPreview');if(!host)return;
+  if(!window.THREE){host.innerHTML=`${svgAvatar(cfg)}<small class="avatar-3d-fallback">Prévia 2D ativa • WebGL não carregou</small>`;return;}
+  const THREE=window.THREE,a=normalizeAvatar(cfg);
+  try{
+    if(!avatar3D){
+      host.innerHTML='';const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,powerPreference:'high-performance'});renderer.setPixelRatio(Math.min(1.8,window.devicePixelRatio||1));renderer.setClearColor(0x000000,0);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.domElement.setAttribute('aria-label','Avatar 3D girável');host.appendChild(renderer.domElement);
+      const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(28,1,.1,100);camera.position.set(0,.35,8.4);camera.lookAt(0,.15,0);scene.add(new THREE.HemisphereLight(0xf3eaff,0x171027,2.5));const key=new THREE.DirectionalLight(0xffffff,3.4);key.position.set(4,6,7);key.castShadow=true;scene.add(key);const fill=new THREE.DirectionalLight(0x8edcff,2.0);fill.position.set(-4,2,4);scene.add(fill);const rim=new THREE.DirectionalLight(0xff7edb,2.0);rim.position.set(-3,4,-4);scene.add(rim);const root=new THREE.Group();scene.add(root);
+      const ground=new THREE.Mesh(new THREE.CylinderGeometry(1.8,2.05,.18,48),new THREE.MeshStandardMaterial({color:0x3a2d72,roughness:.35,metalness:.2}));ground.position.y=-1.78;ground.receiveShadow=true;scene.add(ground);
+      const resize=()=>{const r=host.getBoundingClientRect(),w=Math.max(300,Math.round(r.width||440)),h=Math.max(430,Math.round(r.height||610));renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix()};resize();const ro=new ResizeObserver(resize);ro.observe(host);
+      let dragging=false,lastX=0,targetY=.25;renderer.domElement.addEventListener('pointerdown',e=>{dragging=true;lastX=e.clientX;renderer.domElement.setPointerCapture?.(e.pointerId)});renderer.domElement.addEventListener('pointermove',e=>{if(!dragging)return;targetY+=(e.clientX-lastX)*.012;lastX=e.clientX});renderer.domElement.addEventListener('pointerup',()=>dragging=false);renderer.domElement.addEventListener('pointercancel',()=>dragging=false);renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();host.innerHTML=svgAvatar(a);dispose3D();});
+      const animate=()=>{if(!avatar3D)return;const t=performance.now()/1000,parts=avatar3D.parts||{};root.rotation.y+=(targetY-root.rotation.y)*.08;root.position.y=0;root.rotation.z=0;if(parts.leftArm){parts.leftArm.rotation.z=parts.leftArm.userData.baseZ||0;parts.rightArm.rotation.z=parts.rightArm.userData.baseZ||0}
+        if(avatarMotion==='idle')root.position.y=Math.sin(t*2.2)*.035;
+        if(avatarMotion==='wave'&&parts.rightArm){root.position.y=Math.sin(t*2.2)*.025;parts.rightArm.rotation.z=-1.45+Math.sin(t*7)*.25}
+        if(avatarMotion==='jump'){root.position.y=Math.max(0,Math.sin(t*3.2))*.72;root.rotation.z=Math.sin(t*3.2)*.06}
+        if(avatarMotion==='celebrate'&&parts.leftArm){parts.leftArm.rotation.z=1.55+Math.sin(t*5)*.18;parts.rightArm.rotation.z=-1.55-Math.sin(t*5)*.18;root.position.y=Math.abs(Math.sin(t*4))*.15}
+        renderer.render(scene,camera);avatar3D.raf=requestAnimationFrame(animate)};
+      avatar3D={host,renderer,scene,camera,root,ro,raf:0,parts:{}};animate();
+    }
+    const root=avatar3D.root;while(root.children.length){const o=root.children.pop();o.traverse?.(n=>{n.geometry?.dispose?.();disposeMaterial(n.material)})}
+    const mat=(color,rough=.52,metal=.05)=>new THREE.MeshStandardMaterial({color,roughness:rough,metalness:metal});
+    const fabric=(slot)=>{const v=variant(a,slot),fam=family(a,slot),m=new THREE.MeshStandardMaterial({map:fabricTexture(THREE,a,v,fam),roughness:.5,metalness:.03});return m};
+    const gold=mat(a.metalColor,.3,.55),white=mat(a.faceColor,.42,.02),black=mat('#101218',.24,.12),primary=mat(a.primaryColor),secondary=mat(a.secondaryColor),accent=mat(a.accentColor,.35,.18),dark=mat('#252a3c',.55,.08);
+    const add=(geo,m,x,y,z,sx=1,sy=1,sz=1,rx=0,ry=0,rz=0,parent=root)=>{const o=new THREE.Mesh(geo,m);o.position.set(x,y,z);o.scale.set(sx,sy,sz);o.rotation.set(rx,ry,rz);o.castShadow=true;o.receiveShadow=true;parent.add(o);return o};
+    const sphere=(r,m,x,y,z,sx=1,sy=1,sz=1,parent=root)=>add(new THREE.SphereGeometry(r,32,24),m,x,y,z,sx,sy,sz,0,0,0,parent);
+    const capsule=(r,len,m,x,y,z,rx=0,ry=0,rz=0,parent=root)=>add(new THREE.CapsuleGeometry(r,len,8,20),m,x,y,z,1,1,1,rx,ry,rz,parent);
+    const box=(w,h,d,m,x,y,z,rx=0,ry=0,rz=0,parent=root)=>add(new THREE.BoxGeometry(w,h,d),m,x,y,z,1,1,1,rx,ry,rz,parent);
+    const torus=(R,r,m,x,y,z,rx=0,ry=0,rz=0,parent=root,arc=Math.PI*2)=>add(new THREE.TorusGeometry(R,r,12,48,arc),m,x,y,z,1,1,1,rx,ry,rz,parent);
+    const starGeo=(outer=.3,inner=.14,depth=.07)=>{const s=new THREE.Shape();for(let i=0;i<10;i++){const an=-Math.PI/2+i*Math.PI/5,rr=i%2?inner:outer;const xx=Math.cos(an)*rr,yy=Math.sin(an)*rr;i?s.lineTo(xx,yy):s.moveTo(xx,yy)}s.closePath();return new THREE.ExtrudeGeometry(s,{depth,bevelEnabled:true,bevelSize:.025,bevelThickness:.02,bevelSegments:2})};
+    const upperM=fabric('upper'),hoodM=fabric('hood'),sleeveM=fabric('sleeves'),gloveM=fabric('gloves'),lowerM=fabric('lower'),shoeM=fabric('shoes');
+    const back=family(a,'back');if(back===1){box(1.35,1.65,.42,dark,0,-.05,-.72,0,0,0);box(.92,.12,.47,accent,0,.35,-.94)}else if(back===2){for(const x of [-1,1])sphere(.92,mat('#dff8ff',.38),x*.94,.15,-.56,.45,1.15,.18)}else if(back===3){const cape=box(1.52,2.55,.08,secondary,0,-.15,-.82,-.09);cape.material.transparent=true;cape.material.opacity=.9}else if(back===4){for(const x of [-.42,.42]){capsule(.22,.75,dark,x,-.22,-.82);sphere(.19,accent,x,-.86,-.82)}}
+    // Body: one continuous rounded mascot silhouette.
+    sphere(1.05,upperM,0,.05,0,1.02,1.36,.88);sphere(.86,hoodM,0,1.04,-.02,1.07,1.02,.9);
+    // Short legs and chunky footwear.
+    for(const x of [-.38,.38]){capsule(.23,.28,lowerM,x,-1.18,.02);const s=sphere(.39,shoeM,x,-1.48,.2,1.18,.62,1.45);if(family(a,'shoes')===1)torus(.32,.045,gold,x,-1.48,.34,Math.PI/2)}
+    // Arms & gloves.
+    const left=capsule(.24,.68,sleeveM,-1.02,-.05,.02,0,0,.18),right=capsule(.24,.68,sleeveM,1.02,-.05,.02,0,0,-.18);left.userData.baseZ=.18;right.userData.baseZ=-.18;avatar3D.parts={leftArm:left,rightArm:right};
+    sphere(.29,gloveM,-1.13,-.68,.04,1,1,1);sphere(.29,gloveM,1.13,-.68,.04,1,1,1);if([1,2,5].includes(family(a,'gloves'))){torus(.27,.055,gold,-1.09,-.5,.03,Math.PI/2);torus(.27,.055,gold,1.09,-.5,.03,Math.PI/2)}
+    // Hood collar / drawstrings.
+    const hf=family(a,'hood');torus(.82,hf===1?.11:.08,hf===1?secondary:primary,0,.34,.02,Math.PI/2);if(hf===1||hf===3){for(const x of [-.24,.24]){capsule(.025,.38,gold,x,.07,.78);sphere(.075,accent,x,-.16,.78)}}
+    // Faceplate and eyes exactly in the large clean oval language from the reference.
+    const ff=family(a,'faceplate'),faceMat=ff===5?dark:white,ring=ff===2?mat('#63efff',.2,.35):ff===6?accent:gold;sphere(.69,faceMat,0,.92,.78,1.08,.84,.16);torus(.705,.06,ring,0,.92,.88);for(const x of [-.25,.25])sphere(.12,ff===5?mat('#f7fbff'):black,x,.94,.965,.58,1.45,.25);
+    // Chest clothing details.
+    const cf=family(a,'chest');if(cf===1){box(1.05,.55,.09,primary,0,-.42,.82,0,0,0);torus(.16,.055,gold,-.02,-.42,.9,0,0,.45,root,Math.PI*1.45);add(starGeo(.11,.05,.04),gold,.33,-.39,.89,1,1,1,0,0,.2)}else if(cf===2){box(1.12,.48,.1,secondary,0,-.43,.83)}else if(cf===3){box(.055,1.15,.055,gold,0,-.13,.86)}else if(cf===4){add(starGeo(.27,.13,.06),accent,0,-.3,.86,1,1,1,0,0,.1)}else if(cf>=5){box(.07,1.45,.055,accent,-.35,-.18,.84,0,0,-.45);box(.07,1.45,.055,accent,.35,-.18,.84,0,0,.45)}
+    // Head accessories.
+    const hd=family(a,'head');if(hd===1){add(starGeo(.34,.16,.08),gold,-.72,1.46,.5,1,1,1,0,-.35,-.12)}else if(hd===2){const crown=new THREE.Group();root.add(crown);box(1.05,.24,.1,gold,0,1.76,.03,0,0,0,crown);for(const x of [-.36,0,.36])add(new THREE.ConeGeometry(.13,.38,8),accent,x,2.02,.03,1,1,1,0,0,0,crown)}else if(hd===3){torus(.72,.045,accent,0,1.95,0,Math.PI/2)}else if(hd===4){capsule(.035,.34,gold,0,1.92,.0);sphere(.1,accent,0,2.14,.0)}else if(hd===5){torus(1.0,.07,dark,0,1.05,-.05,0,0,0,root,Math.PI);box(.22,.55,.28,accent,-.94,.93,.02);box(.22,.55,.28,accent,.94,.93,.02)}else if(hd===6){for(const x of [-.55,.55])sphere(.36,hoodM,x,1.72,-.05,.7,1.1,.5)}else if(hd===9){sphere(.2,accent,-.72,1.48,.54);torus(.32,.05,gold,-.72,1.48,.54,0,0,0,root)}
+    // Extra silhouette changes for selected layers.
+    if(family(a,'sleeves')===3){sphere(.38,sleeveM,-.98,.18,.0,1,1.25,1);sphere(.38,sleeveM,.98,.18,.0,1,1.25,1)}
+    if(family(a,'lower')===4)torus(.86,.09,dark,0,-.72,.02,Math.PI/2);else if(family(a,'lower')===1)torus(.83,.055,gold,0,-.76,.03,Math.PI/2);
+    root.rotation.y=.25;
+  }catch(e){console.error('Avatar 3D V17:',e);dispose3D();host.innerHTML=`${svgAvatar(a)}<small class="avatar-3d-fallback">Prévia 2D de segurança • ${esc(e?.message||'WebGL indisponível')}</small>`;}
 }
+
 function inject(){
  const main=document.querySelector('main.shell');if(!main||$('profileScreen'))return;
  const top=document.querySelector('.top-actions');if(top){const b=document.createElement('button');b.className='mini-pill';b.id='profileButton';b.title='Meu perfil';b.innerHTML='🧑 <b>Perfil</b>';top.insertBefore(b,$('achievementsButton'));const a=document.createElement('button');a.className='mini-pill';a.id='avatarButton';a.title='Avatar e loja';a.innerHTML='✨ <b>Avatar</b>';top.insertBefore(a,b);}
- const home=$('homeScreen');if(home){const banner=document.createElement('section');banner.className='social-home-banner';banner.innerHTML=`<div class="social-home-avatar" id="homeAvatarPreview"></div><div><p class="eyebrow">👤 SEU JOGADOR</p><h2>Perfil, avatar e coleção</h2><p>Monte um avatar arredondado e estilizado, combine peças e desbloqueie um catálogo enorme.</p></div><div class="social-home-actions"><button class="primary-btn" id="homeProfileButton">ABRIR PERFIL</button><button class="secondary-btn" id="homeAvatarButton">PERSONALIZAR AVATAR</button></div>`;const q=home.querySelector('.quiz-home-banner');home.insertBefore(banner,q||home.firstChild);}
+ const home=$('homeScreen');if(home){const banner=document.createElement('section');banner.className='social-home-banner';banner.innerHTML=`<div class="social-home-avatar" id="homeAvatarPreview"></div><div><p class="eyebrow">👤 SEU JOGADOR</p><h2>Perfil, avatar e coleção</h2><p>Seu mascote 3D agora usa roupas, acessórios e cores em camadas.</p></div><div class="social-home-actions"><button class="primary-btn" id="homeProfileButton">ABRIR PERFIL</button><button class="secondary-btn" id="homeAvatarButton">PERSONALIZAR AVATAR</button></div>`;const q=home.querySelector('.quiz-home-banner');home.insertBefore(banner,q||home.firstChild);}
  main.insertAdjacentHTML('beforeend',`<section class="screen profile-screen" id="profileScreen"><div class="section-heading"><button class="back-link" id="profileBack">← Voltar</button><div><p class="eyebrow">👤 PERFIL DO JOGADOR</p><h2>Seu espaço no Game Guess</h2><p>Visual, recordes e identidade da sua conta.</p></div></div><div class="profile-v15-layout"><section class="profile-v15-hero"><div id="profileAvatarHero" class="profile-avatar-hero"></div><div class="profile-v15-id"><span class="online-dot">● ONLINE</span><h2 id="profileNickLabel">Jogador</h2><p id="profileBioLabel"></p><div class="profile-favorite">🎮 Favorito: <b id="profileFavLabel">Game Guess</b></div><button class="secondary-btn" id="profileEditAvatar">✨ Editar avatar</button></div></section><section class="profile-edit-card"><h3>✏️ Identidade</h3><label>Nickname<input id="profileNickInput" maxlength="22" placeholder="Seu nickname"></label><label>Bio<textarea id="profileBioInput" maxlength="120"></textarea></label><label>Jogo favorito<select id="profileFavoriteInput"><option>Game Guess</option><option>GeoGuess Arena</option><option>Quiz Mundial</option><option>Termo Arcade</option><option>KOF 2002 Magic Plus II</option><option>Multiverso</option><option>Arena Online</option></select></label><button class="primary-btn" id="profileSave">SALVAR PERFIL</button></section><section class="profile-stat-grid" id="profileStatGrid"></section><section class="profile-showcase"><div><h3>🏆 Destaques</h3><div id="profileHighlights" class="profile-highlight-grid"></div></div><div><h3>🎒 Visual equipado</h3><div id="profileEquipped" class="profile-equipped"></div></div></section></div></section>
- <section class="screen avatar-screen" id="avatarScreen"><div class="section-heading"><button class="back-link" id="avatarBack">← Voltar</button><div><p class="eyebrow">✨ AVATAR LAB</p><h2>Crie seu personagem</h2><p>Visual 3D arredondado, corpo masculino/feminino e 70 itens em cada categoria.</p></div><div class="avatar-wallet">⭐ <b id="avatarCoins">0</b> pontos</div></div><div class="avatar-v15-layout"><section class="avatar-studio"><div class="avatar-preview-stage"><div class="avatar-preview-badge">ARRASTE PARA GIRAR</div><div id="avatarPreview"></div></div><div class="avatar-color-panel"><h3>Base</h3><div class="avatar-body-toggle" id="avatarBodyToggle"><button data-body-type="masculino">Masculino</button><button data-body-type="feminino">Feminino</button></div><div><b>Pele</b><div id="skinSwatches" class="avatar-swatches"></div></div><div><b>Cabelo</b><div id="hairSwatches" class="avatar-swatches"></div></div><div><b>Olhos</b><div id="eyeSwatches" class="avatar-swatches"></div></div><div><b>Roupa</b><div id="clothSwatches" class="avatar-swatches"></div></div><div><b>Detalhes</b><div id="accentSwatches" class="avatar-swatches"></div></div><button class="primary-btn" id="avatarSave">✓ SALVAR AVATAR</button><button class="secondary-btn" id="avatarRandom">🎲 ALEATÓRIO</button></div></section><section class="avatar-shop"><div class="avatar-shop-head"><div><p class="eyebrow">🛍️ LOJA</p><h2>Catálogo de 700 itens</h2><small>70 peças em cada uma das 10 categorias</small></div><div class="avatar-wallet">⭐ <b id="shopCoins">0</b></div></div><div class="shop-tools"><input id="shopSearch" placeholder="Buscar item nesta categoria"><span id="shopCount">70 itens</span></div><div class="shop-tabs" id="shopTabs"></div><div class="shop-grid" id="shopGrid"></div><div class="shop-pager"><button id="shopPrev">←</button><span id="shopPageLabel">1 / 6</span><button id="shopNext">→</button></div></section></div></section>`);
+ <section class="screen avatar-screen" id="avatarScreen"><div class="section-heading"><button class="back-link" id="avatarBack">← Voltar</button><div><p class="eyebrow">✨ AVATAR LAB V17</p><h2>Monte seu mascote 3D</h2><p>Corpo bean fixo + roupas, capuzes, acessórios e 700 peças adaptadas ao novo modelo.</p></div><div class="avatar-wallet">⭐ <b id="avatarCoins">0</b> pontos</div></div><div class="avatar-v15-layout"><section class="avatar-studio"><div class="avatar-preview-stage"><div class="avatar-preview-badge">ARRASTE PARA GIRAR • VISUAL 360°</div><div id="avatarPreview"></div><div class="avatar-motion-bar" id="avatarMotionBar"><button class="active" data-avatar-action="idle">PARADO</button><button data-avatar-action="wave">ACENAR</button><button data-avatar-action="jump">PULAR</button><button data-avatar-action="celebrate">COMEMORAR</button></div></div><div class="avatar-color-panel"><h3>Paleta do traje</h3><p class="avatar-panel-note">O corpo do mascote não muda. A personalização acontece nas roupas e acessórios.</p><div><b>Cor principal</b><div id="primarySwatches" class="avatar-swatches"></div></div><div><b>Cor secundária</b><div id="secondarySwatches" class="avatar-swatches"></div></div><div><b>Detalhes</b><div id="accentSwatches" class="avatar-swatches"></div></div><div><b>Metais</b><div id="metalSwatches" class="avatar-swatches"></div></div><div><b>Faceplate</b><div id="faceSwatches" class="avatar-swatches"></div></div><button class="primary-btn" id="avatarSave">✓ SALVAR VISUAL</button><button class="secondary-btn" id="avatarRandom">🎲 ALEATÓRIO</button></div></section><section class="avatar-shop"><div class="avatar-shop-head"><div><p class="eyebrow">🛍️ LOJA V17</p><h2>700 peças de roupa e acessórios</h2><small>70 itens reais em cada uma das 10 categorias; cada card mostra o mascote usando a peça.</small></div><div class="avatar-wallet">⭐ <b id="shopCoins">0</b></div></div><div class="shop-tools"><input id="shopSearch" placeholder="Buscar peça nesta categoria"><span id="shopCount">70 itens</span></div><div class="shop-tabs" id="shopTabs"></div><div class="shop-grid" id="shopGrid"></div><div class="shop-pager"><button id="shopPrev">←</button><span id="shopPageLabel">1 / 6</span><button id="shopNext">→</button></div></section></div></section>`);
 }
-let shopSlot='hair',shopPage=0,shopQuery='';const PAGE_SIZE=12;
+
+let shopSlot='upper',shopPage=0,shopQuery='';const PAGE_SIZE=12;
 function renderSwatches(id,vals,key,p){const el=$(id);if(!el)return;el.innerHTML=vals.map(v=>`<button class="avatar-swatch${p.avatar[key]===v?' active':''}" data-color-key="${key}" data-color="${v}" style="--sw:${v}" aria-label="${v}"></button>`).join('');}
 function renderShop(p){
  const tabs=$('shopTabs');if(tabs)tabs.innerHTML=SLOT_ORDER.map(k=>`<button class="${shopSlot===k?'active':''}" data-shop-slot="${k}">${SLOT_META[k].icon} ${SLOT_META[k].label}</button>`).join('');
  const owned=new Set(p.avatarOwned||[]),q=shopQuery.trim().toLowerCase();let rows=CATALOG.filter(x=>x.slot===shopSlot&&(!q||x.name.toLowerCase().includes(q)||x.rarity.toLowerCase().includes(q)));
  const pages=Math.max(1,Math.ceil(rows.length/PAGE_SIZE));shopPage=Math.max(0,Math.min(shopPage,pages-1));const shown=rows.slice(shopPage*PAGE_SIZE,(shopPage+1)*PAGE_SIZE),grid=$('shopGrid');
  if($('shopCount'))$('shopCount').textContent=`${rows.length} de 70 itens`;
- if(grid)grid.innerHTML=shown.map(x=>{const eq=p.avatar[x.slot]===x.id;return `<article class="shop-item ${eq?'equipped':''}" data-rarity="${x.rarity}"><div class="shop-item-icon"><span>${x.icon}</span><b>#${String(x.variant+1).padStart(2,'0')}</b></div><div><b>${esc(x.name)}</b><small>${x.rarity} • ${SLOT_META[x.slot].label}</small></div><button data-shop-item="${x.id}" ${eq?'disabled':''}>${eq?'EQUIPADO':owned.has(x.id)?'EQUIPAR':`⭐ ${x.price}`}</button></article>`}).join('')||'<div class="shop-empty">Nenhum item encontrado.</div>';
+ if(grid)grid.innerHTML=shown.map(x=>{const eq=p.avatar[x.slot]===x.id,preview={...p.avatar,[x.slot]:x.id};return `<article class="shop-item ${eq?'equipped':''}" data-rarity="${x.rarity}"><div class="shop-item-icon shop-item-avatar">${svgAvatar(preview,'shop')}<b>#${String(x.variant+1).padStart(2,'0')}</b></div><div><b>${esc(x.name)}</b><small>${x.rarity} • ${SLOT_META[x.slot].label}</small></div><button data-shop-item="${x.id}" ${eq?'disabled':''}>${eq?'EQUIPADO':owned.has(x.id)?'EQUIPAR':`⭐ ${x.price}`}</button></article>`}).join('')||'<div class="shop-empty">Nenhum item encontrado.</div>';
  if($('shopPageLabel'))$('shopPageLabel').textContent=`${shopPage+1} / ${pages}`;if($('shopPrev'))$('shopPrev').disabled=shopPage<=0;if($('shopNext'))$('shopNext').disabled=shopPage>=pages-1;
 }
 function stats(p){const played=Number(p.gamesPlayed||0),wins=Number(p.gamesWon||0);return [['⭐','Pontos',p.coins||0],['🏆','Maior pontuação',p.highScore||0],['🔥','Melhor sequência',p.bestStreak||0],['🎮','Partidas',played],['✅','Vitórias',wins],['🎯','Aproveitamento',played?`${Math.round(wins/played*100)}%`:'0%'],['⚔️','Vitórias Arena',p.duelWins||0],['🌍','GeoGuess vitórias',p.geoWins||0]];}
-function renderProfile(){const p=defaults(read()),u=FB()?.getUser?.();$('profileAvatarHero').innerHTML=svgAvatar(p.avatar);$('profileNickLabel').textContent=p.nickname||u?.displayName||u?.email?.split('@')[0]||'Jogador';$('profileBioLabel').textContent=p.bio;$('profileFavLabel').textContent=p.favoriteGame;$('profileNickInput').value=p.nickname||'';$('profileBioInput').value=p.bio;$('profileFavoriteInput').value=p.favoriteGame;$('profileStatGrid').innerHTML=stats(p).map(([i,l,v])=>`<div><span>${i}</span><small>${l}</small><b>${v}</b></div>`).join('');const level=Math.max(1,Math.floor((Number(p.gamesPlayed||0)+Number(p.gamesWon||0)*2)/10)+1);$('profileHighlights').innerHTML=`<div>🎖️ <b>Nível ${level}</b><span>Experiência geral</span></div><div>🌟 <b>${(p.avatarOwned||[]).length}</b><span>Itens desbloqueados</span></div><div>🧠 <b>${p.termBestStreak||p.bestStreak||0}</b><span>Sequência destaque</span></div><div>🥊 <b>${p.kofRating||1000}</b><span>Elo KOF</span></div>`;$('profileEquipped').innerHTML=SLOT_ORDER.map(k=>{const it=item(p.avatar[k]);return `<span title="${esc(it.name)}">${it.icon}<small>${esc(it.name)}</small></span>`}).join('');}
-function renderAvatar(){const p=defaults(read());renderAvatar3D(p.avatar);$('avatarCoins').textContent=p.coins||0;$('shopCoins').textContent=p.coins||0;renderSwatches('skinSwatches',SKINS,'skin',p);renderSwatches('hairSwatches',HAIR_COLORS,'hairColor',p);renderSwatches('eyeSwatches',EYE_COLORS,'eyeColor',p);renderSwatches('clothSwatches',CLOTH_COLORS,'clothColor',p);renderSwatches('accentSwatches',ACCENT_COLORS,'accentColor',p);document.querySelectorAll('[data-body-type]').forEach(b=>b.classList.toggle('active',b.dataset.bodyType===p.avatar.bodyType));renderShop(p);const h=$('homeAvatarPreview');if(h)h.innerHTML=svgAvatar(p.avatar,'mini');}
+function renderProfile(){const p=defaults(read()),u=FB()?.getUser?.();if($('profileAvatarHero'))$('profileAvatarHero').innerHTML=svgAvatar(p.avatar);$('profileNickLabel').textContent=p.nickname||u?.displayName||u?.email?.split('@')[0]||'Jogador';$('profileBioLabel').textContent=p.bio;$('profileFavLabel').textContent=p.favoriteGame;$('profileNickInput').value=p.nickname||'';$('profileBioInput').value=p.bio;$('profileFavoriteInput').value=p.favoriteGame;$('profileStatGrid').innerHTML=stats(p).map(([i,l,v])=>`<div><span>${i}</span><small>${l}</small><b>${v}</b></div>`).join('');const level=Math.max(1,Math.floor((Number(p.gamesPlayed||0)+Number(p.gamesWon||0)*2)/10)+1);$('profileHighlights').innerHTML=`<div>🎖️ <b>Nível ${level}</b><span>Experiência geral</span></div><div>🌟 <b>${(p.avatarOwned||[]).length}</b><span>Itens desbloqueados</span></div><div>🧠 <b>${p.termBestStreak||p.bestStreak||0}</b><span>Sequência destaque</span></div><div>🥊 <b>${p.kofRating||1000}</b><span>Elo KOF</span></div>`;$('profileEquipped').innerHTML=SLOT_ORDER.map(k=>{const it=item(p.avatar[k]);return `<span title="${esc(it.name)}">${it.icon}<small>${esc(it.name)}</small></span>`}).join('');}
+function renderAvatar(){const p=defaults(read());if($('avatarCoins'))$('avatarCoins').textContent=p.coins||0;if($('shopCoins'))$('shopCoins').textContent=p.coins||0;renderSwatches('primarySwatches',PRIMARY,'primaryColor',p);renderSwatches('secondarySwatches',SECONDARY,'secondaryColor',p);renderSwatches('accentSwatches',ACCENT,'accentColor',p);renderSwatches('metalSwatches',METAL,'metalColor',p);renderSwatches('faceSwatches',FACE,'faceColor',p);renderShop(p);const h=$('homeAvatarPreview');if(h)h.innerHTML=svgAvatar(p.avatar,'mini');if($('avatarScreen')?.classList.contains('active'))requestAnimationFrame(()=>renderAvatar3D(p.avatar));}
 function setAvatarValue(key,val){const p=defaults(read());p.avatar[key]=val;write(p);renderAvatar();}
 function buyEquip(id){const it=item(id),p=defaults(read()),owned=new Set(p.avatarOwned||[]);if(!owned.has(id)){if(Number(p.coins||0)<it.price)return CORE()?.toast?.('Pontos insuficientes',`Você precisa de ${it.price} pontos para ${it.name}.`,'error');p.coins=Math.max(0,Number(p.coins||0)-it.price);p.avatarSpent=Number(p.avatarSpent||0)+it.price;owned.add(id);p.avatarOwned=[...owned];CORE()?.playSound?.('coin');}p.avatar[it.slot]=it.id;write(p);renderAvatar();CORE()?.toast?.('Visual atualizado',`${it.name} equipado.`);}
-function openProfile(){CORE()?.showScreen?.('profileScreen');renderProfile()}
-function openAvatar(){CORE()?.showScreen?.('avatarScreen');renderAvatar()}
+function openProfile(){dispose3D();CORE()?.showScreen?.('profileScreen');renderProfile()}
+function openAvatar(){CORE()?.showScreen?.('avatarScreen');requestAnimationFrame(()=>renderAvatar())}
 function bind(){
- inject();renderAvatar();$('profileButton')?.addEventListener('click',openProfile);$('avatarButton')?.addEventListener('click',openAvatar);$('homeProfileButton')?.addEventListener('click',openProfile);$('homeAvatarButton')?.addEventListener('click',openAvatar);$('profileBack')?.addEventListener('click',()=>CORE()?.showScreen?.('homeScreen'));$('avatarBack')?.addEventListener('click',()=>{dispose3D();CORE()?.showScreen?.('homeScreen')});$('profileEditAvatar')?.addEventListener('click',openAvatar);
- $('profileSave')?.addEventListener('click',()=>{const p=defaults(read());p.nickname=String($('profileNickInput').value||'').trim().slice(0,22);p.bio=String($('profileBioInput').value||'').trim().slice(0,120);p.favoriteGame=$('profileFavoriteInput').value;write(p);renderProfile();CORE()?.toast?.('Perfil salvo','Suas alterações foram sincronizadas.');});
- $('avatarScreen')?.addEventListener('click',e=>{const sw=e.target.closest('[data-color-key]');if(sw)return setAvatarValue(sw.dataset.colorKey,sw.dataset.color);const body=e.target.closest('[data-body-type]');if(body)return setAvatarValue('bodyType',body.dataset.bodyType);const tab=e.target.closest('[data-shop-slot]');if(tab){shopSlot=tab.dataset.shopSlot;shopPage=0;shopQuery='';if($('shopSearch'))$('shopSearch').value='';return renderAvatar()}const it=e.target.closest('[data-shop-item]');if(it)return buyEquip(it.dataset.shopItem);});
+ inject();const p=defaults(read());write(p);const h=$('homeAvatarPreview');if(h)h.innerHTML=svgAvatar(p.avatar,'mini');
+ $('profileButton')?.addEventListener('click',openProfile);$('avatarButton')?.addEventListener('click',openAvatar);$('homeProfileButton')?.addEventListener('click',openProfile);$('homeAvatarButton')?.addEventListener('click',openAvatar);$('profileBack')?.addEventListener('click',()=>CORE()?.showScreen?.('homeScreen'));$('avatarBack')?.addEventListener('click',()=>{dispose3D();CORE()?.showScreen?.('homeScreen')});$('profileEditAvatar')?.addEventListener('click',openAvatar);
+ $('profileSave')?.addEventListener('click',()=>{const p=defaults(read());p.nickname=String($('profileNickInput').value||'').trim().slice(0,22);p.bio=String($('profileBioInput').value||'').trim().slice(0,120);p.favoriteGame=$('profileFavoriteInput').value;write(p);FB()?.syncPublicProfile?.();renderProfile();CORE()?.toast?.('Perfil salvo','Suas alterações foram sincronizadas.');});
+ $('avatarScreen')?.addEventListener('click',e=>{const sw=e.target.closest('[data-color-key]');if(sw)return setAvatarValue(sw.dataset.colorKey,sw.dataset.color);const act=e.target.closest('[data-avatar-action]');if(act){avatarMotion=act.dataset.avatarAction;document.querySelectorAll('[data-avatar-action]').forEach(b=>b.classList.toggle('active',b===act));return}const tab=e.target.closest('[data-shop-slot]');if(tab){shopSlot=tab.dataset.shopSlot;shopPage=0;shopQuery='';if($('shopSearch'))$('shopSearch').value='';return renderAvatar()}const it=e.target.closest('[data-shop-item]');if(it)return buyEquip(it.dataset.shopItem);});
  $('shopSearch')?.addEventListener('input',e=>{shopQuery=e.target.value;shopPage=0;renderShop(defaults(read()))});$('shopPrev')?.addEventListener('click',()=>{shopPage--;renderShop(defaults(read()))});$('shopNext')?.addEventListener('click',()=>{shopPage++;renderShop(defaults(read()))});
- $('avatarSave')?.addEventListener('click',()=>{write(defaults(read()));CORE()?.toast?.('Avatar salvo','Seu novo visual foi salvo na conta.');});
- $('avatarRandom')?.addEventListener('click',()=>{const p=defaults(read()),owned=CATALOG.filter(x=>(p.avatarOwned||[]).includes(x.id));for(const slot of SLOT_ORDER){const pool=owned.filter(x=>x.slot===slot);if(pool.length)p.avatar[slot]=pool[Math.floor(Math.random()*pool.length)].id;}p.avatar.bodyType=Math.random()>.5?'feminino':'masculino';p.avatar.skin=SKINS[Math.floor(Math.random()*SKINS.length)];p.avatar.hairColor=HAIR_COLORS[Math.floor(Math.random()*HAIR_COLORS.length)];p.avatar.eyeColor=EYE_COLORS[Math.floor(Math.random()*EYE_COLORS.length)];p.avatar.clothColor=CLOTH_COLORS[Math.floor(Math.random()*CLOTH_COLORS.length)];p.avatar.accentColor=ACCENT_COLORS[Math.floor(Math.random()*ACCENT_COLORS.length)];write(p);renderAvatar();});
- window.addEventListener('gameguess:authchange',()=>{renderAvatar();if($('profileScreen')?.classList.contains('active'))renderProfile()});
+ $('avatarSave')?.addEventListener('click',()=>{write(defaults(read()));CORE()?.toast?.('Avatar salvo','Seu visual 3D foi salvo na conta.');});
+ $('avatarRandom')?.addEventListener('click',()=>{const p=defaults(read()),owned=CATALOG.filter(x=>(p.avatarOwned||[]).includes(x.id));for(const slot of SLOT_ORDER){const pool=owned.filter(x=>x.slot===slot);if(pool.length)p.avatar[slot]=pool[Math.floor(Math.random()*pool.length)].id;}p.avatar.primaryColor=PRIMARY[Math.floor(Math.random()*PRIMARY.length)];p.avatar.secondaryColor=SECONDARY[Math.floor(Math.random()*SECONDARY.length)];p.avatar.accentColor=ACCENT[Math.floor(Math.random()*ACCENT.length)];p.avatar.metalColor=METAL[Math.floor(Math.random()*METAL.length)];p.avatar.faceColor=FACE[Math.floor(Math.random()*FACE.length)];write(p);renderAvatar();});
+ window.addEventListener('gameguess:authchange',()=>{const p=defaults(read());const h=$('homeAvatarPreview');if(h)h.innerHTML=svgAvatar(p.avatar,'mini');if($('profileScreen')?.classList.contains('active'))renderProfile();if($('avatarScreen')?.classList.contains('active'))renderAvatar()});
 }
-window.GameGuessSocial={openProfile,openAvatar,renderAvatar,svgAvatar,CATALOG,SLOT_ORDER};if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind);else bind();
+window.GameGuessSocial={openProfile,openAvatar,renderAvatar,svgAvatar,CATALOG,SLOT_ORDER,dispose3D};if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind);else bind();
 })();

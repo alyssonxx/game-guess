@@ -1,62 +1,27 @@
-# Game Guess V16 — Avatar Party 3D + KOF FBNeo + Quiz Cloud
+# Game Guess V17 — Avatar 3D Bean + Social + KOF Full Non-Merged
 
-Esta versão atualiza o sistema de avatar e corrige a arquitetura de carregamento do KOF 2002 Magic Plus II no EmulatorJS/FBNeo.
+A V17 concentra a atualização em três áreas: avatar/loja, social e KOF.
 
-## Avatar V16
+## Avatar V17
 
-O avatar foi redesenhado em um estilo 3D arredondado/chibi de party game, com identidade própria e peças modulares.
+O antigo avatar humano foi substituído por um mascote arredondado de corpo contínuo, faceplate oval e olhos verticais. A referência visual enviada para a V17 foi usada como base de proporção e linguagem: capuz volumoso, braços arredondados, pernas curtas, botas grandes, materiais coloridos e detalhes dourados.
 
-- 2 tipos de corpo: masculino e feminino.
-- 10 categorias de customização.
-- 70 itens por categoria.
-- 700 itens de catálogo gerados no cliente.
-- Cores de pele, cabelo, olhos, roupa e detalhes.
-- Busca, filtros, paginação, compra e equipamento.
-- Preview 3D com rotação e fallback SVG.
-- Migração automática dos IDs principais do avatar antigo.
-- Limite de inventário do Firebase ampliado para suportar o novo catálogo.
+O look inicial é o **Galáxia**: gradiente roxo/rosa/azul, estrelas, capuz, cordões, punhos dourados, bolso com lua e estrela lateral.
 
-Categorias: cabelo, olhos, cabeça, rosto, parte superior, casaco, mãos, parte inferior, calçados e costas.
+A loja possui 700 peças (70 x 10 categorias) e os cards exibem o mascote usando cada item. O preview principal usa Three.js/WebGL, rotação 360° e animações Parado/Acenar/Pular/Comemorar. Se WebGL falhar, existe fallback SVG para o avatar nunca ficar em branco.
 
-## KOF 2002 Magic Plus II
+## Amigos
 
-A V16 não usa mais o pacote customizado `kf2k2mp2web.zip`/RomData. O FBNeo precisa reconhecer o nome real do driver.
+A V17 adiciona busca por nickname, pedidos de amizade, presença online e convites para KOF, Arena e GeoGuess. Para ativar o sistema, publique o `database.rules.json` desta versão no Firebase Realtime Database.
 
-Estrutura esperada em `roms/`:
+## KOF
 
-```text
-roms/
-├── kf2k2mp2.zip   # clone Magic Plus II
-├── kof2002.zip    # parent compatível com o romset FBNeo
-└── neogeo.zip     # BIOS Neo Geo compatível com o romset FBNeo
-```
+A V17 continua usando FBNeo/EmulatorJS. O WinKawaks é um executável Windows, não um core web compatível com o EmulatorJS.
 
-O projeto já inclui `kf2k2mp2.zip` com os três arquivos específicos do clone. O parent e a BIOS enviados anteriormente eram de um conjunto NeoRageX/WinKawaks antigo e não correspondem aos CRCs esperados pelo FBNeo atual, por isso **não foram colocados como se fossem válidos**.
+O KOF agora usa apenas:
 
-O loader agora:
+`/roms/kf2k2mp2.zip`
 
-- usa `EJS_core = 'fbneo'`;
-- carrega `kf2k2mp2.zip` como jogo;
-- usa `EJS_gameParentUrl = '/roms/kof2002.zip'`;
-- usa `EJS_biosUrl = '/roms/neogeo.zip'`;
-- faz uma verificação prévia dos três arquivos;
-- bloqueia o botão de treino quando parent/BIOS não estão disponíveis;
-- exibe uma mensagem clara em vez de deixar o core cair em `Romset is unknown`.
+Esse arquivo é Full Non-Merged e contém clone + parent KOF 2002 + BIOS Neo Geo. Os arquivos separados `kof2002.zip` e `neogeo.zip` não são mais necessários no deploy.
 
-Veja `KOF-SETUP.md` para os CRCs esperados e instruções de validação.
-
-## Firebase
-
-As regras atuais do Realtime Database devem continuar publicadas para login, perfis, inventário, ranking e salas do KOF. O código cliente foi atualizado para aceitar até 1000 IDs em `avatarOwned`.
-
-## Deploy no Vercel
-
-1. Coloque os arquivos compatíveis `kof2002.zip` e `neogeo.zip` em `roms/`.
-2. Rode o projeto localmente e confirme que o painel do KOF marca clone, parent e BIOS como disponíveis.
-3. Envie a versão para o GitHub.
-4. Faça o deploy no Vercel.
-5. Confira as variáveis Firebase/TURN do projeto, se utilizadas.
-
-## Aviso sobre ROMs
-
-Use e distribua ROMs/BIOS somente quando você tiver os direitos e permissões necessários. Este repositório não transforma conjuntos antigos/incompatíveis em um romset FBNeo válido.
+Veja `KOF-SETUP.md`, `CHANGES-V17.md` e `V17-VALIDACAO.txt`.

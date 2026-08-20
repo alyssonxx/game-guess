@@ -9,7 +9,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/12.17.1/firebase-database.js';
 
 const CONFIG = window.GAME_GUESS_FIREBASE_CONFIG || {};
-const APP_VERSION = '15.0.0';
+const APP_VERSION = '17.0.0';
 const PROTOCOL_VERSION = 13;
 const WAITING_TTL_MS = 30 * 60 * 1000;
 const PLAYING_TTL_MS = 4 * 60 * 60 * 1000;
@@ -34,6 +34,7 @@ const duelPresence = new Map();
 const fightPresence = new Map();
 const geoPresence = new Map();
 let authMode = 'login';
+let socialPresenceHandle = null;
 let rankingUnsub = null;
 let syncTimer = null;
 let pendingProfile = null;
@@ -341,7 +342,7 @@ async function createFightRoom(){
   for(let tries=0;tries<10;tries++){
     const code=fightRoomCode(),rr=ref(db,`fightRooms/${code}`);if((await fightGet(rr)).exists())continue;const now=serverNow(),name=cleanName(localProfile()?.nickname||currentUser.displayName||currentUser.email?.split('@')[0]);
     const room={code,protocolVersion:FIGHT_PROTOCOL_VERSION,game:'kf2k2mp2',gameId:fightGameId(code),hostUid:currentUser.uid,guestUid:'',status:'waiting',launchState:'waiting',launchAt:0,createdAt:now,updatedAt:now,expiresAt:now+WAITING_TTL_MS,players:{[currentUser.uid]:{uid:currentUser.uid,name,role:'host',joinedAt:now,lastSeen:now}},resultVotes:{},winnerUid:''};
-    try{await set(rr,room);}catch(e){if(String(e?.code||e?.message||'').toLowerCase().includes('permission'))throw new Error('O Firebase recusou a sala KOF. Publique as regras V16.');throw e;}
+    try{await set(rr,room);}catch(e){if(String(e?.code||e?.message||'').toLowerCase().includes('permission'))throw new Error('O Firebase recusou a sala KOF. Publique as regras V17.');throw e;}
     attachFightPresence(code).catch(e=>console.warn('KOF presence:',e));return code;
   }
   throw new Error('Não consegui gerar a sala KOF. Tente novamente.');
@@ -356,7 +357,7 @@ async function joinFightRoom(code){
   if(!claim.committed||claim.snapshot?.val()!==currentUser.uid)throw new Error('A sala KOF acabou de ficar cheia.');
   const name=cleanName(localProfile()?.nickname||currentUser.displayName||currentUser.email?.split('@')[0]),playerRef=ref(db,`fightRooms/${code}/players/${currentUser.uid}`);
   try{await set(playerRef,{uid:currentUser.uid,name,role:'guest',joinedAt:now,lastSeen:now});await update(rr,{status:'ready',updatedAt:now,expiresAt:now+PLAYING_TTL_MS});}
-  catch(e){await runTransaction(guestRef,current=>current===currentUser.uid?'':current,{applyLocally:false}).catch(()=>{});await remove(playerRef).catch(()=>{});if(String(e?.code||e?.message||'').toLowerCase().includes('permission'))throw new Error('O Firebase recusou a entrada no KOF. Publique as regras V16.');throw e;}
+  catch(e){await runTransaction(guestRef,current=>current===currentUser.uid?'':current,{applyLocally:false}).catch(()=>{});await remove(playerRef).catch(()=>{});if(String(e?.code||e?.message||'').toLowerCase().includes('permission'))throw new Error('O Firebase recusou a entrada no KOF. Publique as regras V17.');throw e;}
   attachFightPresence(code).catch(e=>console.warn('KOF presence:',e));return code;
 }
 function watchFightRoom(code,cb){if(!db)return()=>{};return onValue(ref(db,`fightRooms/${String(code).toUpperCase()}`),s=>cb(s.val()),e=>cb(null,e));}
@@ -436,7 +437,7 @@ async function createDuelRoom(payload){
     const room={code,protocolVersion:PROTOCOL_VERSION,appVersion:APP_VERSION,hostUid:currentUser.uid,status:'waiting',roundState:'waiting',createdAt:now,updatedAt:now,expiresAt:now+WAITING_TTL_MS,startedAt:0,finishedAt:0,roundIndex:0,roundDeadline:0,revealUntil:0,timeoutRound:-1,roundHadSkip:false,config:{...(cleanPayload.config||{}),maxPlayers},questions,slots:{1:currentUser.uid},players:{[currentUser.uid]:{uid:currentUser.uid,name,slot:1,joinedAt:now,lastSeen:now,connectionState:'online',controlSessionId:CLIENT_SESSION_ID,lives:3,correct:0,score:0,wrong:0,roundWrong:0,roundSolved:false,roundResult:'',eliminated:false,left:false,lastRound:-1,lastSubmissionId:''}}};
     try{await set(r,room);}catch(error){
       const msg=String(error?.code||error?.message||'').toLowerCase();
-      if(msg.includes('permission'))throw new Error('O Firebase recusou a criação da Arena. Publique o database.rules.json da V16 no Realtime Database.');
+      if(msg.includes('permission'))throw new Error('O Firebase recusou a criação da Arena. Publique o database.rules.json da V17 no Realtime Database.');
       throw error;
     }
     // Presença é importante, mas não deve transformar uma sala já criada em "erro ao criar".
@@ -474,7 +475,7 @@ async function joinDuelRoom(code){
     await releaseDuelSlot(code,slot);
     const msg=String(error?.code||error?.message||'').toLowerCase();
     console.warn('Arena join failed at players write',{code,slot,uid:currentUser.uid,error});
-    if(msg.includes('permission'))throw new Error('O Firebase recusou a entrada na Arena. Publique o database.rules.json da V16 no Realtime Database.');
+    if(msg.includes('permission'))throw new Error('O Firebase recusou a entrada na Arena. Publique o database.rules.json da V17 no Realtime Database.');
     throw error;
   }
   const after=(await get(roomRef)).val();if(!after||after.status!=='waiting'||Number(after.protocolVersion)!==PROTOCOL_VERSION){await remove(playerRef).catch(()=>{});await releaseDuelSlot(code,slot);throw new Error('A sala iniciou ou mudou de versão enquanto você entrava.');}
@@ -530,15 +531,17 @@ if(configured){
         for(const h of geoPresence.values()){
           try{await h.dp.remove();await h.dl.set(serverTimestamp());await set(h.pr,{sessionId:CLIENT_SESSION_ID,connectedAt:serverTimestamp(),heartbeatAt:serverTimestamp()});}catch{}
         }
+        if(socialPresenceHandle){try{await socialPresenceHandle.d.remove();await set(socialPresenceHandle.pr,{sessionId:CLIENT_SESSION_ID,online:true,at:serverTimestamp()});}catch{}}
       }
     });
     seasonUnsub=onValue(ref(db,'rankedConfig/currentSeason'),snap=>{currentSeason=normalizeSeason(snap.val()||DEFAULT_SEASON);if($('rankingSeasonBanner'))$('rankingSeasonBanner').innerHTML=`<b>🏁 ${escapeHtml(currentSeasonLabel())}</b><span>${escapeHtml(currentSeason.description||'Ranking da temporada atual')}</span>`;},()=>{currentSeason={...DEFAULT_SEASON};});
         onAuthStateChanged(auth,async user=>{
+      if(socialPresenceHandle&&(!user||socialPresenceHandle.uid!==user.uid))await detachSocialPresence().catch(()=>{});
       currentUser=user||null;
       if(user){
         try{
           const snap=await get(ref(db,`profiles/${user.uid}`));const root=snap.val()||{},remote=root.profile||{};const merged=mergeProfiles(localProfile(),remote);const season=mergeSeasonProfiles(localProfile()?.seasonProfile||{},root.seasonProfile||{});
-          CORE()?.replaceProfile?.({...merged,seasonProfile:season});await flushProfile({...merged,seasonProfile:season});
+          CORE()?.replaceProfile?.({...merged,seasonProfile:season});await flushProfile({...merged,seasonProfile:season});await syncPublicProfile();await attachSocialPresence();
         }catch(e){console.warn('Profile restore:',e);}
       }
       updateAuthUI();window.dispatchEvent(new CustomEvent('gameguess:authchange',{detail:{user:currentUser}}));
@@ -546,6 +549,42 @@ if(configured){
   }catch(e){console.error('Firebase init:',e);}
 }
 
+
+// ===== V17 Social: perfis públicos, amigos, presença e convites =====
+function publicName(){const p=localProfile();return cleanName(p.nickname||currentUser?.displayName||currentUser?.email?.split('@')[0]||'Jogador');}
+async function syncPublicProfile(){
+  if(!currentUser||!db)return;
+  const p=localProfile();
+  await set(ref(db,`publicProfiles/${currentUser.uid}`),{uid:currentUser.uid,name:publicName(),nickname:String(p.nickname||''),avatar:p.avatar&&typeof p.avatar==='object'?p.avatar:{},favoriteGame:String(p.favoriteGame||'Game Guess'),updatedAt:serverNow()}).catch(e=>console.warn('Public profile:',e));
+}
+async function detachSocialPresence(){
+  const h=socialPresenceHandle;if(!h)return;socialPresenceHandle=null;clearInterval(h.timer);try{await h.d.cancel()}catch{}try{await remove(h.pr)}catch{}
+}
+async function attachSocialPresence(){
+  if(!currentUser||!db)return;const uid=currentUser.uid;if(socialPresenceHandle?.uid===uid)return;if(socialPresenceHandle)await detachSocialPresence();
+  const pr=ref(db,`userPresence/${uid}/${CLIENT_SESSION_ID}`),d=onDisconnect(pr);await d.remove();await set(pr,{sessionId:CLIENT_SESSION_ID,online:true,at:serverTimestamp()});const timer=setInterval(()=>update(pr,{at:serverTimestamp(),online:true}).catch(()=>{}),12000);socialPresenceHandle={uid,pr,d,timer};
+}
+async function searchPlayers(term=''){
+  if(!currentUser||!db)return[];term=String(term||'').trim().toLowerCase();if(term.length<2)return[];const [ps,fs,prs]=await Promise.all([get(ref(db,'publicProfiles')),get(ref(db,`friends/${currentUser.uid}`)),get(ref(db,'userPresence'))]);const friends=fs.val()||{},presence=prs.val()||{};return Object.values(ps.val()||{}).filter(x=>x?.uid&&x.uid!==currentUser.uid&&String(x.name||x.nickname||'').toLowerCase().includes(term)).slice(0,20).map(x=>({...x,isFriend:Boolean(friends[x.uid]),online:Boolean(Object.keys(presence[x.uid]||{}).length)}));
+}
+async function sendFriendRequest(targetUid){
+  if(!currentUser||!db)throw new Error('Faça login para adicionar amigos.');targetUid=String(targetUid||'');if(!targetUid||targetUid===currentUser.uid)throw new Error('Jogador inválido.');const existing=(await get(ref(db,`friends/${currentUser.uid}/${targetUid}`))).val();if(existing)throw new Error('Este jogador já está na sua lista de amigos.');await set(ref(db,`friendRequests/${targetUid}/${currentUser.uid}`),{fromUid:currentUser.uid,fromName:publicName(),createdAt:serverNow()});
+}
+async function respondFriendRequest(fromUid,accept=true){
+  if(!currentUser||!db)throw new Error('Faça login.');fromUid=String(fromUid||'');const request=(await get(ref(db,`friendRequests/${currentUser.uid}/${fromUid}`))).val();if(!request)throw new Error('Pedido não encontrado.');if(!accept){await remove(ref(db,`friendRequests/${currentUser.uid}/${fromUid}`));return;}
+  const friendProfile=(await get(ref(db,`publicProfiles/${fromUid}`))).val()||{};const now=serverNow(),updates={};updates[`friendRequests/${currentUser.uid}/${fromUid}`]=null;updates[`friends/${currentUser.uid}/${fromUid}`]={uid:fromUid,name:cleanName(friendProfile.name||request.fromName),since:now};updates[`friends/${fromUid}/${currentUser.uid}`]={uid:currentUser.uid,name:publicName(),since:now};await update(ref(db),updates);
+}
+async function removeFriend(friendUid){if(!currentUser||!db)return;friendUid=String(friendUid||'');const u={};u[`friends/${currentUser.uid}/${friendUid}`]=null;u[`friends/${friendUid}/${currentUser.uid}`]=null;await update(ref(db),u);}
+async function getSocialData(){
+  if(!currentUser||!db)return{friends:[],requests:[],invites:[]};const [fs,rs,is,ps,prs]=await Promise.all([get(ref(db,`friends/${currentUser.uid}`)),get(ref(db,`friendRequests/${currentUser.uid}`)),get(ref(db,`gameInvites/${currentUser.uid}`)),get(ref(db,'publicProfiles')),get(ref(db,'userPresence'))]);const profiles=ps.val()||{},presence=prs.val()||{},now=serverNow();const friends=Object.keys(fs.val()||{}).map(uid=>({...profiles[uid],uid,name:cleanName(profiles[uid]?.name||(fs.val()||{})[uid]?.name),online:Boolean(Object.keys(presence[uid]||{}).length)}));const requests=Object.values(rs.val()||{}).sort((a,b)=>Number(b.createdAt||0)-Number(a.createdAt||0));const invites=Object.values(is.val()||{}).filter(x=>Number(x.expiresAt||0)>now).sort((a,b)=>Number(b.createdAt||0)-Number(a.createdAt||0));return{friends,requests,invites};
+}
+async function sendGameInvite(targetUid,payload={}){
+  if(!currentUser||!db)throw new Error('Faça login.');targetUid=String(targetUid||'');if(!(await get(ref(db,`friends/${currentUser.uid}/${targetUid}`))).exists())throw new Error('Convites são enviados apenas para amigos.');const game=String(payload.game||'arena').slice(0,24),roomCode=String(payload.roomCode||'').trim().toUpperCase().slice(0,12),now=serverNow();await set(ref(db,`gameInvites/${targetUid}/${currentUser.uid}`),{fromUid:currentUser.uid,fromName:publicName(),game,roomCode,createdAt:now,expiresAt:now+15*60*1000});
+}
+async function dismissGameInvite(fromUid){if(!currentUser||!db)return;await remove(ref(db,`gameInvites/${currentUser.uid}/${String(fromUid||'')}`));}
+function watchSocialInbox(cb){
+  if(!currentUser||!db)return()=>{};const uid=currentUser.uid;let timer=0;const fire=()=>{clearTimeout(timer);timer=setTimeout(async()=>{try{cb?.(await getSocialData())}catch{}},80)};const a=onValue(ref(db,`friendRequests/${uid}`),fire),b=onValue(ref(db,`gameInvites/${uid}`),fire),c=onValue(ref(db,`friends/${uid}`),fire);fire();return()=>{clearTimeout(timer);a?.();b?.();c?.()};
+}
 
 
 const GEO_PROTOCOL_VERSION=1;
@@ -603,7 +642,8 @@ window.GameGuessFirebase={
   createDuelRoom, joinDuelRoom, startDuelRoom, leaveDuelRoom, ensureDuelHost, attachDuelPresence, detachDuelPresence, cleanupExpiredDuel,
   watchDuel, mutateDuel, deleteDuel,getRoom:async code=>configured?(await get(ref(db,`duels/${String(code||'').toUpperCase()}`))).val():null,
   fightProtocolVersion:FIGHT_PROTOCOL_VERSION, createFightRoom, joinFightRoom, watchFightRoom, markFightReady, requestFightLaunch, submitFightResult, claimFightRankedRecord, leaveFightRoom, attachFightPresence, detachFightPresence, getFightRoom:async code=>configured?(await get(ref(db,`fightRooms/${String(code||'').toUpperCase()}`))).val():null,
-  geoProtocolVersion:GEO_PROTOCOL_VERSION, createGeoRoom, joinGeoRoom, watchGeoRoom, startGeoRoom, mutateGeoRoom, ensureGeoHost, leaveGeoRoom, attachGeoPresence, detachGeoPresence, getGeoRoom:async code=>configured?(await get(ref(db,`geoRooms/${String(code||'').toUpperCase()}`))).val():null
+  geoProtocolVersion:GEO_PROTOCOL_VERSION, createGeoRoom, joinGeoRoom, watchGeoRoom, startGeoRoom, mutateGeoRoom, ensureGeoHost, leaveGeoRoom, attachGeoPresence, detachGeoPresence, getGeoRoom:async code=>configured?(await get(ref(db,`geoRooms/${String(code||'').toUpperCase()}`))).val():null,
+  syncPublicProfile, searchPlayers, sendFriendRequest, respondFriendRequest, removeFriend, getSocialData, sendGameInvite, dismissGameInvite, watchSocialInbox
 };
 
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind);else bind();

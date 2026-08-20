@@ -5,7 +5,7 @@ const CHECKS = [
 async function probe(url,timeout=3500){
   const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),timeout);
   try{
-    const r=await fetch(url,{method:'GET',redirect:'follow',cache:'no-store',signal:ctrl.signal,headers:{'User-Agent':'GameGuess-V16-Health/1.0'}});
+    const r=await fetch(url,{method:'GET',redirect:'follow',cache:'no-store',signal:ctrl.signal,headers:{'User-Agent':'GameGuess-V17-Health/1.0'}});
     return {ok:r.ok||r.status<500,status:r.status};
   }catch(e){return {ok:false,status:0,error:e?.name==='AbortError'?'timeout':'network'};}
   finally{clearTimeout(timer);}
@@ -15,5 +15,5 @@ export default async function handler(req,res){
   res.setHeader('Cache-Control','no-store');
   const entries=await Promise.all(CHECKS.map(async ([name,url])=>[name,await probe(url)]));
   const services=Object.fromEntries(entries);
-  res.status(200).json({ok:services.emulator.ok&&services.netplay.ok,services,turnConfigured:Boolean(process.env.KOF_TURN_URL),checkedAt:Date.now(),version:'16.0.0'});
+  res.status(200).json({ok:services.emulator.ok&&services.netplay.ok,services,turnConfigured:Boolean(process.env.KOF_TURN_URL),checkedAt:Date.now(),version:'17.0.0'});
 }
