@@ -1,7 +1,7 @@
 (() => {
 'use strict';
 const $=id=>document.getElementById(id), CORE=()=>window.GameGuessCore, FB=()=>window.GameGuessFirebase;
-const GEO_VERSION='18.2.0';
+const GEO_VERSION='18.5.0';
 const REGIONS={world:['🌍','Mundo todo'],americas:['🌎','Américas'],europe:['🏰','Europa'],asia:['🌏','Ásia'],africa:['🦁','África'],oceania:['🌊','Oceania']};
 let config={region:'world',rounds:5,maxPlayers:2};
 let solo=null, map=null, guessMarker=null, targetMarker=null, line=null, selected=null;
@@ -15,7 +15,7 @@ function fmtDistance(km){if(km<1)return `${Math.round(km*1000).toLocaleString('p
 function inject(){
   const main=document.querySelector('main.shell');if(!main||$('geoSetupScreen'))return;
   const home=$('homeScreen');
-  if(home){const banner=document.createElement('section');banner.className='geo-home-banner';banner.innerHTML=`<div class="geo-home-icon">🌍</div><div><p class="eyebrow">🧭 GEOGUESS ARENA • V18.1</p><h2>Explore ruas reais gratuitamente</h2><p>Explore imagens de rua do Mapillary, avance pelas setas, gire a câmera quando a captura for 360°, procure placas e pistas e depois marque seu palpite no mapa.</p></div><div class="geo-home-actions"><button class="primary-btn" id="homeGeoButton">🌍 JOGAR GEOGUESS</button><button class="secondary-btn" id="homeGeoArenaButton">⚔️ CRIAR ARENA</button></div>`;const social=home.querySelector('.social-home-banner'),quiz=home.querySelector('.quiz-home-banner');home.insertBefore(banner,social||quiz||home.firstChild);}
+  if(home){const banner=document.createElement('section');banner.className='geo-home-banner';banner.innerHTML=`<div class="geo-home-icon">🌍</div><div><p class="eyebrow">🧭 GEOGUESS ARENA • V18.5</p><h2>Explore ruas reais gratuitamente</h2><p>Explore imagens de rua do Mapillary, avance pelas setas, gire a câmera quando a captura for 360°, procure placas e pistas e depois marque seu palpite no mapa.</p></div><div class="geo-home-actions"><button class="primary-btn" id="homeGeoButton">🌍 JOGAR GEOGUESS</button><button class="secondary-btn" id="homeGeoArenaButton">⚔️ CRIAR ARENA</button></div>`;const social=home.querySelector('.social-home-banner'),quiz=home.querySelector('.quiz-home-banner');home.insertBefore(banner,social||quiz||home.firstChild);}
   main.insertAdjacentHTML('beforeend',`
   <section class="screen geo-setup-screen" id="geoSetupScreen">
     <div class="section-heading"><button class="back-link" id="geoBack">← Voltar</button><div><p class="eyebrow">🌍 GEOGUESS ARENA</p><h2>Onde no mundo?</h2><p>Você será colocado em uma imagem de rua real do Mapillary. Avance pela sequência, explore os arredores e depois marque no mapa onde acredita que a rodada começou.</p></div></div>
@@ -45,27 +45,58 @@ function inject(){
   const sel=$('geoRegion');sel.innerHTML=Object.entries(REGIONS).map(([k,[i,n]])=>`<option value="${k}">${i} ${n}</option>`).join('');
 }
 
+function fetchJsonWithTimeout(url,ms=8000){
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),ms);
+  return fetch(url,{cache:'no-store',signal:controller.signal,headers:{Accept:'application/json'}})
+    .then(async r=>({r,d:await r.json().catch(()=>({}))}))
+    .finally(()=>clearTimeout(timer));
+}
+async function ensureMapillaryToken(){
+  if(mapillaryToken)return mapillaryToken;
+  let result;
+  try{result=await fetchJsonWithTimeout('/api/geoguess-config',7000)}catch(e){
+    if(e?.name==='AbortError')throw new Error('A configuração do Mapillary demorou demais para responder. Faça um novo deploy no Vercel e tente novamente.');
+    throw new Error('Não consegui carregar a configuração do Mapillary.');
+  }
+  const {r,d:cfg}=result;
+  if(!r.ok||!cfg.enabled||!cfg.token)throw new Error('O GeoGuess precisa do MAPILLARY_ACCESS_TOKEN no Vercel. Use o Client Token (MLY|...) do aplicativo Mapillary.');
+  mapillaryToken=String(cfg.token);
+  if(!mapillaryToken.startsWith('MLY|'))throw new Error('O token configurado não parece ser um Client Token do Mapillary (deve começar com MLY|).');
+  return mapillaryToken;
+}
+function loadScriptWithTimeout(src,id,ms=9000){
+  return new Promise((resolve,reject)=>{
+    let timer=null;
+    const finish=(err)=>{if(timer)clearTimeout(timer);err?reject(err):resolve();};
+    let el=document.getElementById(id);
+    if(el){
+      if(window.mapillary?.Viewer)return resolve();
+      el.addEventListener('load',()=>finish(),{once:true});
+      el.addEventListener('error',()=>{el.remove();finish(new Error('Falha ao carregar MapillaryJS.'));},{once:true});
+    }else{
+      el=document.createElement('script');el.id=id;el.src=src;el.async=true;
+      el.onload=()=>finish();el.onerror=()=>{el.remove();finish(new Error('Falha ao carregar MapillaryJS.'));};
+      document.head.appendChild(el);
+    }
+    timer=setTimeout(()=>{try{el?.remove()}catch{};reject(new Error('Tempo esgotado ao carregar MapillaryJS.'));},ms);
+  });
+}
 async function ensureMapillary(){
   if(window.mapillary?.Viewer&&mapillaryToken)return window.mapillary;
   if(mapillaryPromise)return mapillaryPromise;
   mapillaryPromise=(async()=>{
-    const r=await fetch('/api/geoguess-config',{cache:'no-store'}),cfg=await r.json().catch(()=>({}));
-    if(!r.ok||!cfg.enabled||!cfg.token)throw new Error('O GeoGuess precisa do MAPILLARY_ACCESS_TOKEN no Vercel. Crie um app no Mapillary Developer Dashboard e use o Client Token.');
-    mapillaryToken=String(cfg.token);
+    await ensureMapillaryToken();
     if(!document.getElementById('gameGuessMapillaryCss')){
-      const css=document.createElement('link');css.id='gameGuessMapillaryCss';css.rel='stylesheet';css.href='https://unpkg.com/mapillary-js@4.1.2/dist/mapillary.css';document.head.appendChild(css);
+      const css=document.createElement('link');css.id='gameGuessMapillaryCss';css.rel='stylesheet';css.href='https://cdn.jsdelivr.net/npm/mapillary-js@4.1.2/dist/mapillary.css';document.head.appendChild(css);
     }
     if(!window.mapillary?.Viewer){
-      await new Promise((resolve,reject)=>{
-        const existing=document.getElementById('gameGuessMapillaryJs');
-        if(existing){
-          if(window.mapillary?.Viewer)return resolve();
-          existing.addEventListener('load',resolve,{once:true});existing.addEventListener('error',()=>{existing.remove();reject(new Error('Falha ao carregar o MapillaryJS.'));},{once:true});return;
-        }
-        const js=document.createElement('script');js.id='gameGuessMapillaryJs';js.src='https://unpkg.com/mapillary-js@4.1.2/dist/mapillary.js';js.async=true;js.onload=resolve;js.onerror=()=>{js.remove();reject(new Error('Falha ao carregar o MapillaryJS. Verifique sua conexão ou bloqueadores de conteúdo.'));};document.head.appendChild(js);
-      });
+      try{await loadScriptWithTimeout('https://cdn.jsdelivr.net/npm/mapillary-js@4.1.2/dist/mapillary.js','gameGuessMapillaryJs',9000)}
+      catch{
+        document.getElementById('gameGuessMapillaryJs')?.remove();
+        await loadScriptWithTimeout('https://unpkg.com/mapillary-js@4.1.2/dist/mapillary.js','gameGuessMapillaryJs',9000);
+      }
     }
-    if(!window.mapillary?.Viewer)throw new Error('O MapillaryJS não inicializou corretamente.');
+    if(!window.mapillary?.Viewer)throw new Error('O MapillaryJS não inicializou. Verifique bloqueadores de conteúdo ou a rede.');
     return window.mapillary;
   })();
   try{return await mapillaryPromise}catch(e){mapillaryPromise=null;throw e}
@@ -90,8 +121,12 @@ function mlyGeometry(img){
   const g=img?.computed_geometry||img?.geometry,c=g?.coordinates;
   return Array.isArray(c)&&c.length>=2?{lng:Number(c[0]),lat:Number(c[1])}:null;
 }
-function mlyBbox(lat,lng,km){
-  const latPad=km/111.32,lngPad=km/(111.32*Math.max(.22,Math.abs(Math.cos(lat*Math.PI/180))));
+function mlyBbox(lat,lng,km=4.5){
+  // O endpoint /images do Mapillary trabalha melhor com caixas pequenas. Mantemos a área
+  // abaixo de ~0,01 grau² e procuramos várias cidades em paralelo em vez de caixas gigantes.
+  const latPad=Math.min(.045,Math.max(.012,km/111.32));
+  const rawLng=km/(111.32*Math.max(.35,Math.abs(Math.cos(lat*Math.PI/180))));
+  const lngPad=Math.min(.045,Math.max(.012,rawLng));
   return [lng-lngPad,lat-latPad,lng+lngPad,lat+latPad].map(n=>Number(n.toFixed(6))).join(',');
 }
 function pickMlyImage(items){
@@ -103,67 +138,75 @@ function pickMlyImage(items){
   const pool=pools.find(a=>a.length)||usable;
   return pool[Math.floor(Math.random()*pool.length)]||null;
 }
-async function browserMapillaryImages(lat,lng,km){
+async function browserMapillaryImages(lat,lng){
+  await ensureMapillaryToken();
   const u=new URL('https://graph.mapillary.com/images');
   u.searchParams.set('access_token',mapillaryToken);
-  u.searchParams.set('bbox',mlyBbox(Number(lat),Number(lng),km));
-  u.searchParams.set('limit','100');
+  u.searchParams.set('bbox',mlyBbox(Number(lat),Number(lng),4.5));
+  u.searchParams.set('limit','80');
   u.searchParams.set('fields','id,computed_geometry,geometry,computed_compass_angle,compass_angle,camera_type,sequence,captured_at');
-  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),8000);
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),5000);
   try{
     const r=await fetch(u,{signal:controller.signal,headers:{Accept:'application/json'}});
     const d=await r.json().catch(()=>({}));
-    if(!r.ok){
-      const msg=d?.error?.message||`Mapillary HTTP ${r.status}`;
-      const e=new Error(msg);e.status=r.status;throw e;
-    }
+    if(!r.ok){const msg=d?.error?.message||`Mapillary HTTP ${r.status}`;const e=new Error(msg);e.status=r.status;throw e;}
     return Array.isArray(d.data)?d.data:[];
+  }catch(e){
+    if(e?.name==='AbortError'){const x=new Error('Tempo esgotado ao consultar a cobertura do Mapillary.');x.status=408;throw x;}
+    throw e;
   }finally{clearTimeout(timer)}
 }
 async function resolveSeedInBrowser(seed){
-  let lastErr=null;
-  for(const km of [4,12,30]){
-    try{
-      const items=await browserMapillaryImages(seed.lat,seed.lng,km),img=pickMlyImage(items),g=mlyGeometry(img);
-      if(img&&g){
-        const heading=Number(img.computed_compass_angle??img.compass_angle??0);
-        return {id:`mly:${img.id}`,imageId:String(img.id),lat:g.lat,lng:g.lng,country:seed.country,city:seed.city,region:seed.region,heading:Number.isFinite(heading)?heading:0,cameraType:String(img.camera_type||''),provider:'mapillary'};
-      }
-    }catch(e){lastErr=e;if([400,401,403].includes(Number(e.status)))throw e;}
-  }
-  if(lastErr&&Number(lastErr.status)>=400)throw lastErr;
-  return null;
+  const items=await browserMapillaryImages(seed.lat,seed.lng),img=pickMlyImage(items),g=mlyGeometry(img);
+  if(!img||!g)return null;
+  const heading=Number(img.computed_compass_angle??img.compass_angle??0);
+  return {id:`mly:${img.id}`,imageId:String(img.id),lat:g.lat,lng:g.lng,country:seed.country,city:seed.city,region:seed.region,heading:Number.isFinite(heading)?heading:0,cameraType:String(img.camera_type||''),provider:'mapillary'};
+}
+function updatePrepareProgress(found,wanted,checked,total){
+  const label=`BUSCANDO RUAS ${found}/${wanted} • ${checked}/${total}`;
+  for(const id of ['geoSoloStart','geoCreateRoom']){const b=$(id);if(b?.disabled)b.textContent=label;}
 }
 async function fetchRounds(){
-  await ensureMapillary();
+  await ensureMapillaryToken();
   const wanted=config.rounds;
-  const r=await fetch(`/api/geoguess?region=${encodeURIComponent(config.region)}&count=${wanted}`,{cache:'no-store'}),d=await r.json().catch(()=>({}));
-  if(!r.ok&&d?.fatal)throw new Error(d.error||'A API do Mapillary recusou a configuração atual.');
-  const resolved=Array.isArray(d.candidates)?d.candidates.filter(q=>q?.imageId&&Number.isFinite(Number(q.lat))&&Number.isFinite(Number(q.lng))):[];
-  if(resolved.length>=wanted)return resolved.slice(0,wanted);
-
-  // Fallback importante: alguns provedores/serverless podem receber resposta vazia do índice espacial
-  // do Mapillary. Como Client Token é próprio para uso no browser/MapillaryJS, tentamos a busca
-  // diretamente no navegador antes de desistir.
-  const seeds=Array.isArray(d.seeds)?d.seeds:[];
-  let firstError=null;
-  for(const seed of seeds){
-    if(resolved.length>=wanted)break;
-    try{
-      const q=await resolveSeedInBrowser(seed);
-      if(q&&!resolved.some(x=>x.imageId===q.imageId))resolved.push(q);
-    }catch(e){
-      firstError=firstError||e;
-      if([400,401,403].includes(Number(e.status)))break;
-    }
+  let data={};
+  try{
+    const {r,d}=await fetchJsonWithTimeout(`/api/geoguess?region=${encodeURIComponent(config.region)}&count=${wanted}`,6500);
+    if(!r.ok)throw new Error(d?.error||`API GeoGuess HTTP ${r.status}`);
+    data=d||{};
+  }catch(e){
+    if(e?.name==='AbortError')throw new Error('O servidor demorou para preparar as localizações. Tente novamente.');
+    throw e;
   }
-  if(resolved.length>=wanted)return resolved.slice(0,wanted);
+  const seeds=Array.isArray(data.seeds)?data.seeds:[];
+  if(!seeds.length)throw new Error('O servidor não retornou locais candidatos para esta região.');
+  const resolved=[];let firstError=null,checked=0;
+  // Busca paralela no navegador: evita o timeout de funções serverless do Vercel.
+  for(let i=0;i<seeds.length&&resolved.length<wanted;i+=12){
+    const batch=seeds.slice(i,i+12);
+    const results=await Promise.all(batch.map(async seed=>{
+      try{return {q:await resolveSeedInBrowser(seed)}}catch(e){return {e}}
+    }));
+    checked+=batch.length;
+    for(const result of results){
+      if(result.e&&!firstError)firstError=result.e;
+      const q=result.q;
+      if(q&&!resolved.some(x=>x.imageId===q.imageId))resolved.push(q);
+      if(resolved.length>=wanted)break;
+    }
+    updatePrepareProgress(resolved.length,wanted,checked,seeds.length);
+    if(firstError&&[400,401,403].includes(Number(firstError.status)))break;
+  }
+  if(resolved.length>=wanted){
+    // Pré-carrega o viewer sem bloquear o botão de início.
+    ensureMapillary().catch(()=>{});
+    return resolved.slice(0,wanted);
+  }
   if(firstError){
     const auth=[400,401,403].includes(Number(firstError.status));
-    throw new Error(auth?`O Mapillary recusou o Client Token (${firstError.status}). No Developer Dashboard, confirme READ ativado, copie o Client Token (MLY|...), atualize MAPILLARY_ACCESS_TOKEN no Vercel e faça Redeploy. Detalhe: ${firstError.message}`:`Falha ao consultar o Mapillary: ${firstError.message}`);
+    throw new Error(auth?`O Mapillary recusou o Client Token (${firstError.status}). Confirme a permissão READ no Developer Dashboard e atualize MAPILLARY_ACCESS_TOKEN no Vercel. Detalhe: ${firstError.message}`:`Não consegui consultar cobertura suficiente do Mapillary. ${firstError.message}`);
   }
-  const serverDetail=d?.diagnostic?.firstError?` • servidor: ${d.diagnostic.firstError}`:'';
-  throw new Error(`Não encontrei ${wanted} sequências navegáveis no Mapillary após buscas de até 30 km. Encontradas: ${resolved.length}.${serverDetail}`);
+  throw new Error(`Encontrei apenas ${resolved.length} de ${wanted} locais com imagens Mapillary. Tente novamente ou escolha outra região.`);
 }
 
 function currentQ(){return mode==='solo'?solo?.questions?.[solo.index]:room?.questions?.[Number(room.roundIndex||0)]}
@@ -186,7 +229,7 @@ async function loadStreetRound(q){
   const v=await ensureViewer();if(token!==roundToken)return;
   roundStartImageId=String(q.imageId);lastImageId=roundStartImageId;steps=0;$('geoStepLabel').textContent='0';suppressStep=true;
   try{
-    await v.moveTo(roundStartImageId);if(token!==roundToken)return;
+    await Promise.race([v.moveTo(roundStartImageId),new Promise((_,reject)=>setTimeout(()=>reject(new Error('A imagem do Mapillary demorou demais para abrir.')),12000))]);if(token!==roundToken)return;
     try{await v.setFieldOfView?.(90)}catch{}
     v.resize?.();loading.classList.add('hidden');view.classList.add('ready');
   }catch(e){

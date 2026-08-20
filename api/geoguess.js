@@ -9,33 +9,16 @@ const LOCATIONS = [
 function shuffle(a){a=[...a];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 function out(res,status,body){res.statusCode=status;res.setHeader('Content-Type','application/json; charset=utf-8');res.setHeader('Cache-Control','no-store');res.end(JSON.stringify(body));}
 function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
-function bboxAround(lat,lng,km){const latPad=km/111.32,lngPad=km/(111.32*Math.max(.22,Math.abs(Math.cos(lat*Math.PI/180))));return [lng-lngPad,lat-latPad,lng+lngPad,lat+latPad].map(n=>Number(n.toFixed(6))).join(',');}
-function geometryOf(img){const g=img?.computed_geometry||img?.geometry,c=g?.coordinates;return Array.isArray(c)&&c.length>=2?{lng:Number(c[0]),lat:Number(c[1])}:null;}
-function pickImage(items){const usable=(items||[]).filter(x=>x?.id&&geometryOf(x));if(!usable.length)return null;const seq=x=>Boolean(x?.sequence?.id||x?.sequence),spherical=usable.filter(x=>String(x.camera_type||'').toLowerCase()==='spherical');const pools=[spherical.filter(seq),usable.filter(seq),spherical,usable];const pool=pools.find(a=>a.length)||usable;return pool[Math.floor(Math.random()*pool.length)]||null;}
-async function mapillaryImages(token,lat,lng,km){
-  const u=new URL('https://graph.mapillary.com/images');u.searchParams.set('access_token',token);u.searchParams.set('bbox',bboxAround(lat,lng,km));u.searchParams.set('limit','100');u.searchParams.set('fields','id,computed_geometry,geometry,computed_compass_angle,compass_angle,camera_type,sequence,captured_at');
-  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),6500);
-  try{const r=await fetch(u,{signal:controller.signal,headers:{Accept:'application/json'}}),d=await r.json().catch(()=>({}));if(!r.ok){const e=new Error(d?.error?.message||`Mapillary HTTP ${r.status}`);e.status=r.status;e.code=d?.error?.code;throw e;}return Array.isArray(d.data)?d.data:[];}finally{clearTimeout(timer)}
-}
-async function resolveSeed(token,s){
-  const [region,country,city,lat,lng]=s;let lastError=null;
-  for(const km of [4,12,30]){try{const items=await mapillaryImages(token,lat,lng,km),img=pickImage(items),g=geometryOf(img);if(img&&g){const heading=Number(img.computed_compass_angle??img.compass_angle??0);return {candidate:{id:`mly:${img.id}`,imageId:String(img.id),lat:g.lat,lng:g.lng,country,city,region,heading:Number.isFinite(heading)?heading:0,cameraType:String(img.camera_type||''),provider:'mapillary'}};}}catch(e){lastError=e;if([400,401,403].includes(Number(e.status)))break;}}
-  return {candidate:null,error:lastError};
-}
-function seedObjects(seeds){return seeds.map(([region,country,city,lat,lng])=>({region,country,city,lat,lng}));}
 export default async function handler(req,res){
   if(req.method!=='GET')return out(res,405,{error:'Use GET'});
-  const token=String(process.env.MAPILLARY_ACCESS_TOKEN||process.env.MAPILLARY_TOKEN||'').trim();
-  if(!token)return out(res,503,{fatal:true,error:'MAPILLARY_ACCESS_TOKEN não está configurado no Vercel.'});
-  if(!token.startsWith('MLY|'))return out(res,401,{fatal:true,error:'MAPILLARY_ACCESS_TOKEN não parece ser um Client Token do Mapillary. O valor deve começar com MLY|.'});
-  const region=String(req.query?.region||'world').toLowerCase(),count=clamp(Number(req.query?.count||5),3,8),pool=LOCATIONS.filter(s=>region==='world'||s[0]===region);
-  const seeds=shuffle(pool).slice(0,Math.min(pool.length,Math.max(count*8,24))),candidates=[];let firstError=null,attempts=0;
-  for(let i=0;i<seeds.length&&candidates.length<count;i+=4){
-    const batch=await Promise.all(seeds.slice(i,i+4).map(s=>resolveSeed(token,s)));attempts+=batch.length;
-    for(const result of batch){if(result.error&&!firstError)firstError=result.error;const q=result.candidate;if(q&&!candidates.some(x=>x.imageId===q.imageId)){candidates.push(q);if(candidates.length>=count)break;}}
-    if(firstError&&[400,401,403].includes(Number(firstError.status)))break;
-  }
-  const diagnostic={attempts,found:candidates.length,firstError:firstError?.message||null,status:Number(firstError?.status||0)||null,code:firstError?.code||null};
-  if(firstError&&[400,401,403].includes(Number(firstError.status)))return out(res,502,{version:'18.2.0',fatal:true,provider:'mapillary',error:`Mapillary recusou o Client Token (${firstError.status}). Confirme que READ está ativado no aplicativo e copie novamente o Client Token. Detalhe: ${firstError.message}`,candidates,seeds:seedObjects(seeds),diagnostic});
-  return out(res,200,{version:'18.2.0',provider:'mapillary',degraded:candidates.length<count,candidates:shuffle(candidates),seeds:seedObjects(seeds),diagnostic});
+  const region=String(req.query?.region||'world').toLowerCase();
+  const count=clamp(Number(req.query?.count||5),3,8);
+  const pool=LOCATIONS.filter(s=>region==='world'||s[0]===region);
+  // A V18.5 não consulta o Graph API dentro da função serverless. Isso evita que o botão
+  // fique preso aguardando dezenas de requisições externas no Vercel. O navegador recebe
+  // apenas sementes públicas (cidade/coordenadas aproximadas) e procura a cobertura Mapillary
+  // diretamente com o Client Token.
+  const wantSeeds=Math.min(pool.length,Math.max(24,Math.min(36,count*6)));
+  const seeds=shuffle(pool).slice(0,wantSeeds).map(([r,country,city,lat,lng])=>({region:r,country,city,lat,lng}));
+  return out(res,200,{version:'18.5.0',provider:'mapillary-browser-search',count,seeds});
 }
