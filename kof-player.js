@@ -6,7 +6,7 @@
   const text = document.getElementById('bootText');
   const startButton = document.getElementById('startKofButton');
   const EJS_VERSION = '4.2.1';
-  const PATCH_VERSION = '17.8.0';
+  const PATCH_VERSION = '17.9.0';
   const EJS_DATA = `https://cdn.emulatorjs.org/${EJS_VERSION}/data/`;
 
   // V17.7: FBNeo full non-merged. Libretro recommends this format when using
@@ -194,5 +194,11 @@
   // game startup, which is more reliable than auto-booting as soon as the
   // iframe is created.
   startButton?.addEventListener('click', bootGame);
-  setText('Clique em INICIAR KOF. A V17.8 usa o FBNeo explicitamente e um único kf2k2mp2.zip Full Non-Merged em uma URL nova para eliminar cache antigo do Vercel/navegador.');
+  if(online){
+    if(startButton)startButton.textContent=role==='host'?'CONECTAR HOST':'CONECTAR CONVIDADO';
+    setText('Partida online liberada. Tentando carregar o FBNeo automaticamente; se o navegador exigir interação, clique no botão abaixo.');
+    setTimeout(()=>bootGame(),180);
+  }else{
+    setText('Clique em INICIAR KOF. A V17.9 usa o FBNeo explicitamente e um único kf2k2mp2.zip Full Non-Merged em uma URL nova para eliminar cache antigo do Vercel/navegador.');
+  }
 })();

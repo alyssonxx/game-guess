@@ -4,10 +4,11 @@
   const WEB_GAME='/roms/v178/kf2k2mp2.zip';
   const EXPECTED_GAME_BYTES=86694745;
   const DEFAULT_NETPLAY='https://netplay.emulatorjs.org/';
-  const KOF_WEB_VERSION='17.8.0';
+  const KOF_WEB_VERSION='17.9.0';
   const KOF_EMULATOR_VERSION='4.2.1';
   const FBN_BUILD='2025-01-07 14:59 UTC';
   let roomCode='',room=null,unsub=null,launched=false,lastReadyRoom='',lastLaunchAtHandled=0;
+  let launchInFlight=false,launchPollTimer=0;
   let assetCache={at:0,ready:false,detail:null};
   const rankedClaimsInFlight=new Set();
 
@@ -15,7 +16,8 @@
   function show(id){CORE()?.showScreen?.(id)}
   function user(){return FB()?.getUser?.()||null}
   function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-  function onlineCount(r=room){return r?Object.keys(r.players||{}).length:0}
+  function playerCount(r=room){return r?Object.keys(r.players||{}).length:0}
+  function connectedCount(r=room){return r?Object.keys(r.players||{}).filter(uid=>playerOnline(uid,r)).length:0}
   function playerOnline(uid,r=room){return Boolean(uid&&Object.keys(r?.presence?.[uid]||{}).length)}
   function opponent(){const u=user();return u&&room?Object.values(room.players||{}).find(p=>p.uid!==u.uid):null}
   function role(){const u=user();return u&&room?.hostUid===u.uid?'HOST':'CONVIDADO'}
@@ -78,12 +80,18 @@
       const rdy=Boolean(room.clientReady?.[p.uid]?.ready),online=playerOnline(p.uid);
       return `<div class="kof-player-row"><span>${p.uid===room.hostUid?'👑':'🥊'}</span><b>${esc(p.name)}</b><small>${online?'🟢':'🟡'} ${online?'online':'reconectando'} • ${rdy?'🎮 pronto':'🔎 verificando'}</small></div>`;
     }).join('');
-    const count=onlineCount(),rdy=readyPlayers();
-    if($('kofRoomStatus'))$('kofRoomStatus').textContent=count>=2?`✅ 2/2 jogadores • ${rdy}/2 aparelhos prontos`:'⏳ 1/2 jogadores • aguardando rival';
+    const count=playerCount(),connected=connectedCount(),rdy=readyPlayers();
+    if($('kofRoomStatus')){
+      if(count<2)$('kofRoomStatus').textContent='⏳ 1/2 jogadores • aguardando uma SEGUNDA CONTA entrar';
+      else if(connected<2)$('kofRoomStatus').textContent=`🟡 2/2 jogadores • ${connected}/2 conectados • aguardando rival voltar`;
+      else if(rdy<2)$('kofRoomStatus').textContent=`🔎 2/2 jogadores online • ${rdy}/2 aparelhos prontos`;
+      else if(launchInFlight)$('kofRoomStatus').textContent='🚀 Sinal de partida enviado • abrindo KOF nos dois aparelhos…';
+      else $('kofRoomStatus').textContent='✅ 2/2 jogadores online • 2/2 aparelhos prontos';
+    }
     const launch=$('kofLaunchButton');
     if(launch){
       if(room.launchState==='starting'){launch.disabled=true;launch.textContent='🎮 PARTIDA INICIADA'}
-      else if(isHost()){launch.disabled=count<2||rdy<2;launch.textContent=rdy>=2?'🚀 INICIAR KOF ONLINE':`🔎 AGUARDANDO ${Math.max(0,2-rdy)} APARELHO(S)`}
+      else if(isHost()){launch.disabled=launchInFlight||count<2||connected<2||rdy<2;launch.textContent=launchInFlight?'⏳ INICIANDO…':(rdy>=2&&connected>=2?'🚀 INICIAR KOF ONLINE':`🔎 AGUARDANDO ${Math.max(0,2-rdy)} APARELHO(S)`)}
       else{launch.disabled=true;launch.textContent=rdy>=2?'✅ PRONTO • AGUARDE O HOST':'🔎 VALIDANDO FBNEO…'}
     }
     const votes=room.resultVotes||{},mineVote=u&&votes[u.uid];
@@ -92,10 +100,24 @@
     if(room.status==='finished'&&!rankedClaimsInFlight.has(room.code)){rankedClaimsInFlight.add(room.code);recordRanked(room).finally(()=>rankedClaimsInFlight.delete(room.code))}
     refreshFiles().then(ok=>{if(ok)ensureRoomReady()});
     const launchAt=Number(room.launchAt||0);
-    if(room.launchState==='starting'&&launchAt&&launchAt!==lastLaunchAtHandled){lastLaunchAtHandled=launchAt;setTimeout(()=>launch(false,true),250)}
+    if((room.launchState==='starting'||room.status==='playing')&&launchAt&&!launched&&launchAt!==lastLaunchAtHandled){lastLaunchAtHandled=launchAt;setTimeout(()=>launch(false,true),80)}
   }
 
-  function watch(code){if(unsub)unsub();unsub=FB()?.watchFightRoom?.(code,(data,err)=>{if(err){toast('Sala KOF',err.message||'Falha ao acompanhar sala.','error');return}if(!data){room=null;roomCode='';lastReadyRoom='';updateRoomUI();return}room=data;updateRoomUI()})}
+  function stopLaunchPolling(){if(launchPollTimer){clearInterval(launchPollTimer);launchPollTimer=0}}
+  function startLaunchPolling(){
+    stopLaunchPolling();
+    launchPollTimer=setInterval(async()=>{
+      if(!roomCode||launched)return;
+      try{
+        const latest=await FB()?.getFightRoom?.(roomCode);
+        if(!latest)return;
+        room=latest;
+        const at=Number(latest.launchAt||0);
+        if((latest.launchState==='starting'||latest.status==='playing')&&at&&!launched){lastLaunchAtHandled=at;launch(false,true)}
+      }catch{}
+    },1500);
+  }
+  function watch(code){if(unsub)unsub();startLaunchPolling();unsub=FB()?.watchFightRoom?.(code,(data,err)=>{if(err){toast('Sala KOF',err.message||'Falha ao acompanhar sala.','error');return}if(!data){room=null;roomCode='';lastReadyRoom='';stopLaunchPolling();updateRoomUI();return}room=data;updateRoomUI()})}
   async function createRoom(){
     if(!FB()?.ready?.())return toast('Firebase','Configure/entre na conta antes de criar a sala.','error');
     if(!await refreshFiles(true))return toast('KOF Web incompleto','O deploy precisa de /roms/v178/kf2k2mp2.zip com exatamente o Full Non-Merged validado.','error');
@@ -106,29 +128,51 @@
     if(!await refreshFiles(true))return toast('KOF Web incompleto','A ROM Full Non-Merged V17.8 não está publicada corretamente.','error');
     try{const btn=$('kofJoinRoom');btn.disabled=true;launched=false;lastLaunchAtHandled=0;lastReadyRoom='';roomCode=await FB().joinFightRoom(code);localStorage.setItem('gameGuessLastKofRoom',roomCode);watch(roomCode);toast('Conectado',`Você entrou na sala ${roomCode}`)}catch(e){toast('Não consegui entrar',e.message||String(e),'error')}finally{if($('kofJoinRoom'))$('kofJoinRoom').disabled=false}
   }
-  async function leaveRoom(){if(roomCode)await FB()?.leaveFightRoom?.(roomCode).catch(()=>{});if(unsub)unsub();unsub=null;room=null;roomCode='';launched=false;lastReadyRoom='';lastLaunchAtHandled=0;localStorage.removeItem('gameGuessLastKofRoom');stopEmulator();updateRoomUI()}
+  async function leaveRoom(){if(roomCode)await FB()?.leaveFightRoom?.(roomCode).catch(()=>{});if(unsub)unsub();unsub=null;stopLaunchPolling();room=null;roomCode='';launched=false;launchInFlight=false;lastReadyRoom='';lastLaunchAtHandled=0;localStorage.removeItem('gameGuessLastKofRoom');stopEmulator();updateRoomUI()}
 
   async function requestOnlineLaunch(){
-    if(!roomCode||!room)return;
+    if(!roomCode||!room)return toast('Sala KOF','Crie ou entre em uma sala antes de iniciar.','error');
     if(!isHost())return toast('Aguardando HOST','Somente o criador da sala inicia a luta.');
-    if(!await refreshFiles(true))return toast('KOF Web incompleto','A ROM Full Non-Merged não respondeu com o tamanho validado.','error');
-    await ensureRoomReady();
-    try{await FB()?.requestFightLaunch?.(roomCode);toast('Sincronizando luta','Os dois aparelhos vão abrir o mesmo FBNeo/romset juntos.')}
-    catch(e){toast('Não consegui iniciar',e.message||String(e),'error')}
+    if(launchInFlight||launched)return;
+    const count=playerCount(),connected=connectedCount(),rdy=readyPlayers();
+    if(count<2)return toast('Aguardando rival','É necessário entrar com uma segunda conta na sala. Abrir a mesma conta em dois aparelhos não cria o Player 2.','error');
+    if(connected<2)return toast('Rival desconectado','Os dois jogadores precisam aparecer como ONLINE antes de iniciar.','error');
+    if(rdy<2)return toast('Aguardando aparelhos',`Somente ${rdy}/2 aparelhos concluíram a validação do KOF.`,'error');
+    launchInFlight=true;updateRoomUI();
+    toast('Iniciando KOF online','Enviando o sinal de partida aos dois jogadores…');
+    try{
+      if(!await refreshFiles(true))throw new Error('A ROM Full Non-Merged não respondeu com o tamanho validado.');
+      if(!await ensureRoomReady())throw new Error('Este aparelho ainda não marcou o KOF como pronto.');
+      const api=FB();
+      if(typeof api?.requestFightLaunch!=='function')throw new Error('O módulo Firebase carregado está desatualizado. Faça Ctrl+F5 e tente novamente.');
+      const result=await api.requestFightLaunch(roomCode);
+      toast('Partida liberada','Abrindo o KOF no HOST agora; o convidado receberá o mesmo sinal.');
+      // Não dependa do callback realtime para o HOST. O write acima já foi confirmado
+      // pelo Firebase, então abrimos imediatamente. O convidado continua sendo
+      // acionado pelo listener, com polling como fallback.
+      if(!launched)await launch(false,true);
+      return result;
+    }catch(e){
+      launchInFlight=false;updateRoomUI();
+      toast('Não consegui iniciar',e?.message||String(e),'error');
+      console.error('KOF online launch:',e);
+    }
   }
   async function launch(training=false,fromRoom=false){
-    if(!await refreshFiles())return toast('KOF Web indisponível','A ROM Full Non-Merged V17.8 não está acessível.','error');
+    if(!training&&launched)return true;
     if(!training&&!fromRoom)return requestOnlineLaunch();
-    if(!training&&onlineCount()<2)return toast('Aguardando rival','A luta online precisa de 2 jogadores.','error');
+    if(!training&&playerCount()<2)return toast('Aguardando rival','A luta online precisa de 2 jogadores.','error');
+    if(!await refreshFiles())return toast('KOF Web indisponível','A ROM Full Non-Merged V17.8 não está acessível.','error');
     const gameId=training?20020202:Number(room?.gameId||20020202),roleParam=training?'training':role().toLowerCase(),code=training?'TREINO':roomCode;
     const server=netplayServer();localStorage.setItem('gameGuessKofNetplayServer',server);
-    const frame=$('kofEmulatorFrame');if(!frame)return;
+    const frame=$('kofEmulatorFrame');if(!frame){launchInFlight=false;return toast('KOF Web','Iframe do emulador não foi encontrado. Atualize a página.','error')}
+    if(!training){launched=true;launchInFlight=false;stopLaunchPolling()}
+    show('kofPlayScreen');
     frame.src=`/kof-player.html?v=${KOF_WEB_VERSION}&gameId=${encodeURIComponent(gameId)}&room=${encodeURIComponent(code)}&role=${encodeURIComponent(roleParam)}&server=${encodeURIComponent(server)}`;
-    launched=true;show('kofPlayScreen');
     if($('kofPlayRoom'))$('kofPlayRoom').textContent=training?'TREINO LOCAL':`SALA ${roomCode} • ${role()}`;
     if($('kofNetplayHelp')){
       $('kofNetplayHelp').classList.toggle('hidden',training);
-      if(!training){const action=isHost()?'HOST/CREATE (Criar)':'JOIN/ENTRAR (Entrar)';$('kofNetplayHelp').innerHTML=`<b>⚔️ PVP Web • ${role()}</b><span>Os dois aparelhos usam EmulatorJS ${KOF_EMULATOR_VERSION}, FBNeo build ${FBN_BUILD}, a mesma ROM Full Non-Merged e Game ID ${gameId}. No Netplay escolha <b>${action}</b>; no outro aparelho use a opção complementar.</span>`}
+      if(!training){const action=isHost()?'HOST/CREATE (Criar)':'JOIN/ENTRAR (Entrar)';$('kofNetplayHelp').innerHTML=`<b>⚔️ PVP Web • ${role()}</b><span>Os dois aparelhos usam EmulatorJS ${KOF_EMULATOR_VERSION}, FBNeo build ${FBN_BUILD}, a mesma ROM Full Non-Merged e Game ID ${gameId}. O emulador tentará iniciar automaticamente; se aparecer o botão <b>INICIAR KOF</b>, clique nele neste aparelho. Depois, no Netplay escolha <b>${action}</b>; no outro aparelho use a opção complementar.</span>`}
     }
   }
   function stopEmulator(){const f=$('kofEmulatorFrame');if(f)f.src='about:blank'}

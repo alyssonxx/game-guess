@@ -9,7 +9,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/12.17.1/firebase-database.js';
 
 const CONFIG = window.GAME_GUESS_FIREBASE_CONFIG || {};
-const APP_VERSION = '17.0.0';
+const APP_VERSION = '17.9.0';
 const PROTOCOL_VERSION = 13;
 const WAITING_TTL_MS = 30 * 60 * 1000;
 const PLAYING_TTL_MS = 4 * 60 * 60 * 1000;
@@ -384,8 +384,13 @@ async function requestFightLaunch(code){
   const notReady=ids.filter(uid=>!room.clientReady?.[uid]?.ready);
   if(notReady.length)throw new Error('Aguarde os dois aparelhos concluírem a verificação do KOF.');
   const now=serverNow();
-  await update(rr,{status:'playing',launchState:'starting',launchAt:now,updatedAt:now,expiresAt:now+PLAYING_TTL_MS});
-  return true;
+  try{await update(rr,{status:'playing',launchState:'starting',launchAt:now,updatedAt:now,expiresAt:now+PLAYING_TTL_MS});}
+  catch(e){
+    const msg=String(e?.code||e?.message||'').toLowerCase();
+    if(msg.includes('permission'))throw new Error('O Firebase recusou o sinal de início. Publique o database.rules.json atual no Realtime Database.');
+    throw e;
+  }
+  return {ok:true,launchAt:now,gameId:Number(room.gameId||0),code};
 }
 async function claimFightRankedRecord(code){
   if(!currentUser||!db||!code)return false;

@@ -10,22 +10,54 @@ const LOCATIONS = [
 function shuffle(a){a=[...a];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 function out(res,status,body){res.statusCode=status;res.setHeader('Content-Type','application/json; charset=utf-8');res.setHeader('Cache-Control','no-store');res.end(JSON.stringify(body));}
 function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
-function jitter(lat,lng){
-  const radius=.12+Math.random()*.68,angle=Math.random()*Math.PI*2;
-  const dLat=(radius/111.32)*Math.cos(angle),cos=Math.max(.22,Math.abs(Math.cos(lat*Math.PI/180))),dLng=(radius/(111.32*cos))*Math.sin(angle);
-  return {lat:Number((lat+dLat).toFixed(6)),lng:Number((lng+dLng).toFixed(6))};
+function bboxAround(lat,lng,km=4){
+  const latPad=km/111.32,lngPad=km/(111.32*Math.max(.22,Math.abs(Math.cos(lat*Math.PI/180))));
+  return [lng-lngPad,lat-latPad,lng+lngPad,lat+latPad].map(n=>Number(n.toFixed(6))).join(',');
 }
-
+function geometryOf(img){const g=img?.computed_geometry||img?.geometry,c=g?.coordinates;return Array.isArray(c)&&c.length>=2?{lng:Number(c[0]),lat:Number(c[1])}:null;}
+function pickImage(items){
+  const usable=items.filter(x=>x?.id&&geometryOf(x));if(!usable.length)return null;
+  const hasSequence=x=>Boolean(x?.sequence?.id||x?.sequence);
+  const spherical=usable.filter(x=>String(x.camera_type||'').toLowerCase()==='spherical');
+  const sphericalSequence=spherical.filter(hasSequence),sequenced=usable.filter(hasSequence);
+  const pool=sphericalSequence.length?sphericalSequence:sequenced.length?sequenced:spherical.length?spherical:usable;
+  return pool[Math.floor(Math.random()*pool.length)]||null;
+}
+async function mapillaryImages(token,lat,lng){
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),7000);
+  try{
+    const u=new URL('https://graph.mapillary.com/images');
+    u.searchParams.set('access_token',token);
+    u.searchParams.set('bbox',bboxAround(lat,lng,7));
+    u.searchParams.set('limit','100');
+    u.searchParams.set('fields','id,computed_geometry,geometry,computed_compass_angle,compass_angle,camera_type,sequence,captured_at');
+    const r=await fetch(u,{signal:controller.signal,headers:{Accept:'application/json'}});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok)throw new Error(d?.error?.message||`Mapillary HTTP ${r.status}`);
+    return Array.isArray(d.data)?d.data:[];
+  }finally{clearTimeout(timer)}
+}
+async function resolveSeed(token,s){
+  const [region,country,city,lat,lng]=s;
+  try{
+    const items=await mapillaryImages(token,lat,lng),img=pickImage(items),g=geometryOf(img);if(!img||!g)return null;
+    const heading=Number(img.computed_compass_angle??img.compass_angle??0);
+    return {id:`mly:${img.id}`,imageId:String(img.id),lat:g.lat,lng:g.lng,country,city,region,heading:Number.isFinite(heading)?heading:0,cameraType:String(img.camera_type||''),provider:'mapillary'};
+  }catch{return null;}
+}
 export default async function handler(req,res){
   if(req.method!=='GET')return out(res,405,{error:'Use GET'});
+  const token=String(process.env.MAPILLARY_ACCESS_TOKEN||process.env.MAPILLARY_TOKEN||'').trim();
+  if(!token)return out(res,503,{error:'Configure MAPILLARY_ACCESS_TOKEN no Vercel com o Client Token do seu app Mapillary.'});
   const region=String(req.query?.region||'world').toLowerCase();
   const count=clamp(Number(req.query?.count||5),3,8);
-  let pool=LOCATIONS.filter(s=>region==='world'||s[0]===region);
-  if(pool.length<count)pool=LOCATIONS;
-  const selected=shuffle(pool).slice(0,count);
-  const candidates=selected.map(([r,country,city,lat,lng],i)=>{
-    const p=jitter(lat,lng);
-    return {id:`osm:${Date.now().toString(36)}:${i}:${Math.random().toString(36).slice(2,7)}`,lat:p.lat,lng:p.lng,country,city,region:r,provider:'openstreetmap',exploreRadius:1600};
-  });
-  return out(res,200,{provider:'leaflet+openstreetmap',mode:'osm-explorer',candidates});
+  const pool=LOCATIONS.filter(s=>region==='world'||s[0]===region);
+  const seeds=shuffle(pool).slice(0,Math.min(pool.length,Math.max(count*5,16)));
+  const candidates=[];
+  for(let i=0;i<seeds.length&&candidates.length<count;i+=6){
+    const batch=await Promise.all(seeds.slice(i,i+6).map(s=>resolveSeed(token,s)));
+    for(const q of batch){if(q&&!candidates.some(x=>x.imageId===q.imageId)){candidates.push(q);if(candidates.length>=count)break;}}
+  }
+  if(candidates.length<count)return out(res,503,{version:'18.1.0',error:`O Mapillary encontrou apenas ${candidates.length} de ${count} locais navegáveis nesta tentativa. Tente novamente ou escolha outra região.`,provider:'mapillary',candidates});
+  return out(res,200,{version:'18.1.0',provider:'mapillary',candidates:shuffle(candidates).slice(0,count)});
 }

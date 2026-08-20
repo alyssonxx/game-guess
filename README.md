@@ -1,3 +1,7 @@
+# Game Guess V18.1
+
+GeoGuess com Mapillary + Leaflet/OpenStreetMap, Avatar, KOF, Quiz e multiplayer.
+
 # Game Guess V17 — Avatar 3D Bean + Social + KOF Full Non-Merged
 
 A V17 concentra a atualização em três áreas: avatar/loja, social e KOF.
