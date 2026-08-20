@@ -25,3 +25,6 @@ O KOF agora usa apenas:
 Esse arquivo é Full Non-Merged e contém clone + parent KOF 2002 + BIOS Neo Geo. Os arquivos separados `kof2002.zip` e `neogeo.zip` não são mais necessários no deploy.
 
 Veja `KOF-SETUP.md`, `CHANGES-V17.md` e `V17-VALIDACAO.txt`.
+
+## KOF V17.8
+O KOF usa EmulatorJS 4.2.1 com core `fbneo` explícito. O romset fica em `/roms/v178/kf2k2mp2.zip` e é Full Non-Merged. A pasta versionada existe para evitar reutilização do cache `immutable` das versões anteriores. Consulte `KOF-V17.8-VALIDACAO.txt`.

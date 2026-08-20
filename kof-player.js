@@ -6,16 +6,17 @@
   const text = document.getElementById('bootText');
   const startButton = document.getElementById('startKofButton');
   const EJS_VERSION = '4.2.1';
-  const PATCH_VERSION = '17.5.0';
+  const PATCH_VERSION = '17.8.0';
   const EJS_DATA = `https://cdn.emulatorjs.org/${EJS_VERSION}/data/`;
 
-  // Layout split: clone + parent + BIOS. This is intentionally different from
-  // the previous Full Non-Merged experiment. EmulatorJS 4.2.1 fixed placement
-  // of BIOS/parent files, so we let the arcade core receive each archive in the
-  // role it expects.
-  const GAME_URL = '/roms/kf2k2mp2.zip';
-  const PARENT_URL = '/roms/kof2002.zip';
-  const BIOS_URL = '/roms/neogeo.zip';
+  // V17.7: FBNeo full non-merged. Libretro recommends this format when using
+  // only a few arcade sets: the single game archive contains clone + parent +
+  // BIOS ROMs. This avoids EmulatorJS 4.2.1 extracting EJS_gameParentUrl and
+  // EJS_biosUrl into loose files while FBNeo searches for the related romsets.
+  const GAME_URL = '/roms/v178/kf2k2mp2.zip';
+  const EXPECTED_GAME_SIZE = 86694745;
+  const EXPECTED_SHA256 = '2cb16b649819f8168701f01ddd4642dc3678283c112cd89e79103ed45f4a1a4d';
+  const FBN_CORE_BUILD = '2025-01-07T14:59:35Z';
 
   const role = String(params.get('role') || 'training').toLowerCase();
   const room = String(params.get('room') || 'TREINO').toUpperCase();
@@ -62,32 +63,14 @@
   function mb(value) { return value ? `${(value / 1024 / 1024).toFixed(1)} MB` : 'tamanho não informado'; }
 
   async function validateArcadeFiles() {
-    setText('Verificando clone, parent e BIOS do Neo Geo…');
-    const [game, parent, bios] = await Promise.all([
-      head(GAME_URL),
-      head(PARENT_URL),
-      head(BIOS_URL)
-    ]);
-
-    const missing = [];
-    if (!game.ok) missing.push('kf2k2mp2.zip');
-    if (!parent.ok) missing.push('kof2002.zip');
-    if (!bios.ok) missing.push('neogeo.zip');
-    if (missing.length) throw new Error(`Arquivos ausentes neste deploy: ${missing.join(', ')}.`);
-
-    // Catch the common mistake of leaving the old ~83 MB merged ROM under the
-    // clone filename. The clone itself should be only a few MB compressed.
-    if (game.size && game.size > 20 * 1024 * 1024) {
-      throw new Error(`kf2k2mp2.zip ainda parece ser o Full Non-Merged antigo (${mb(game.size)}). Nesta versão ele precisa ser o clone pequeno; kof2002.zip e neogeo.zip ficam separados.`);
+    setText('Verificando romset Full Non-Merged do KOF…');
+    const game = await head(GAME_URL);
+    if (!game.ok) throw new Error('Arquivo ausente neste deploy: kf2k2mp2.zip.');
+    // Full Non-Merged is large because it embeds the clone, parent and Neo Geo BIOS.
+    if (game.size && game.size !== EXPECTED_GAME_SIZE) {
+      throw new Error(`O deploy está servindo um kf2k2mp2.zip diferente do validado: ${mb(game.size)} (${game.size} bytes). Esperado: ${EXPECTED_GAME_SIZE} bytes. Faça novo deploy e Ctrl+F5.`);
     }
-    if (parent.size && parent.size < 40 * 1024 * 1024) {
-      throw new Error(`kof2002.zip parece incompleto (${mb(parent.size)}).`);
-    }
-    if (bios.size && bios.size < 1024 * 1024) {
-      throw new Error(`neogeo.zip parece incompleto (${mb(bios.size)}).`);
-    }
-
-    return { game, parent, bios };
+    return { game };
   }
 
   function openNetplayMenu() {
@@ -132,7 +115,7 @@
 
     try {
       const files = await validateArcadeFiles();
-      setText(`Arquivos OK: clone ${mb(files.game.size)} • parent ${mb(files.parent.size)} • BIOS ${mb(files.bios.size)}.`);
+      setText(`Romset Full Non-Merged OK: ${mb(files.game.size)}.`);
 
       const cfg = await json('/api/kof-config');
       const gameId = Math.max(1, Number(params.get('gameId')) || 20020202);
@@ -142,10 +125,10 @@
         : [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }];
 
       window.EJS_player = '#game';
-      window.EJS_core = 'arcade';
+      window.EJS_core = 'fbneo';
       window.EJS_gameUrl = GAME_URL;
-      window.EJS_gameParentUrl = PARENT_URL;
-      window.EJS_biosUrl = BIOS_URL;
+      // Full Non-Merged: do not define EJS_gameParentUrl or EJS_biosUrl.
+      // FBNeo receives one archive whose basename remains kf2k2mp2.zip.
       // Não definimos EJS_gameName aqui: para arcade, preservamos o nome real
       // do arquivo kf2k2mp2.zip para o FBNeo identificar o romset sem ambiguidade.
       window.EJS_gameID = gameId;
@@ -170,9 +153,9 @@
       }
 
       window.EJS_ready = () => {
-        setText(`EmulatorJS ${EJS_VERSION} carregado. Entregando clone + parent + BIOS ao FBNeo…`);
-        post('kof-player-core-ready', `EmulatorJS ${EJS_VERSION} / arcade→FBNeo carregado.`, {
-          version: EJS_VERSION, gameId, online, layout: 'split'
+        setText(`EmulatorJS ${EJS_VERSION} + FBNeo build ${FBN_CORE_BUILD} carregado. Entregando o Full Non-Merged…`);
+        post('kof-player-core-ready', `EmulatorJS ${EJS_VERSION} / FBNeo explícito carregado.`, {
+          version: EJS_VERSION, gameId, online, layout: 'full-non-merged'
         });
       };
 
@@ -181,7 +164,7 @@
         loading = false;
         if (boot) boot.style.display = 'none';
         post('kof-player-ready', `KOF iniciado • EmulatorJS ${EJS_VERSION} • FBNeo • Game ID ${gameId}`, {
-          gameId, version: EJS_VERSION, online, role, room, layout: 'split'
+          gameId, version: EJS_VERSION, online, role, room, layout: 'full-non-merged'
         });
         scheduleNetplayMenu();
       };
@@ -193,10 +176,10 @@
       document.body.appendChild(script);
 
       setTimeout(() => {
-        if (!started) setText('FBNeo está preparando o clone, o parent e a BIOS FBNeo repacotada. No primeiro carregamento isso pode demorar.');
+        if (!started) setText('FBNeo está preparando o romset Full Non-Merged. No primeiro carregamento isso pode demorar.');
       }, 8000);
       setTimeout(() => {
-        if (!started) post('kof-player-slow', 'O KOF ainda está preparando os três romsets.', { version: EJS_VERSION, online, layout: 'split' });
+        if (!started) post('kof-player-slow', 'O KOF ainda está preparando o romset Full Non-Merged.', { version: EJS_VERSION, online, layout: 'full-non-merged' });
       }, 20000);
     } catch (e) {
       fail(e?.message || String(e));
@@ -211,5 +194,5 @@
   // game startup, which is more reliable than auto-booting as soon as the
   // iframe is created.
   startButton?.addEventListener('click', bootGame);
-  setText('Clique em INICIAR KOF. Esta versão usa o core arcade (FBNeo), clone + parent separados e a BIOS FBNeo enviada por você, repacotada com arquivos na raiz do ZIP.');
+  setText('Clique em INICIAR KOF. A V17.8 usa o FBNeo explicitamente e um único kf2k2mp2.zip Full Non-Merged em uma URL nova para eliminar cache antigo do Vercel/navegador.');
 })();
