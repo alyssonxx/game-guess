@@ -4,11 +4,11 @@
   const WEB_GAME='/roms/v178/kf2k2mp2.zip';
   const EXPECTED_GAME_BYTES=86694745;
   const DEFAULT_NETPLAY='https://netplay.emulatorjs.org/';
-  const KOF_WEB_VERSION='17.9.0';
+  const KOF_WEB_VERSION='18.4.0';
   const KOF_EMULATOR_VERSION='4.2.1';
   const FBN_BUILD='2025-01-07 14:59 UTC';
   let roomCode='',room=null,unsub=null,launched=false,lastReadyRoom='',lastLaunchAtHandled=0;
-  let launchInFlight=false,launchPollTimer=0;
+  let launchInFlight=false,launchPollTimer=0,roomSessionArmed=false;
   let assetCache={at:0,ready:false,detail:null};
   const rankedClaimsInFlight=new Set();
 
@@ -100,7 +100,7 @@
     if(room.status==='finished'&&!rankedClaimsInFlight.has(room.code)){rankedClaimsInFlight.add(room.code);recordRanked(room).finally(()=>rankedClaimsInFlight.delete(room.code))}
     refreshFiles().then(ok=>{if(ok)ensureRoomReady()});
     const launchAt=Number(room.launchAt||0);
-    if((room.launchState==='starting'||room.status==='playing')&&launchAt&&!launched&&launchAt!==lastLaunchAtHandled){lastLaunchAtHandled=launchAt;setTimeout(()=>launch(false,true),80)}
+    if(roomSessionArmed&&(room.launchState==='starting'||room.status==='playing')&&launchAt&&!launched&&launchAt!==lastLaunchAtHandled){lastLaunchAtHandled=launchAt;setTimeout(()=>launch(false,true),80)}
   }
 
   function stopLaunchPolling(){if(launchPollTimer){clearInterval(launchPollTimer);launchPollTimer=0}}
@@ -113,7 +113,7 @@
         if(!latest)return;
         room=latest;
         const at=Number(latest.launchAt||0);
-        if((latest.launchState==='starting'||latest.status==='playing')&&at&&!launched){lastLaunchAtHandled=at;launch(false,true)}
+        if(roomSessionArmed&&(latest.launchState==='starting'||latest.status==='playing')&&at&&!launched){lastLaunchAtHandled=at;launch(false,true)}
       }catch{}
     },1500);
   }
@@ -121,14 +121,14 @@
   async function createRoom(){
     if(!FB()?.ready?.())return toast('Firebase','Configure/entre na conta antes de criar a sala.','error');
     if(!await refreshFiles(true))return toast('KOF Web incompleto','O deploy precisa de /roms/v178/kf2k2mp2.zip com exatamente o Full Non-Merged validado.','error');
-    try{const btn=$('kofCreateRoom');btn.disabled=true;launched=false;lastLaunchAtHandled=0;lastReadyRoom='';roomCode=await FB().createFightRoom();localStorage.setItem('gameGuessLastKofRoom',roomCode);watch(roomCode);toast('Sala KOF criada',`Código ${roomCode} • aguardando rival`)}catch(e){toast('Erro ao criar sala',e.message||String(e),'error')}finally{if($('kofCreateRoom'))$('kofCreateRoom').disabled=false}
+    try{const btn=$('kofCreateRoom');btn.disabled=true;launched=false;lastLaunchAtHandled=0;lastReadyRoom='';roomSessionArmed=false;roomCode=await FB().createFightRoom();roomSessionArmed=true;localStorage.setItem('gameGuessLastKofRoom',roomCode);watch(roomCode);toast('Sala KOF criada',`Código ${roomCode} • aguardando rival`)}catch(e){toast('Erro ao criar sala',e.message||String(e),'error')}finally{if($('kofCreateRoom'))$('kofCreateRoom').disabled=false}
   }
   async function joinRoom(){
     const code=String($('kofJoinCode')?.value||'').trim().toUpperCase();
     if(!await refreshFiles(true))return toast('KOF Web incompleto','A ROM Full Non-Merged V17.8 não está publicada corretamente.','error');
-    try{const btn=$('kofJoinRoom');btn.disabled=true;launched=false;lastLaunchAtHandled=0;lastReadyRoom='';roomCode=await FB().joinFightRoom(code);localStorage.setItem('gameGuessLastKofRoom',roomCode);watch(roomCode);toast('Conectado',`Você entrou na sala ${roomCode}`)}catch(e){toast('Não consegui entrar',e.message||String(e),'error')}finally{if($('kofJoinRoom'))$('kofJoinRoom').disabled=false}
+    try{const btn=$('kofJoinRoom');btn.disabled=true;launched=false;lastLaunchAtHandled=0;lastReadyRoom='';roomSessionArmed=false;roomCode=await FB().joinFightRoom(code);roomSessionArmed=true;localStorage.setItem('gameGuessLastKofRoom',roomCode);watch(roomCode);toast('Conectado',`Você entrou na sala ${roomCode}`)}catch(e){toast('Não consegui entrar',e.message||String(e),'error')}finally{if($('kofJoinRoom'))$('kofJoinRoom').disabled=false}
   }
-  async function leaveRoom(){if(roomCode)await FB()?.leaveFightRoom?.(roomCode).catch(()=>{});if(unsub)unsub();unsub=null;stopLaunchPolling();room=null;roomCode='';launched=false;launchInFlight=false;lastReadyRoom='';lastLaunchAtHandled=0;localStorage.removeItem('gameGuessLastKofRoom');stopEmulator();updateRoomUI()}
+  async function leaveRoom(){if(roomCode)await FB()?.leaveFightRoom?.(roomCode).catch(()=>{});if(unsub)unsub();unsub=null;stopLaunchPolling();room=null;roomCode='';launched=false;launchInFlight=false;roomSessionArmed=false;lastReadyRoom='';lastLaunchAtHandled=0;localStorage.removeItem('gameGuessLastKofRoom');stopEmulator();updateRoomUI()}
 
   async function requestOnlineLaunch(){
     if(!roomCode||!room)return toast('Sala KOF','Crie ou entre em uma sala antes de iniciar.','error');
@@ -161,6 +161,7 @@
   async function launch(training=false,fromRoom=false){
     if(!training&&launched)return true;
     if(!training&&!fromRoom)return requestOnlineLaunch();
+    if(!training&&!roomSessionArmed)return toast('Sala KOF','Entre ou crie uma sala nesta sessão antes de iniciar o online.','error');
     if(!training&&playerCount()<2)return toast('Aguardando rival','A luta online precisa de 2 jogadores.','error');
     if(!await refreshFiles())return toast('KOF Web indisponível','A ROM Full Non-Merged V17.8 não está acessível.','error');
     const gameId=training?20020202:Number(room?.gameId||20020202),roleParam=training?'training':role().toLowerCase(),code=training?'TREINO':roomCode;
@@ -188,8 +189,27 @@
   }
 
   async function open(){
-    show('kofScreen');checkServices();await refreshFiles(true);if($('kofNetplayServer'))$('kofNetplayServer').value=netplayServer();
-    const saved=localStorage.getItem('gameGuessLastKofRoom');if(saved&&user()&&!roomCode){try{const r=await FB()?.getFightRoom?.(saved);if(r?.players?.[user().uid]&&r.status!=='finished'&&Number(r.protocolVersion)===Number(FB()?.fightProtocolVersion)){roomCode=saved;await FB()?.attachFightPresence?.(roomCode);watch(roomCode)}}catch{}}
+    // V18.3: entrar no KOF sempre abre o LOBBY. Não reabre automaticamente
+    // uma sala salva no localStorage, pois uma sala antiga em status 'playing'
+    // fazia celulares pularem direto para o emulador sem permitir CRIAR/ENTRAR.
+    show('kofScreen');
+    checkServices();
+    await refreshFiles(true);
+    if($('kofNetplayServer'))$('kofNetplayServer').value=netplayServer();
+
+    if(!roomCode){
+      roomSessionArmed=false;
+      launched=false;
+      launchInFlight=false;
+      lastLaunchAtHandled=0;
+      lastReadyRoom='';
+      stopLaunchPolling();
+      if(unsub){try{unsub()}catch{};unsub=null;}
+      room=null;
+      localStorage.removeItem('gameGuessLastKofRoom');
+      stopEmulator();
+      updateRoomUI();
+    }
   }
   function bind(){
     $('homeKofButton')?.addEventListener('click',open);$('kofBackButton')?.addEventListener('click',()=>show('homeScreen'));

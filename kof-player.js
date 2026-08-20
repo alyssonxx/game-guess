@@ -6,7 +6,7 @@
   const text = document.getElementById('bootText');
   const startButton = document.getElementById('startKofButton');
   const EJS_VERSION = '4.2.1';
-  const PATCH_VERSION = '17.9.0';
+  const PATCH_VERSION = '18.4.0';
   const EJS_DATA = `https://cdn.emulatorjs.org/${EJS_VERSION}/data/`;
 
   // V17.7: FBNeo full non-merged. Libretro recommends this format when using
@@ -140,6 +140,47 @@
       window.EJS_color = '#42e8ff';
       window.EJS_backgroundColor = '#050913';
       window.EJS_controlScheme = 'arcade';
+
+      // V18.4 — painel virtual Neo Geo / KOF.
+      // Mantemos os IDs Libretro que o FBNeo já entende, alterando apenas a
+      // apresentação do controle touch para o padrão de fliperama A/B/C/D.
+      // Mapeamento clássico Neo Geo no RetroPad:
+      // A -> B(0), B -> A(8), C -> Y(1), D -> X(9).
+      window.EJS_VirtualGamepadSettings = [
+        {
+          type: 'dpad',
+          location: 'left',
+          left: '50%',
+          top: '50%',
+          joystickInput: false,
+          inputValues: [4, 5, 6, 7]
+        },
+        {
+          type: 'button', text: 'A', id: 'gg-neo-a', location: 'right',
+          left: 0, top: 46, bold: true, fontSize: 28, input_value: 0
+        },
+        {
+          type: 'button', text: 'B', id: 'gg-neo-b', location: 'right',
+          left: 58, top: 34, bold: true, fontSize: 28, input_value: 8
+        },
+        {
+          type: 'button', text: 'C', id: 'gg-neo-c', location: 'right',
+          left: 116, top: 22, bold: true, fontSize: 28, input_value: 1
+        },
+        {
+          type: 'button', text: 'D', id: 'gg-neo-d', location: 'right',
+          left: 174, top: 10, bold: true, fontSize: 28, input_value: 9
+        },
+        {
+          type: 'button', text: 'COIN', id: 'gg-neo-coin', location: 'center',
+          left: -54, top: 0, bold: true, fontSize: 13, block: true, input_value: 2
+        },
+        {
+          type: 'button', text: 'START', id: 'gg-neo-start', location: 'center',
+          left: 54, top: 0, bold: true, fontSize: 13, block: true, input_value: 3
+        }
+      ];
+
       window.EJS_AdTimer = -1;
       window.EJS_CacheLimit = 1024 * 1024 * 1024;
       window.EJS_DEBUG_XX = params.get('debug') === '1';
@@ -155,7 +196,7 @@
       window.EJS_ready = () => {
         setText(`EmulatorJS ${EJS_VERSION} + FBNeo build ${FBN_CORE_BUILD} carregado. Entregando o Full Non-Merged…`);
         post('kof-player-core-ready', `EmulatorJS ${EJS_VERSION} / FBNeo explícito carregado.`, {
-          version: EJS_VERSION, gameId, online, layout: 'full-non-merged'
+          version: EJS_VERSION, gameId, online, layout: 'full-non-merged', controls: 'neo-geo-abcd'
         });
       };
 
@@ -164,7 +205,7 @@
         loading = false;
         if (boot) boot.style.display = 'none';
         post('kof-player-ready', `KOF iniciado • EmulatorJS ${EJS_VERSION} • FBNeo • Game ID ${gameId}`, {
-          gameId, version: EJS_VERSION, online, role, room, layout: 'full-non-merged'
+          gameId, version: EJS_VERSION, online, role, room, layout: 'full-non-merged', controls: 'neo-geo-abcd'
         });
         scheduleNetplayMenu();
       };
@@ -179,7 +220,7 @@
         if (!started) setText('FBNeo está preparando o romset Full Non-Merged. No primeiro carregamento isso pode demorar.');
       }, 8000);
       setTimeout(() => {
-        if (!started) post('kof-player-slow', 'O KOF ainda está preparando o romset Full Non-Merged.', { version: EJS_VERSION, online, layout: 'full-non-merged' });
+        if (!started) post('kof-player-slow', 'O KOF ainda está preparando o romset Full Non-Merged.', { version: EJS_VERSION, online, layout: 'full-non-merged', controls: 'neo-geo-abcd' });
       }, 20000);
     } catch (e) {
       fail(e?.message || String(e));
@@ -194,6 +235,15 @@
   // game startup, which is more reliable than auto-booting as soon as the
   // iframe is created.
   startButton?.addEventListener('click', bootGame);
+
+  const arcadeHelpButton = document.getElementById('arcadeHelpButton');
+  const arcadeHelpModal = document.getElementById('arcadeHelpModal');
+  const arcadeHelpClose = document.getElementById('arcadeHelpClose');
+  const setArcadeHelp = open => { if (arcadeHelpModal) arcadeHelpModal.hidden = !open; };
+  arcadeHelpButton?.addEventListener('click', () => setArcadeHelp(true));
+  arcadeHelpClose?.addEventListener('click', () => setArcadeHelp(false));
+  arcadeHelpModal?.addEventListener('click', e => { if (e.target === arcadeHelpModal) setArcadeHelp(false); });
+  window.addEventListener('keydown', e => { if (e.key === 'Escape') setArcadeHelp(false); });
   if(online){
     if(startButton)startButton.textContent=role==='host'?'CONECTAR HOST':'CONECTAR CONVIDADO';
     setText('Partida online liberada. Tentando carregar o FBNeo automaticamente; se o navegador exigir interação, clique no botão abaixo.');

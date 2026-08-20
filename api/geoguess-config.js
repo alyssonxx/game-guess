@@ -4,5 +4,5 @@ export default function handler(req,res){
   res.statusCode=200;
   res.setHeader('Content-Type','application/json; charset=utf-8');
   res.setHeader('Cache-Control','no-store');
-  res.end(JSON.stringify({version:'18.1.0',enabled:Boolean(token),token:token||null,provider:'MapillaryJS 4.1.2 + Leaflet/OpenStreetMap'}));
+  res.end(JSON.stringify({version:'18.2.0',enabled:Boolean(token),token:token||null,tokenFormat:token.startsWith('MLY|')?'client-token':'unknown',provider:'MapillaryJS 4.1.2 + Leaflet/OpenStreetMap'}));
 }

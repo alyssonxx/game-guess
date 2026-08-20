@@ -1,7 +1,7 @@
 (() => {
 'use strict';
 const $=id=>document.getElementById(id), CORE=()=>window.GameGuessCore, FB=()=>window.GameGuessFirebase;
-const GEO_VERSION='18.1.0';
+const GEO_VERSION='18.2.0';
 const REGIONS={world:['🌍','Mundo todo'],americas:['🌎','Américas'],europe:['🏰','Europa'],asia:['🌏','Ásia'],africa:['🦁','África'],oceania:['🌊','Oceania']};
 let config={region:'world',rounds:5,maxPlayers:2};
 let solo=null, map=null, guessMarker=null, targetMarker=null, line=null, selected=null;
@@ -86,14 +86,84 @@ function clearMarkers(){if(!map)return;for(const x of [guessMarker,targetMarker,
 function hav(a,b,c,d){const R=6371,to=x=>x*Math.PI/180,dLat=to(c-a),dLon=to(d-b),x=Math.sin(dLat/2)**2+Math.cos(to(a))*Math.cos(to(c))*Math.sin(dLon/2)**2;return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));}
 function scoreDistance(km){if(km<=.025)return 5000;return Math.max(0,Math.round(5000*Math.exp(-km/1800)));}
 
+function mlyGeometry(img){
+  const g=img?.computed_geometry||img?.geometry,c=g?.coordinates;
+  return Array.isArray(c)&&c.length>=2?{lng:Number(c[0]),lat:Number(c[1])}:null;
+}
+function mlyBbox(lat,lng,km){
+  const latPad=km/111.32,lngPad=km/(111.32*Math.max(.22,Math.abs(Math.cos(lat*Math.PI/180))));
+  return [lng-lngPad,lat-latPad,lng+lngPad,lat+latPad].map(n=>Number(n.toFixed(6))).join(',');
+}
+function pickMlyImage(items){
+  const usable=(items||[]).filter(x=>x?.id&&mlyGeometry(x));
+  if(!usable.length)return null;
+  const seq=x=>Boolean(x?.sequence?.id||x?.sequence);
+  const spherical=usable.filter(x=>String(x.camera_type||'').toLowerCase()==='spherical');
+  const pools=[spherical.filter(seq),usable.filter(seq),spherical,usable];
+  const pool=pools.find(a=>a.length)||usable;
+  return pool[Math.floor(Math.random()*pool.length)]||null;
+}
+async function browserMapillaryImages(lat,lng,km){
+  const u=new URL('https://graph.mapillary.com/images');
+  u.searchParams.set('access_token',mapillaryToken);
+  u.searchParams.set('bbox',mlyBbox(Number(lat),Number(lng),km));
+  u.searchParams.set('limit','100');
+  u.searchParams.set('fields','id,computed_geometry,geometry,computed_compass_angle,compass_angle,camera_type,sequence,captured_at');
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),8000);
+  try{
+    const r=await fetch(u,{signal:controller.signal,headers:{Accept:'application/json'}});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok){
+      const msg=d?.error?.message||`Mapillary HTTP ${r.status}`;
+      const e=new Error(msg);e.status=r.status;throw e;
+    }
+    return Array.isArray(d.data)?d.data:[];
+  }finally{clearTimeout(timer)}
+}
+async function resolveSeedInBrowser(seed){
+  let lastErr=null;
+  for(const km of [4,12,30]){
+    try{
+      const items=await browserMapillaryImages(seed.lat,seed.lng,km),img=pickMlyImage(items),g=mlyGeometry(img);
+      if(img&&g){
+        const heading=Number(img.computed_compass_angle??img.compass_angle??0);
+        return {id:`mly:${img.id}`,imageId:String(img.id),lat:g.lat,lng:g.lng,country:seed.country,city:seed.city,region:seed.region,heading:Number.isFinite(heading)?heading:0,cameraType:String(img.camera_type||''),provider:'mapillary'};
+      }
+    }catch(e){lastErr=e;if([400,401,403].includes(Number(e.status)))throw e;}
+  }
+  if(lastErr&&Number(lastErr.status)>=400)throw lastErr;
+  return null;
+}
 async function fetchRounds(){
   await ensureMapillary();
   const wanted=config.rounds;
   const r=await fetch(`/api/geoguess?region=${encodeURIComponent(config.region)}&count=${wanted}`,{cache:'no-store'}),d=await r.json().catch(()=>({}));
-  if(!r.ok||!Array.isArray(d.candidates))throw new Error(d.error||'Não consegui preparar os locais no Mapillary.');
-  const resolved=d.candidates.filter(q=>q?.imageId&&Number.isFinite(Number(q.lat))&&Number.isFinite(Number(q.lng)));
-  if(resolved.length<wanted)throw new Error(`O Mapillary encontrou apenas ${resolved.length} de ${wanted} locais navegáveis nesta tentativa. Tente iniciar novamente ou escolha outra região.`);
-  return resolved.slice(0,wanted);
+  if(!r.ok&&d?.fatal)throw new Error(d.error||'A API do Mapillary recusou a configuração atual.');
+  const resolved=Array.isArray(d.candidates)?d.candidates.filter(q=>q?.imageId&&Number.isFinite(Number(q.lat))&&Number.isFinite(Number(q.lng))):[];
+  if(resolved.length>=wanted)return resolved.slice(0,wanted);
+
+  // Fallback importante: alguns provedores/serverless podem receber resposta vazia do índice espacial
+  // do Mapillary. Como Client Token é próprio para uso no browser/MapillaryJS, tentamos a busca
+  // diretamente no navegador antes de desistir.
+  const seeds=Array.isArray(d.seeds)?d.seeds:[];
+  let firstError=null;
+  for(const seed of seeds){
+    if(resolved.length>=wanted)break;
+    try{
+      const q=await resolveSeedInBrowser(seed);
+      if(q&&!resolved.some(x=>x.imageId===q.imageId))resolved.push(q);
+    }catch(e){
+      firstError=firstError||e;
+      if([400,401,403].includes(Number(e.status)))break;
+    }
+  }
+  if(resolved.length>=wanted)return resolved.slice(0,wanted);
+  if(firstError){
+    const auth=[400,401,403].includes(Number(firstError.status));
+    throw new Error(auth?`O Mapillary recusou o Client Token (${firstError.status}). No Developer Dashboard, confirme READ ativado, copie o Client Token (MLY|...), atualize MAPILLARY_ACCESS_TOKEN no Vercel e faça Redeploy. Detalhe: ${firstError.message}`:`Falha ao consultar o Mapillary: ${firstError.message}`);
+  }
+  const serverDetail=d?.diagnostic?.firstError?` • servidor: ${d.diagnostic.firstError}`:'';
+  throw new Error(`Não encontrei ${wanted} sequências navegáveis no Mapillary após buscas de até 30 km. Encontradas: ${resolved.length}.${serverDetail}`);
 }
 
 function currentQ(){return mode==='solo'?solo?.questions?.[solo.index]:room?.questions?.[Number(room.roundIndex||0)]}
