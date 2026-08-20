@@ -1,66 +1,40 @@
-# KOF 2002 Magic Plus II — V14.2 Web
+# KOF 2002 Magic Plus II — V16.1
 
-## Estado atual
+## Status
 
-Na V14.2 o jogador **não precisa importar ROMs pelo PC/celular**.
+Os três romsets necessários foram recebidos e validados por nome, tamanho e CRC32:
 
-O site publica três ativos próprios:
+- `roms/kf2k2mp2.zip` — clone/driver `kf2k2mp2`
+- `roms/kof2002.zip` — parent `kof2002`
+- `roms/neogeo.zip` — BIOS Neo Geo
 
-- `roms/kf2k2mp2web.zip` — pacote completo do Magic Plus II preparado a partir dos arquivos enviados pelo usuário.
-- `roms/kf2k2mp2web.dat` — RomData que descreve o layout de memória do set decriptado para o FBNeo.
-- `roms/neogeo-web.zip` — BIOS Neo Geo preparada a partir do pacote NeoRAGEx enviado.
+O player usa o core `fbneo` do EmulatorJS, com:
 
-O `kof2002.zip` recebido é um set antigo/decriptado de NeoRAGEx, por isso ele não é usado diretamente como `EJS_gameParentUrl` no FBNeo moderno. Os gráficos, áudio e Z80 necessários foram incorporados ao pacote web completo.
+- `EJS_gameUrl = /roms/kf2k2mp2.zip`
+- `EJS_gameParentUrl = /roms/kof2002.zip`
+- `EJS_biosUrl = /roms/neogeo.zip`
 
-## Boot
+## CRCs principais validados
 
-O player usa:
+Magic Plus II:
+- `k2k2m2p1.bin` `1016806c`
+- `k2k2m2p2.bin` `432fdf53`
+- `k2k2m2s1.bin` `446e74c5`
 
-```js
-EJS_core = 'fbneo';
-EJS_gameUrl = '/roms/kf2k2mp2web.zip';
-EJS_biosUrl = '/roms/neogeo-web.zip';
-```
+Parent KOF 2002:
+- `265-p1.p1` `9ede7323`
+- `265-p2.sp2` `327266b8`
+- `265-m1.m1` `85aaa632`
+- `265-c1.c1`…`265-c8.c8` validados
+- `265-v1.v1` `15e8f3f5`
+- `265-v2.v2` `da41d6f9`
 
-O RomData é colocado em vários caminhos compatíveis do VFS através de `EJS_externalFiles`, para que o FBNeo consiga reconhecer o basename `kf2k2mp2web` independentemente do diretório em que o frontend montar a ROM.
+BIOS essenciais:
+- `000-lo.lo` `5a86cff2`
+- `sfix.sfix` `c2ea0cfd`
+- `sm1.sm1` `94416d67`
+- `sp-s2.sp1` `9036d879`
 
-O EmulatorJS permanece fixado em `4.2.3` para que os dois jogadores executem a mesma geração do frontend/core.
+## Deploy
 
-## Duelo 1x1 V14.2
-
-1. HOST cria uma sala no Game Guess.
-2. CONVIDADO entra pelo código de 6 caracteres.
-3. Cada aparelho verifica o pacote do jogo, RomData e BIOS.
-4. O Firebase registra `clientReady/{uid}` somente depois da verificação.
-5. O botão do HOST só libera quando há `2/2 jogadores` e `2/2 aparelhos prontos`.
-6. O HOST inicia e o Firebase publica `launchState=starting` + `launchAt`.
-7. Os dois navegadores abrem o emulador a partir do mesmo evento de sala.
-8. Ambos recebem o mesmo `EJS_gameID` e o mesmo servidor Netplay.
-9. No menu Netplay do EmulatorJS, HOST cria a sessão e CONVIDADO entra.
-10. Ao terminar, os dois confirmam o mesmo vencedor; o Ranked é aplicado uma única vez por conta.
-
-O protocolo das salas KOF passou de `1` para `2`. Portanto, publique o `database.rules.json` da V14.2 no Realtime Database antes de testar.
-
-## TURN opcional
-
-O projeto funciona com os STUN públicos configurados por padrão. Para melhorar a conectividade em redes com NAT restritivo, a V14.2 aceita:
-
-```text
-KOF_NETPLAY_SERVER=https://netplay.emulatorjs.org/
-KOF_TURN_URL=
-KOF_TURN_USERNAME=
-KOF_TURN_CREDENTIAL=
-```
-
-Configure no Vercel apenas se tiver um servidor TURN próprio/temporário.
-
-## Diagnóstico
-
-- `/api/kof-health` verifica EmulatorJS + servidor Netplay.
-- `/api/kof-config` entrega a configuração de Netplay/ICE ao iframe.
-- O lobby executa `HEAD` nos três ativos do arcade antes de habilitar treino/sala.
-- Os ROMs V14.2 recebem cache imutável de 1 ano pelo `vercel.json`.
-
-## Limite da validação automática
-
-A estrutura dos ZIPs, CRCs, hashes, RomData, JavaScript, JSON e fluxo Firebase podem ser validados offline. O boot final do WebAssembly e uma luta Netplay completa precisam ser confirmados depois do deploy em navegador real, pois dependem do core remoto do EmulatorJS e da conectividade entre dois dispositivos.
+Não renomeie os ZIPs dentro de `roms/`. O FBNeo usa o nome do romset/driver para identificar jogos arcade. Faça o deploy do projeto inteiro, incluindo a pasta `roms`.

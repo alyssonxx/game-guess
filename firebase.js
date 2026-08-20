@@ -105,7 +105,7 @@ function compactProfile(p={}){
     termBestStreak:num(p.termBestStreak), termCurrentStreak:num(p.termCurrentStreak), termModeWins:p.termModeWins||{}, duelWins:num(p.duelWins),
     duelLosses:num(p.duelLosses), duelPlayed:num(p.duelPlayed), duelBestScore:num(p.duelBestScore),
     kofPlayed:num(p.kofPlayed), kofWins:num(p.kofWins), kofLosses:num(p.kofLosses), kofBestStreak:num(p.kofBestStreak), kofCurrentStreak:num(p.kofCurrentStreak), kofRating:Math.max(1000,Number(p.kofRating)||1000),
-    geoPlayed:num(p.geoPlayed), geoWins:num(p.geoWins), geoBestScore:num(p.geoBestScore), nickname:String(p.nickname||''), bio:String(p.bio||''), favoriteGame:String(p.favoriteGame||''), avatar:p.avatar&&typeof p.avatar==='object'?p.avatar:{}, avatarOwned:Array.isArray(p.avatarOwned)?p.avatarOwned.slice(0,100):[], avatarSpent:num(p.avatarSpent),
+    geoPlayed:num(p.geoPlayed), geoWins:num(p.geoWins), geoBestScore:num(p.geoBestScore), nickname:String(p.nickname||''), bio:String(p.bio||''), favoriteGame:String(p.favoriteGame||''), avatar:p.avatar&&typeof p.avatar==='object'?p.avatar:{}, avatarOwned:Array.isArray(p.avatarOwned)?p.avatarOwned.slice(0,1000):[], avatarSpent:num(p.avatarSpent),
     rankedStats:normalizeRankedStats(p.rankedStats)
   };
 }
@@ -341,7 +341,7 @@ async function createFightRoom(){
   for(let tries=0;tries<10;tries++){
     const code=fightRoomCode(),rr=ref(db,`fightRooms/${code}`);if((await fightGet(rr)).exists())continue;const now=serverNow(),name=cleanName(localProfile()?.nickname||currentUser.displayName||currentUser.email?.split('@')[0]);
     const room={code,protocolVersion:FIGHT_PROTOCOL_VERSION,game:'kf2k2mp2',gameId:fightGameId(code),hostUid:currentUser.uid,guestUid:'',status:'waiting',launchState:'waiting',launchAt:0,createdAt:now,updatedAt:now,expiresAt:now+WAITING_TTL_MS,players:{[currentUser.uid]:{uid:currentUser.uid,name,role:'host',joinedAt:now,lastSeen:now}},resultVotes:{},winnerUid:''};
-    try{await set(rr,room);}catch(e){if(String(e?.code||e?.message||'').toLowerCase().includes('permission'))throw new Error('O Firebase recusou a sala KOF. Publique as regras V14.2.');throw e;}
+    try{await set(rr,room);}catch(e){if(String(e?.code||e?.message||'').toLowerCase().includes('permission'))throw new Error('O Firebase recusou a sala KOF. Publique as regras V16.');throw e;}
     attachFightPresence(code).catch(e=>console.warn('KOF presence:',e));return code;
   }
   throw new Error('Não consegui gerar a sala KOF. Tente novamente.');
@@ -356,7 +356,7 @@ async function joinFightRoom(code){
   if(!claim.committed||claim.snapshot?.val()!==currentUser.uid)throw new Error('A sala KOF acabou de ficar cheia.');
   const name=cleanName(localProfile()?.nickname||currentUser.displayName||currentUser.email?.split('@')[0]),playerRef=ref(db,`fightRooms/${code}/players/${currentUser.uid}`);
   try{await set(playerRef,{uid:currentUser.uid,name,role:'guest',joinedAt:now,lastSeen:now});await update(rr,{status:'ready',updatedAt:now,expiresAt:now+PLAYING_TTL_MS});}
-  catch(e){await runTransaction(guestRef,current=>current===currentUser.uid?'':current,{applyLocally:false}).catch(()=>{});await remove(playerRef).catch(()=>{});if(String(e?.code||e?.message||'').toLowerCase().includes('permission'))throw new Error('O Firebase recusou a entrada no KOF. Publique as regras V14.2.');throw e;}
+  catch(e){await runTransaction(guestRef,current=>current===currentUser.uid?'':current,{applyLocally:false}).catch(()=>{});await remove(playerRef).catch(()=>{});if(String(e?.code||e?.message||'').toLowerCase().includes('permission'))throw new Error('O Firebase recusou a entrada no KOF. Publique as regras V16.');throw e;}
   attachFightPresence(code).catch(e=>console.warn('KOF presence:',e));return code;
 }
 function watchFightRoom(code,cb){if(!db)return()=>{};return onValue(ref(db,`fightRooms/${String(code).toUpperCase()}`),s=>cb(s.val()),e=>cb(null,e));}
@@ -436,7 +436,7 @@ async function createDuelRoom(payload){
     const room={code,protocolVersion:PROTOCOL_VERSION,appVersion:APP_VERSION,hostUid:currentUser.uid,status:'waiting',roundState:'waiting',createdAt:now,updatedAt:now,expiresAt:now+WAITING_TTL_MS,startedAt:0,finishedAt:0,roundIndex:0,roundDeadline:0,revealUntil:0,timeoutRound:-1,roundHadSkip:false,config:{...(cleanPayload.config||{}),maxPlayers},questions,slots:{1:currentUser.uid},players:{[currentUser.uid]:{uid:currentUser.uid,name,slot:1,joinedAt:now,lastSeen:now,connectionState:'online',controlSessionId:CLIENT_SESSION_ID,lives:3,correct:0,score:0,wrong:0,roundWrong:0,roundSolved:false,roundResult:'',eliminated:false,left:false,lastRound:-1,lastSubmissionId:''}}};
     try{await set(r,room);}catch(error){
       const msg=String(error?.code||error?.message||'').toLowerCase();
-      if(msg.includes('permission'))throw new Error('O Firebase recusou a criação da Arena. Publique o database.rules.json da V14.2 no Realtime Database.');
+      if(msg.includes('permission'))throw new Error('O Firebase recusou a criação da Arena. Publique o database.rules.json da V16 no Realtime Database.');
       throw error;
     }
     // Presença é importante, mas não deve transformar uma sala já criada em "erro ao criar".
@@ -474,7 +474,7 @@ async function joinDuelRoom(code){
     await releaseDuelSlot(code,slot);
     const msg=String(error?.code||error?.message||'').toLowerCase();
     console.warn('Arena join failed at players write',{code,slot,uid:currentUser.uid,error});
-    if(msg.includes('permission'))throw new Error('O Firebase recusou a entrada na Arena. Publique o database.rules.json da V14.2 no Realtime Database.');
+    if(msg.includes('permission'))throw new Error('O Firebase recusou a entrada na Arena. Publique o database.rules.json da V16 no Realtime Database.');
     throw error;
   }
   const after=(await get(roomRef)).val();if(!after||after.status!=='waiting'||Number(after.protocolVersion)!==PROTOCOL_VERSION){await remove(playerRef).catch(()=>{});await releaseDuelSlot(code,slot);throw new Error('A sala iniciou ou mudou de versão enquanto você entrava.');}

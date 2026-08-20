@@ -15,5 +15,5 @@ export default function handler(req,res){
     iceServers.push(turn);
   }
   res.setHeader('Cache-Control','no-store');
-  res.status(200).json({ok:true,version:'14.2.0',netplayServer,iceServers,turnConfigured:Boolean(turnUrl)});
+  res.status(200).json({ok:true,version:'16.1.0',netplayServer,iceServers,turnConfigured:Boolean(turnUrl)});
 }

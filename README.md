@@ -1,58 +1,62 @@
-# Game Guess V15.1 — GeoGuess + Avatar + KOF Web + Quiz Cloud
+# Game Guess V16 — Avatar Party 3D + KOF FBNeo + Quiz Cloud
 
+Esta versão atualiza o sistema de avatar e corrige a arquitetura de carregamento do KOF 2002 Magic Plus II no EmulatorJS/FBNeo.
 
-**KOF Web:** o Magic Plus II agora é carregado diretamente do site através de um pacote RomData preparado para FBNeo; nenhum arquivo local é exigido do jogador. O Quiz Cloud, Arena 2–8, Ranked por temporada e histórico persistente continuam preservados.
+## Avatar V16
 
-A V14 mantém o Arcade/Multiverso, Termo, Quiz, temporadas, Ranked e Arena de 2–8 jogadores e adiciona duas integrações principais:
+O avatar foi redesenhado em um estilo 3D arredondado/chibi de party game, com identidade própria e peças modulares.
 
-1. **Quiz com histórico persistente por conta**: hashing determinístico, deduplicação local + Firebase e sincronização entre dispositivos.
-2. **KOF 2002 Magic Plus II**: FBNeo/EmulatorJS, treino no navegador, lobby Firebase 1x1, presença/reconexão, netplay e Ranked KOF.
+- 2 tipos de corpo: masculino e feminino.
+- 10 categorias de customização.
+- 70 itens por categoria.
+- 700 itens de catálogo gerados no cliente.
+- Cores de pele, cabelo, olhos, roupa e detalhes.
+- Busca, filtros, paginação, compra e equipamento.
+- Preview 3D com rotação e fallback SVG.
+- Migração automática dos IDs principais do avatar antigo.
+- Limite de inventário do Firebase ampliado para suportar o novo catálogo.
 
-## Firebase obrigatório
+Categorias: cabelo, olhos, cabeça, rosto, parte superior, casaco, mãos, parte inferior, calçados e costas.
 
-Publique `database.rules.json` em **Firebase Console → Realtime Database → Rules**.
+## KOF 2002 Magic Plus II
 
-As regras V14.2 mantêm/adicionam:
+A V16 não usa mais o pacote customizado `kf2k2mp2web.zip`/RomData. O FBNeo precisa reconhecer o nome real do driver.
 
-- `quizHistory/{uid}/seen`
-- `fightRooms/{code}`
-- confirmação idempotente do Ranked do KOF
+Estrutura esperada em `roms/`:
 
-## KOF
-
-A V14.2 usa um pacote web completo em `roms/kf2k2mp2web.zip`, acompanhado de `roms/kf2k2mp2web.dat` e `roms/neogeo-web.zip`. Esses arquivos foram preparados a partir dos três pacotes fornecidos pelo usuário, portanto o jogador não precisa importar `kof2002.zip` nem BIOS localmente.
-
-O emulador usa **EmulatorJS 4.2.3 + FBNeo**. Antes de liberar treino ou sala, o lobby verifica se os três ativos web respondem. No 1x1, os dois clientes passam por ready-check no Firebase e o HOST dispara um boot sincronizado. O mesmo `EJS_gameID`, servidor Netplay e ICE config são aplicados nos dois aparelhos.
-
-Para redes mais restritas, é possível configurar um TURN opcional pelas variáveis `KOF_TURN_*` descritas em `.env.example` e `KOF-SETUP.md`.
-
-## Quiz
-
-Cada pergunta recebe `dedupeKey`. O navegador e a conta Firebase mantêm histórico de até **50.000 hashes ativos por leitura**, e as perguntas vistas na Arena também entram no histórico do participante.
-
-O backend mistura:
-
-- Tryvia API
-- banco local PT-BR
-- geradores procedurais/combinatórios
-
-Mesmo sem API externa, os geradores foram testados para produzir centenas de perguntas consecutivas sem repetição nas categorias principais.
-
-## Deploy
-
-```bash
-git add .
-git commit -m "Game Guess V14.2 KOF Web"
-git push origin main
+```text
+roms/
+├── kf2k2mp2.zip   # clone Magic Plus II
+├── kof2002.zip    # parent compatível com o romset FBNeo
+└── neogeo.zip     # BIOS Neo Geo compatível com o romset FBNeo
 ```
 
-Depois do deploy, publique as regras V14.2 do Realtime Database.
+O projeto já inclui `kf2k2mp2.zip` com os três arquivos específicos do clone. O parent e a BIOS enviados anteriormente eram de um conjunto NeoRageX/WinKawaks antigo e não correspondem aos CRCs esperados pelo FBNeo atual, por isso **não foram colocados como se fossem válidos**.
 
-## Observações de produção
+O loader agora:
 
-- O Ranked continua sendo um sistema de competição casual; para competição com prêmio real, mova cálculo de score/elo para backend autoritativo.
-- O servidor de netplay do EmulatorJS é separado do Firebase. O lobby usa Firebase; a sessão do emulador usa o servidor Netplay/WebRTC.
-- Se você publicar ROMs no site, confirme que possui os direitos necessários para distribuí-las.
+- usa `EJS_core = 'fbneo'`;
+- carrega `kf2k2mp2.zip` como jogo;
+- usa `EJS_gameParentUrl = '/roms/kof2002.zip'`;
+- usa `EJS_biosUrl = '/roms/neogeo.zip'`;
+- faz uma verificação prévia dos três arquivos;
+- bloqueia o botão de treino quando parent/BIOS não estão disponíveis;
+- exibe uma mensagem clara em vez de deixar o core cair em `Romset is unknown`.
 
-## V15
-Veja `CHANGES-V15.md` para GeoGuess Arena, perfil, avatar, loja e nova economia.
+Veja `KOF-SETUP.md` para os CRCs esperados e instruções de validação.
+
+## Firebase
+
+As regras atuais do Realtime Database devem continuar publicadas para login, perfis, inventário, ranking e salas do KOF. O código cliente foi atualizado para aceitar até 1000 IDs em `avatarOwned`.
+
+## Deploy no Vercel
+
+1. Coloque os arquivos compatíveis `kof2002.zip` e `neogeo.zip` em `roms/`.
+2. Rode o projeto localmente e confirme que o painel do KOF marca clone, parent e BIOS como disponíveis.
+3. Envie a versão para o GitHub.
+4. Faça o deploy no Vercel.
+5. Confira as variáveis Firebase/TURN do projeto, se utilizadas.
+
+## Aviso sobre ROMs
+
+Use e distribua ROMs/BIOS somente quando você tiver os direitos e permissões necessários. Este repositório não transforma conjuntos antigos/incompatíveis em um romset FBNeo válido.

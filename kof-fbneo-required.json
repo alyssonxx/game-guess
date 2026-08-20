@@ -1,0 +1,29 @@
+{
+  "version": "15.2.0",
+  "driver": "kf2k2mp2",
+  "cloneReady": true,
+  "parentReady": false,
+  "biosReady": false,
+  "reason": "O clone Magic Plus II está correto, mas o parent KOF 2002 e a BIOS enviados são do NeoRAGEx antigo e não correspondem ao romset esperado pelo FBNeo atual.",
+  "needed": {
+    "kof2002.zip": [
+      "265-m1.m1:85aaa632",
+      "265-v1.v1:15e8f3f5",
+      "265-v2.v2:da41d6f9",
+      "265-c1.c1:2b65a656",
+      "265-c2.c2:adf18983",
+      "265-c3.c3:875e9fd7",
+      "265-c4.c4:2da13947",
+      "265-c5.c5:61bd165d",
+      "265-c6.c6:03fdd1eb",
+      "265-c7.c7:1a2749d8",
+      "265-c8.c8:ab0bb549"
+    ],
+    "neogeo.zip": [
+      "sp-s2.sp1:9036d879",
+      "sfix.sfix:c2ea0cfd",
+      "000-lo.lo:5a86cff2",
+      "sm1.sm1:94416d67"
+    ]
+  }
+}

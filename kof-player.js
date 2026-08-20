@@ -2,9 +2,9 @@
   'use strict';
   const params=new URLSearchParams(location.search);
   const boot=document.getElementById('boot'),text=document.getElementById('bootText');
-  const GAME_URL='/roms/kf2k2mp2web.zip';
-  const ROMDATA_URL='/roms/kf2k2mp2web.dat';
-  const BIOS_URL='/roms/neogeo-web.zip';
+  const GAME_URL='/roms/kf2k2mp2.zip';
+  const PARENT_URL='/roms/kof2002.zip';
+  const BIOS_URL='/roms/neogeo.zip';
   let started=false;
 
   function post(type,message,extra={}){try{window.parent?.postMessage({type,message,...extra},location.origin)}catch{}}
@@ -15,13 +15,14 @@
 
   async function bootGame(){
     try{
-      setText('Validando ROM web, RomData e BIOS Neo Geo…');
-      const [gameOk,datOk,biosOk,cfg]=await Promise.all([
-        head(GAME_URL),head(ROMDATA_URL),head(BIOS_URL),json('/api/kof-config')
+      setText('Validando Magic Plus II, ROM parent e BIOS Neo Geo…');
+      const [gameOk,parentOk,biosOk,cfg,manifest]=await Promise.all([
+        head(GAME_URL),head(PARENT_URL),head(BIOS_URL),json('/api/kof-config'),json('/kof-rom-manifest.json')
       ]);
-      if(!gameOk||!datOk||!biosOk){
-        const missing=[!gameOk&&'pacote do jogo',!datOk&&'RomData',!biosOk&&'BIOS'].filter(Boolean).join(', ');
-        return fail(`Arquivos web ausentes: ${missing}. Faça o deploy completo da V14.2.`);
+      if(!gameOk)return fail('A ROM clone kf2k2mp2.zip não foi publicada. Faça o deploy completo da V16.1.');
+      if(!parentOk||!biosOk){
+        const missing=[!parentOk&&'kof2002.zip (parent FBNeo)',!biosOk&&'neogeo.zip (BIOS FBNeo)'].filter(Boolean).join(' + ');
+        return fail(`KOF preparado, mas falta ${missing}. Confira se os arquivos FBNeo validados da V16.1 foram publicados em /roms.`);
       }
 
       const gameId=Math.max(1,Number(params.get('gameId'))||20020202);
@@ -31,20 +32,12 @@
         {urls:'stun:stun1.l.google.com:19302'}
       ];
 
-      // O ZIP usa um nome de set próprio. O FBNeo encontra o RomData por um destes
-      // caminhos, independentemente de onde o frontend montar o conteúdo principal.
-      // O arquivo é minúsculo, então duplicá-lo no VFS não aumenta o download do jogo.
-      window.EJS_externalFiles={
-        '/roms/kf2k2mp2web.dat':ROMDATA_URL,
-        '/kf2k2mp2web.dat':ROMDATA_URL,
-        '/fbneo/romdata/kf2k2mp2web.dat':ROMDATA_URL,
-        '/system/fbneo/romdata/kf2k2mp2web.dat':ROMDATA_URL,
-        '/home/web_user/retroarch/system/fbneo/romdata/kf2k2mp2web.dat':ROMDATA_URL
-      };
-
+      // FBNeo identifica o driver pelo nome do ZIP. O clone deve permanecer exatamente
+      // kf2k2mp2.zip e recebe o parent pelo EJS_gameParentUrl.
       window.EJS_player='#game';
       window.EJS_core='fbneo';
       window.EJS_gameUrl=GAME_URL;
+      window.EJS_gameParentUrl=PARENT_URL;
       window.EJS_biosUrl=BIOS_URL;
       window.EJS_gameName='The King of Fighters 2002 Magic Plus II';
       window.EJS_gameID=gameId;
@@ -60,24 +53,13 @@
       window.EJS_AdTimer=-1;
       window.EJS_CacheLimit=1024*1024*1024;
       window.EJS_DEBUG_XX=params.get('debug')==='1';
-      window.EJS_ready=()=>{
-        setText('FBNeo carregado. Montando o romset web…');
-        post('kof-player-core-ready','FBNeo carregado.');
-      };
-      window.EJS_onGameStart=()=>{
-        started=true;
-        if(boot)boot.style.display='none';
-        post('kof-player-ready',`KOF iniciado • Game ID ${gameId}`,{gameId});
-      };
+      window.EJS_ready=()=>{setText('FBNeo carregado. Validando o romset kf2k2mp2…');post('kof-player-core-ready','FBNeo carregado.');};
+      window.EJS_onGameStart=()=>{started=true;if(boot)boot.style.display='none';post('kof-player-ready',`KOF iniciado • Game ID ${gameId}`,{gameId});};
 
-      setText('Baixando o pacote web do KOF e iniciando o FBNeo…');
-      const script=document.createElement('script');
-      script.src='https://cdn.emulatorjs.org/4.2.3/data/loader.js';
-      script.onerror=()=>fail('Não consegui carregar o EmulatorJS 4.2.3. Verifique a conexão e tente novamente.');
-      document.body.appendChild(script);
-
-      setTimeout(()=>{if(!started)setText('Primeiro carregamento: o pacote do KOF tem cerca de 40 MB. Aguarde; se aparecer “Play”, toque para iniciar.');},6500);
-      setTimeout(()=>{if(!started)post('kof-player-slow','O emulador ainda está preparando o jogo.');},18000);
+      setText('Carregando KOF 2002 Magic Plus II…');
+      const script=document.createElement('script');script.src='https://cdn.emulatorjs.org/4.2.3/data/loader.js';script.onerror=()=>fail('Não consegui carregar o EmulatorJS 4.2.3. Verifique a conexão.');document.body.appendChild(script);
+      setTimeout(()=>{if(!started)setText('Primeiro carregamento pode demorar. Se o FBNeo listar ROMs ausentes, confira kof2002.zip e neogeo.zip com o manifesto V16.');},7000);
+      setTimeout(()=>{if(!started)post('kof-player-slow','O emulador ainda está preparando o jogo.',{manifest:manifest?.version||'16.1.0'});},18000);
     }catch(e){fail(e?.message||String(e))}
   }
   window.addEventListener('unhandledrejection',e=>{if(!started&&e?.reason)post('kof-player-debug',String(e.reason?.message||e.reason))});

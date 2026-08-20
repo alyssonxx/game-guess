@@ -1,9 +1,7 @@
 (() => {
   'use strict';
   const $=id=>document.getElementById(id),CORE=()=>window.GameGuessCore,FB=()=>window.GameGuessFirebase;
-  const WEB_GAME='/roms/kf2k2mp2web.zip',WEB_DAT='/roms/kf2k2mp2web.dat',WEB_BIOS='/roms/neogeo-web.zip';
-  const GAME_SHA='c6e85ea23347ca283b9bcf6c133c5938591b85ad680c5a53ec545f25ad61e1f3';
-  const BIOS_SHA='604bfd6f327efc0383d1d0692814564c80b7ba7833436ca017b61da157e16a42';
+  const WEB_GAME='/roms/kf2k2mp2.zip',WEB_PARENT='/roms/kof2002.zip',WEB_BIOS='/roms/neogeo.zip';
   const DEFAULT_NETPLAY='https://netplay.emulatorjs.org/';
   let roomCode='',room=null,unsub=null,launched=false,lastReadyRoom='',lastLaunchAtHandled=0;
   let assetCache={at:0,ready:false,detail:null};
@@ -39,18 +37,18 @@
 
   async function refreshFiles(force=false){
     if(!force&&Date.now()-assetCache.at<30000&&assetCache.detail){applyAssetUI(assetCache.detail);return assetCache.ready}
-    const [game,dat,bios]=await Promise.all([head(WEB_GAME),head(WEB_DAT),head(WEB_BIOS)]);
-    const detail={game,dat,bios},ready=game.ok&&dat.ok&&bios.ok;
+    const [game,parent,bios]=await Promise.all([head(WEB_GAME),head(WEB_PARENT),head(WEB_BIOS)]);
+    const detail={game,parent,bios},ready=game.ok&&parent.ok&&bios.ok;
     assetCache={at:Date.now(),ready,detail};applyAssetUI(detail);
     if(roomCode&&ready)ensureRoomReady().catch(()=>{});
     return ready;
   }
   function applyAssetUI(d){
-    const gameOk=Boolean(d?.game?.ok),datOk=Boolean(d?.dat?.ok),biosOk=Boolean(d?.bios?.ok),ready=gameOk&&datOk&&biosOk;
-    if($('kofCloneState'))$('kofCloneState').innerHTML=gameOk?`<b>✅ Magic Plus II Web</b><small>Pacote completo • SHA ${GAME_SHA.slice(0,12)}…</small>`:'<b>❌ Pacote KOF ausente</b><small>Faça o deploy da pasta /roms da V14.2.</small>';
-    if($('kofParentState'))$('kofParentState').innerHTML=datOk?'<b>✅ KOF 2002 Base integrado</b><small>RomData converte o set decriptado para o FBNeo.</small>':'<b>❌ RomData ausente</b><small>Falta kf2k2mp2web.dat no deploy.</small>';
-    if($('kofBiosState'))$('kofBiosState').innerHTML=biosOk?`<b>✅ Neo Geo BIOS Web</b><small>BIOS preparada • SHA ${BIOS_SHA.slice(0,12)}…</small>`:'<b>❌ BIOS web ausente</b><small>Falta neogeo-web.zip no deploy.</small>';
-    if($('kofFilesReady'))$('kofFilesReady').textContent=ready?'✅ Arcade 100% hospedado no site — nenhum arquivo local é necessário.':'⚠️ Um ou mais arquivos web do KOF não estão disponíveis.';
+    const gameOk=Boolean(d?.game?.ok),parentOk=Boolean(d?.parent?.ok),biosOk=Boolean(d?.bios?.ok),ready=gameOk&&parentOk&&biosOk;
+    if($('kofCloneState'))$('kofCloneState').innerHTML=gameOk?'<b>✅ Magic Plus II</b><small>kf2k2mp2.zip • driver reconhecido pelo FBNeo</small>':'<b>❌ Clone ausente</b><small>Falta /roms/kf2k2mp2.zip.</small>';
+    if($('kofParentState'))$('kofParentState').innerHTML=parentOk?'<b>✅ KOF 2002 Parent</b><small>kof2002.zip validado • 13 ROMs do parent disponíveis.</small>':'<b>❌ Parent FBNeo ausente</b><small>Falta /roms/kof2002.zip da V16.1.</small>';
+    if($('kofBiosState'))$('kofBiosState').innerHTML=biosOk?'<b>✅ Neo Geo BIOS</b><small>neogeo.zip validado • BIOS essenciais presentes.</small>':'<b>❌ BIOS FBNeo ausente</b><small>Falta /roms/neogeo.zip da V16.1.</small>';
+    if($('kofFilesReady'))$('kofFilesReady').textContent=ready?'✅ Romset split completo: clone + parent + BIOS prontos.':'⚠️ A estrutura do KOF foi corrigida, mas ainda faltam arquivos FBNeo compatíveis.';
     if($('kofTrainingButton'))$('kofTrainingButton').disabled=!ready;
   }
   async function ensureRoomReady(){
@@ -91,7 +89,7 @@
   function watch(code){if(unsub)unsub();unsub=FB()?.watchFightRoom?.(code,(data,err)=>{if(err){toast('Sala KOF',err.message||'Falha ao acompanhar sala.','error');return}if(!data){room=null;roomCode='';lastReadyRoom='';updateRoomUI();return}room=data;updateRoomUI()})}
   async function createRoom(){
     if(!FB()?.ready?.())return toast('Firebase','Configure/entre na conta antes de criar a sala.','error');
-    if(!await refreshFiles(true))return toast('KOF Web incompleto','Faça o deploy completo da V14.2 antes de criar a sala.','error');
+    if(!await refreshFiles(true))return toast('KOF Web incompleto','Publique os três arquivos validados da pasta /roms antes de criar a sala.','error');
     try{const btn=$('kofCreateRoom');btn.disabled=true;launched=false;lastLaunchAtHandled=0;lastReadyRoom='';roomCode=await FB().createFightRoom();localStorage.setItem('gameGuessLastKofRoom',roomCode);watch(roomCode);toast('Sala KOF criada',`Código ${roomCode} • aguardando rival`)}catch(e){toast('Erro ao criar sala',e.message||String(e),'error')}finally{if($('kofCreateRoom'))$('kofCreateRoom').disabled=false}
   }
   async function joinRoom(){
@@ -116,7 +114,7 @@
     const gameId=training?20020202:Number(room?.gameId||20020202),roleParam=training?'training':role().toLowerCase(),code=training?'TREINO':roomCode;
     const server=netplayServer();localStorage.setItem('gameGuessKofNetplayServer',server);
     const frame=$('kofEmulatorFrame');if(!frame)return;
-    frame.src=`/kof-player.html?v=14.2.0&gameId=${encodeURIComponent(gameId)}&room=${encodeURIComponent(code)}&role=${encodeURIComponent(roleParam)}&server=${encodeURIComponent(server)}`;
+    frame.src=`/kof-player.html?v=16.0.0&gameId=${encodeURIComponent(gameId)}&room=${encodeURIComponent(code)}&role=${encodeURIComponent(roleParam)}&server=${encodeURIComponent(server)}`;
     launched=true;show('kofPlayScreen');
     if($('kofPlayRoom'))$('kofPlayRoom').textContent=training?'TREINO LOCAL':`SALA ${roomCode} • ${role()}`;
     if($('kofNetplayHelp')){
@@ -149,7 +147,7 @@
     $('kofCopyRoom')?.addEventListener('click',()=>navigator.clipboard?.writeText(roomCode).then(()=>toast('Código copiado',roomCode)));
     $('kofVoteMe')?.addEventListener('click',()=>vote(user()?.uid));$('kofVoteRival')?.addEventListener('click',()=>vote(opponent()?.uid));
     window.addEventListener('gameguess:authchange',e=>{if(!e.detail?.user&&roomCode)leaveRoom()});
-    window.addEventListener('message',e=>{if(e.origin!==location.origin)return;const d=e.data||{};if(d.type==='kof-player-error')toast('Emulador KOF',d.message||'Falha ao iniciar.','error');if(d.type==='kof-player-ready')toast('KOF pronto',d.message||'Emulador carregado.');if(d.type==='kof-player-slow')toast('KOF carregando','O primeiro carregamento pode demorar por causa do pacote de ~40 MB.')});
+    window.addEventListener('message',e=>{if(e.origin!==location.origin)return;const d=e.data||{};if(d.type==='kof-player-error')toast('Emulador KOF',d.message||'Falha ao iniciar.','error');if(d.type==='kof-player-ready')toast('KOF pronto',d.message||'Emulador carregado.');if(d.type==='kof-player-slow')toast('KOF carregando','O primeiro carregamento pode demorar porque o FBNeo precisa carregar clone, parent e BIOS.')});
   }
   window.GameGuessKOF={open};if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind);else bind();
 })();
