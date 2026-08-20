@@ -2,47 +2,50 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
   <meta name="theme-color" content="#050913">
   <style>
-    html,body,#game{width:100%;height:100%;margin:0;background:#050913;color:#fff;font-family:Arial,sans-serif}
-    #boot{position:fixed;inset:0;display:grid;place-items:center;text-align:center;padding:24px;background:radial-gradient(circle at 50% 25%,#17254a 0,#090f20 42%,#050913 76%);z-index:20}
-    #boot .panel{max-width:620px}
-    #boot b{font-size:1.15rem}
-    #boot small{display:block;color:#9ca9c3;margin:10px auto 18px;max-width:580px;line-height:1.5}
-    #startKofButton{border:1px solid #42e8ff;background:linear-gradient(135deg,#26d8f2,#518bff);color:#04111c;font-weight:900;letter-spacing:.06em;padding:13px 24px;border-radius:12px;cursor:pointer;box-shadow:0 10px 35px rgba(66,232,255,.18)}
-    #startKofButton:disabled{opacity:.6;cursor:wait}
-    #arcadeHelpButton{position:fixed;top:12px;right:12px;z-index:45;border:1px solid #42e8ff;background:rgba(5,9,19,.9);color:#eafcff;font-weight:900;padding:9px 12px;border-radius:10px;cursor:pointer;backdrop-filter:blur(8px)}
-    #arcadeHelpModal{position:fixed;inset:0;z-index:60;display:grid;place-items:center;padding:18px;background:rgba(2,5,12,.78);backdrop-filter:blur(8px)}
-    #arcadeHelpModal[hidden]{display:none}
-    .arcade-help-card{width:min(620px,94vw);border:1px solid #354a70;border-radius:18px;background:linear-gradient(145deg,#111b30,#080e1b);box-shadow:0 28px 90px rgba(0,0,0,.55);padding:20px}
-    .arcade-help-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:15px}.arcade-help-head h2{margin:0;font-size:1.15rem}.arcade-help-close{border:1px solid #405476;background:#131e32;color:#fff;border-radius:9px;padding:7px 10px;cursor:pointer}
-    .arcade-help-layout{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0}.arcade-key{display:grid;place-items:center;min-height:72px;border-radius:50%;aspect-ratio:1;max-width:86px;justify-self:center;font-size:2rem;font-weight:1000;border:3px solid rgba(255,255,255,.72);box-shadow:inset 0 -8px 18px rgba(0,0,0,.22),0 8px 22px rgba(0,0,0,.22)}.arcade-a{background:#df334d}.arcade-b{background:#f0c52f;color:#17120a}.arcade-c{background:#35b86d}.arcade-d{background:#278dd8}
-    .arcade-functions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.arcade-functions span{padding:10px 12px;border:1px solid #2f4161;border-radius:10px;background:#0b1425}.arcade-help-note{color:#a7b5cd;line-height:1.45;font-size:.9rem;margin-top:13px}
-    @media(max-width:560px){#arcadeHelpButton{top:8px;right:8px;font-size:.72rem;padding:7px 9px}.arcade-help-card{padding:15px}.arcade-key{min-height:58px;max-width:68px;font-size:1.55rem}.arcade-functions{grid-template-columns:1fr}.arcade-help-note{font-size:.82rem}}
+    *{box-sizing:border-box}
+    html,body{width:100%;height:100%;margin:0;overflow:hidden;background:#050913;color:#fff;font-family:Arial,sans-serif;overscroll-behavior:none;touch-action:manipulation}
+    #game{position:fixed;inset:0;width:100%;height:100%;margin:0;background:#050913;overflow:hidden}
+    #boot{position:fixed;inset:0;display:grid;place-items:center;text-align:center;padding:24px;background:radial-gradient(circle at 50% 25%,#17254a 0,#090f20 42%,#050913 76%);z-index:80}
+    #boot .panel{max-width:620px}#boot b{font-size:1.15rem}#boot small{display:block;color:#9ca9c3;margin:10px auto 18px;max-width:580px;line-height:1.5}
+    #startKofButton{border:1px solid #42e8ff;background:linear-gradient(135deg,#26d8f2,#518bff);color:#04111c;font-weight:900;letter-spacing:.06em;padding:13px 24px;border-radius:12px;cursor:pointer;box-shadow:0 10px 35px rgba(66,232,255,.18)}#startKofButton:disabled{opacity:.6;cursor:wait}
+    .gg-kof-toolbar{position:fixed;top:max(8px,env(safe-area-inset-top));left:max(8px,env(safe-area-inset-left));right:max(8px,env(safe-area-inset-right));z-index:65;display:flex;gap:6px;align-items:flex-start;justify-content:space-between;pointer-events:none}
+    .gg-kof-toolbar-group{display:flex;gap:6px;flex-wrap:wrap;pointer-events:auto}
+    .gg-kof-tool{min-height:36px;border:1px solid rgba(66,232,255,.75);background:rgba(5,9,19,.88);color:#eafcff;font-weight:900;padding:7px 9px;border-radius:9px;cursor:pointer;backdrop-filter:blur(8px);box-shadow:0 4px 18px rgba(0,0,0,.2)}
+    #arcadeHelpButton{white-space:nowrap}
+    #kofNetplayStatus{position:fixed;left:50%;bottom:max(8px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:66;width:min(720px,calc(100vw - 20px));display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid #314b70;border-radius:12px;background:rgba(4,9,19,.92);backdrop-filter:blur(10px);font-size:.78rem;line-height:1.35;pointer-events:auto}
+    #kofNetplayStatus[hidden]{display:none}#kofNetplayStatus[data-kind="connected"]{border-color:#36d98a}#kofNetplayStatus[data-kind="error"]{border-color:#ff667c}
+    #kofNetplayStatus [data-netplay-text]{flex:1}.netplay-mini{border:1px solid #405779;background:#101a2c;color:#fff;border-radius:8px;padding:6px 8px;font-weight:800;white-space:nowrap}
+    #arcadeHelpModal{position:fixed;inset:0;z-index:90;display:grid;place-items:center;padding:18px;background:rgba(2,5,12,.78);backdrop-filter:blur(8px)}#arcadeHelpModal[hidden]{display:none}
+    .arcade-help-card{width:min(620px,94vw);border:1px solid #354a70;border-radius:18px;background:linear-gradient(145deg,#111b30,#080e1b);box-shadow:0 28px 90px rgba(0,0,0,.55);padding:20px}.arcade-help-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:15px}.arcade-help-head h2{margin:0;font-size:1.15rem}.arcade-help-close{border:1px solid #405476;background:#131e32;color:#fff;border-radius:9px;padding:7px 10px;cursor:pointer}
+    .arcade-help-layout{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0}.arcade-key{display:grid;place-items:center;min-height:72px;border-radius:50%;aspect-ratio:1;max-width:86px;justify-self:center;font-size:2rem;font-weight:1000;border:3px solid rgba(255,255,255,.72);box-shadow:inset 0 -8px 18px rgba(0,0,0,.22),0 8px 22px rgba(0,0,0,.22)}.arcade-a{background:#df334d}.arcade-b{background:#f0c52f;color:#17120a}.arcade-c{background:#35b86d}.arcade-d{background:#278dd8}.arcade-functions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.arcade-functions span{padding:10px 12px;border:1px solid #2f4161;border-radius:10px;background:#0b1425}.arcade-help-note{color:#a7b5cd;line-height:1.45;font-size:.9rem;margin-top:13px}
+    :fullscreen,:fullscreen body,:fullscreen #game{width:100vw!important;height:100dvh!important;max-width:none!important;max-height:none!important}
+    @media(max-width:560px){.gg-kof-tool{font-size:.66rem;padding:6px 7px;min-height:32px}.gg-kof-toolbar{gap:4px}.gg-kof-toolbar-group{gap:4px}#arcadeHelpButton{max-width:112px;overflow:hidden;text-overflow:ellipsis}.arcade-help-card{padding:15px}.arcade-key{min-height:58px;max-width:68px;font-size:1.55rem}.arcade-functions{grid-template-columns:1fr}.arcade-help-note{font-size:.82rem}#kofNetplayStatus{font-size:.7rem;padding:7px 8px}.netplay-mini{font-size:.66rem;padding:5px 6px}}
+    @media(orientation:landscape) and (max-height:560px){.gg-kof-toolbar{top:max(4px,env(safe-area-inset-top))}.gg-kof-tool{min-height:28px;padding:4px 7px;font-size:.62rem}#kofNetplayStatus{bottom:max(4px,env(safe-area-inset-bottom));padding:5px 8px}}
   </style>
 </head>
 <body>
   <div id="game"></div>
-  <button id="arcadeHelpButton" type="button" aria-haspopup="dialog">🎛 CONTROLES ARCADE</button>
+  <div class="gg-kof-toolbar" aria-label="Opções de visualização do KOF">
+    <div class="gg-kof-toolbar-group">
+      <button class="gg-kof-tool" id="kofFullscreenButton" type="button">⛶ CHEIA</button>
+      <button class="gg-kof-tool" id="kofPortraitButton" type="button">↕ VERTICAL</button>
+      <button class="gg-kof-tool" id="kofLandscapeButton" type="button">↔ HORIZONTAL</button>
+    </div>
+    <div class="gg-kof-toolbar-group"><button class="gg-kof-tool" id="arcadeHelpButton" type="button" aria-haspopup="dialog">🎛 A B C D</button></div>
+  </div>
+  <div id="kofNetplayStatus" hidden data-kind="info"><span data-netplay-text>Preparando PVP…</span><button class="netplay-mini" id="kofNetplayRetry" type="button" hidden>RECONECTAR</button><button class="netplay-mini" id="kofNetplayMenuButton" type="button">NETPLAY</button></div>
   <div id="arcadeHelpModal" hidden role="dialog" aria-modal="true" aria-labelledby="arcadeHelpTitle">
     <div class="arcade-help-card">
       <div class="arcade-help-head"><h2 id="arcadeHelpTitle">🕹️ CONTROLE NEO GEO • KOF 2002</h2><button class="arcade-help-close" id="arcadeHelpClose" type="button">✕ FECHAR</button></div>
-      <div class="arcade-help-layout" aria-label="Botões arcade A B C D">
-        <div class="arcade-key arcade-a" title="Soco fraco">A</div>
-        <div class="arcade-key arcade-b" title="Chute fraco">B</div>
-        <div class="arcade-key arcade-c" title="Soco forte">C</div>
-        <div class="arcade-key arcade-d" title="Chute forte">D</div>
-      </div>
-      <div class="arcade-functions">
-        <span><b>A</b> — Soco fraco</span><span><b>B</b> — Chute fraco</span>
-        <span><b>C</b> — Soco forte</span><span><b>D</b> — Chute forte</span>
-        <span><b>COIN</b> — Inserir crédito</span><span><b>START</b> — Iniciar/confirmar</span>
-      </div>
-      <div class="arcade-help-note">No celular, o controle virtual agora usa o layout de fliperama A/B/C/D. Internamente o FBNeo continua recebendo os mesmos sinais Libretro, então a mudança de nomes não altera a ROM nem o funcionamento do KOF.</div>
+      <div class="arcade-help-layout" aria-label="Botões arcade A B C D"><div class="arcade-key arcade-a">A</div><div class="arcade-key arcade-b">B</div><div class="arcade-key arcade-c">C</div><div class="arcade-key arcade-d">D</div></div>
+      <div class="arcade-functions"><span><b>A</b> — Soco fraco</span><span><b>B</b> — Chute fraco</span><span><b>C</b> — Soco forte</span><span><b>D</b> — Chute forte</span><span><b>COIN</b> — Inserir crédito</span><span><b>START</b> — Iniciar/confirmar</span></div>
+      <div class="arcade-help-note">No celular os quatro ataques ficam em bloco 2×2 para não sair da tela. Use CHEIA, VERTICAL ou HORIZONTAL para ocupar a tela inteira.</div>
     </div>
   </div>
-  <div id="boot"><div class="panel"><b>🥊 KOF 2002 Magic Plus II</b><small id="bootText">Preparando EmulatorJS 4.2.1 + FBNeo + romset Full Non-Merged.</small><button id="startKofButton" type="button">INICIAR KOF</button></div></div>
-  <script src="/kof-player.js?v=18.4.0"></script>
+  <div id="boot"><div class="panel"><b>🥊 KOF 2002 Magic Plus II</b><small id="bootText">Preparando FBNeo.</small><button id="startKofButton" type="button">INICIAR KOF</button></div></div>
+  <script src="/kof-player.js?v=18.6.0"></script>
 </body>
 </html>

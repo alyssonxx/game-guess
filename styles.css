@@ -466,3 +466,12 @@ body[data-gg-keyboard-lock="1"]{overscroll-behavior:none !important;touch-action
 .geo-scoreboard{margin-top:14px}.geo-game-metrics span{background:rgba(13,23,42,.94);backdrop-filter:blur(8px)}
 @media(max-width:900px){.geo-stage{height:72vh;min-height:540px}.geo-map-card{width:min(390px,48vw)}.geo-map-card.geo-map-expanded{width:min(600px,78vw)}.geo-street-toolbar{max-width:48%}.geo-street-toolbar span{display:none}}
 @media(max-width:620px){.geo-stage{height:74vh;min-height:520px;border-radius:17px}.geo-map-card{right:8px;bottom:8px;width:calc(100% - 16px);padding:8px}.geo-map{height:205px}.geo-map-card.geo-map-expanded{width:calc(100% - 16px)}.geo-map-card.geo-map-expanded .geo-map{height:42vh}.geo-street-toolbar{left:8px;bottom:300px;max-width:none}.geo-map-card.geo-map-expanded~*{} .geo-result-stats b{font-size:.9rem}.geo-game-metrics{gap:5px}.geo-game-metrics span{padding:6px 8px}.geo-map-head{height:28px}}
+\n/* V18.6 KOF mobile/fullscreen */
+@media(max-width:700px){
+  .kof-play-screen .section-heading{margin-bottom:8px}
+  .kof-emulator-shell{height:78dvh!important;min-height:520px!important;width:100%!important}
+  .kof-netplay-help{font-size:.82rem;line-height:1.4}
+}
+@media(max-width:700px) and (orientation:landscape){
+  .kof-emulator-shell{height:88dvh!important;min-height:320px!important}
+}

@@ -17,13 +17,10 @@ export default function handler(req,res){
   res.setHeader('Cache-Control','no-store');
   res.status(200).json({
     ok:true,
-    version:'17.8.0',
-    emulatorVersion:'4.2.1',
-    emulatorCommit:'13362ef',
+    version:'18.6.0',
+    emulatorTrainingVersion:'4.2.1',
+    emulatorOnlineVersion:'4.3.0-pre',
     core:'fbneo',
-    fbneoBuildStart:'2025-01-07T14:55:35Z',
-    fbneoBuildEnd:'2025-01-07T14:59:35Z',
-    coreArtifact:'fbneo-wasm.data',
     romLayout:'full-non-merged',
     gameUrl:'/roms/v178/kf2k2mp2.zip',
     expectedGameBytes:86694745,
@@ -31,6 +28,7 @@ export default function handler(req,res){
     parentUrl:null,
     biosUrl:null,
     netplayServer,
+    netplayMode:'webrtc-auto-room',
     iceServers,
     turnConfigured:Boolean(turnUrl)
   });
