@@ -90,7 +90,32 @@
       "$code": {
         ".read": "auth != null",
         ".write": "auth != null && ((!data.exists() && newData.child('hostUid').val() === auth.uid) || data.child('hostUid').val() === auth.uid || data.child('guestUid').val() === auth.uid || (!data.child('guestUid').exists() && newData.child('guestUid').val() === auth.uid) || (data.child('guestUid').val() === '' && newData.child('guestUid').val() === auth.uid))",
-        ".validate": "!newData.exists() || (newData.hasChildren(['hostUid','status','protocolVersion','game','gameId','players','expiresAt']) && newData.child('protocolVersion').val() === 1 && newData.child('game').val() === 'kf2k2mp2' && newData.child('gameId').isNumber())"
+        ".validate": "!newData.exists() || (newData.hasChildren(['hostUid','status','protocolVersion','game','gameId','players','expiresAt']) && newData.child('protocolVersion').val() === 2 && newData.child('game').val() === 'kf2k2mp2' && newData.child('gameId').isNumber())"
+      }
+    },
+    "geoRooms": {
+      "$code": {
+        ".read": "auth != null",
+        ".write": "auth != null && ((!data.exists() && newData.child('hostUid').val() === auth.uid) || data.child('players').child(auth.uid).exists() || (!newData.exists() && data.child('expiresAt').isNumber() && data.child('expiresAt').val() < now))",
+        ".validate": "!newData.exists() || (newData.hasChildren(['hostUid','status','protocolVersion','config','players','questions','roundIndex','expiresAt']) && newData.child('protocolVersion').val() === 1 && newData.child('config').child('maxPlayers').isNumber() && newData.child('config').child('maxPlayers').val() >= 2 && newData.child('config').child('maxPlayers').val() <= 8)",
+        "slots": {
+          "$slot": {
+            ".write": "auth != null && root.child('geoRooms').child($code).child('status').val() === 'waiting' && ((!data.exists() && newData.val() === auth.uid) || (data.val() === auth.uid && (!newData.exists() || newData.val() === auth.uid)))"
+          }
+        },
+        "players": {
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid && root.child('geoRooms').child($code).child('status').val() === 'waiting' && newData.child('uid').val() === auth.uid && newData.child('slot').isNumber() && newData.child('slot').val() >= 1 && newData.child('slot').val() <= 8 && ((newData.child('slot').val() === 1 && root.child('geoRooms').child($code).child('slots').child('1').val() === auth.uid) || (newData.child('slot').val() === 2 && root.child('geoRooms').child($code).child('slots').child('2').val() === auth.uid) || (newData.child('slot').val() === 3 && root.child('geoRooms').child($code).child('slots').child('3').val() === auth.uid) || (newData.child('slot').val() === 4 && root.child('geoRooms').child($code).child('slots').child('4').val() === auth.uid) || (newData.child('slot').val() === 5 && root.child('geoRooms').child($code).child('slots').child('5').val() === auth.uid) || (newData.child('slot').val() === 6 && root.child('geoRooms').child($code).child('slots').child('6').val() === auth.uid) || (newData.child('slot').val() === 7 && root.child('geoRooms').child($code).child('slots').child('7').val() === auth.uid) || (newData.child('slot').val() === 8 && root.child('geoRooms').child($code).child('slots').child('8').val() === auth.uid))",
+            ".validate": "!newData.exists() || (newData.child('uid').val() === $uid && newData.child('slot').isNumber() && newData.child('slot').val() >= 1 && newData.child('slot').val() <= 8 && newData.child('name').isString())"
+          }
+        },
+        "presence": {
+          "$uid": {
+            "$session": {
+              ".write": "auth != null && auth.uid === $uid && root.child('geoRooms').child($code).child('players').child($uid).exists()"
+            }
+          }
+        }
       }
     }
   }

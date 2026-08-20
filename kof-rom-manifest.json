@@ -1,12 +1,329 @@
 {
-  "set": "kf2k2mp2",
-  "title": "The King of Fighters 2002 Magic Plus II (bootleg)",
-  "cloneSha256": "6c6ab95604d3704f2bd805df4ec9df8ece6b77486a191da672bba8f9d8bf1f61",
-  "cloneFiles": [
-    {"name":"k2k2m2p1.bin","size":2097152,"crc32":"1016806c"},
-    {"name":"k2k2m2p2.bin","size":4194304,"crc32":"432fdf53"},
-    {"name":"k2k2m2s1.bin","size":131072,"crc32":"446e74c5"}
-  ],
-  "requires": ["kof2002.zip", "neogeo.zip"],
-  "emulator": "EmulatorJS 4.2.3 / FBNeo"
+  "version": "14.2.0",
+  "set": "kf2k2mp2web",
+  "title": "The King of Fighters 2002 Magic Plus II — Game Guess Web Bridge",
+  "source": {
+    "clone": {
+      "file": "kf2k2mp2.zip",
+      "sha256": "6c6ab95604d3704f2bd805df4ec9df8ece6b77486a191da672bba8f9d8bf1f61"
+    },
+    "parent": {
+      "file": "kof2002.zip",
+      "sha256": "ac4f90be7380b02ded758a7bf88b4e3a60d07fecb3c0be9e280a63862183290e"
+    },
+    "biosPackage": {
+      "file": "neoragex-v5.4e.zip",
+      "sha256": "71926882981bd06f8e1e359e07b3ffcc8b1950cd3b6f09e700f8004956bc1bfb"
+    }
+  },
+  "webGame": {
+    "file": "/roms/kf2k2mp2web.zip",
+    "sha256": "c6e85ea23347ca283b9bcf6c133c5938591b85ad680c5a53ec545f25ad61e1f3",
+    "size": 42407965,
+    "files": [
+      {
+        "name": "k2k2m2p1.bin",
+        "size": 2097152,
+        "crc32": "1016806c"
+      },
+      {
+        "name": "k2k2m2p2.bin",
+        "size": 4194304,
+        "crc32": "432fdf53"
+      },
+      {
+        "name": "k2k2m2s1.bin",
+        "size": 131072,
+        "crc32": "446e74c5"
+      },
+      {
+        "name": "kof2K2_M1.ROM",
+        "size": 131072,
+        "crc32": "ab9d360e"
+      },
+      {
+        "name": "kof2K2_V1.ROM",
+        "size": 4194304,
+        "crc32": "13d98607"
+      },
+      {
+        "name": "kof2K2_V2.ROM",
+        "size": 4194304,
+        "crc32": "9cf74677"
+      },
+      {
+        "name": "kof2K2_V3.ROM",
+        "size": 4194304,
+        "crc32": "8e9448b5"
+      },
+      {
+        "name": "kof2K2_V4.ROM",
+        "size": 4194304,
+        "crc32": "067271b5"
+      },
+      {
+        "name": "kof2k2_c1.rom",
+        "size": 8388608,
+        "crc32": "7efa6ef7"
+      },
+      {
+        "name": "kof2k2_c2.rom",
+        "size": 8388608,
+        "crc32": "aa82948b"
+      },
+      {
+        "name": "kof2k2_c3.rom",
+        "size": 8388608,
+        "crc32": "959fad0b"
+      },
+      {
+        "name": "kof2k2_c4.rom",
+        "size": 8388608,
+        "crc32": "efe6a468"
+      },
+      {
+        "name": "kof2k2_c5.rom",
+        "size": 8388608,
+        "crc32": "74bba7c6"
+      },
+      {
+        "name": "kof2k2_c6.rom",
+        "size": 8388608,
+        "crc32": "e20d2216"
+      },
+      {
+        "name": "kof2k2_c7.rom",
+        "size": 8388608,
+        "crc32": "8a5b561c"
+      },
+      {
+        "name": "kof2k2_c8.rom",
+        "size": 8388608,
+        "crc32": "bef667a3"
+      },
+      {
+        "name": "sp-s2.sp1",
+        "size": 131072,
+        "crc32": "c7f2fa45"
+      },
+      {
+        "name": "sp-s.sp1",
+        "size": 131072,
+        "crc32": "c7f2fa45"
+      },
+      {
+        "name": "sp-s3.sp1",
+        "size": 131072,
+        "crc32": "91b64be3"
+      },
+      {
+        "name": "asia-s3.rom",
+        "size": 131072,
+        "crc32": "91b64be3"
+      },
+      {
+        "name": "sp-e.sp1",
+        "size": 131072,
+        "crc32": "2723a5b5"
+      },
+      {
+        "name": "sp-j2.sp1",
+        "size": 131072,
+        "crc32": "acede59c"
+      },
+      {
+        "name": "sp-j2.rom",
+        "size": 131072,
+        "crc32": "acede59c"
+      },
+      {
+        "name": "sp1.jipan.1024",
+        "size": 131072,
+        "crc32": "9fb0abe4"
+      },
+      {
+        "name": "usa_2slt.bin",
+        "size": 131072,
+        "crc32": "e72943de"
+      },
+      {
+        "name": "vs-bios.rom",
+        "size": 131072,
+        "crc32": "f0e8f27d"
+      },
+      {
+        "name": "neo-geo.rom",
+        "size": 131072,
+        "crc32": "9036d879"
+      },
+      {
+        "name": "NEO-GEO.ROM",
+        "size": 131072,
+        "crc32": "9036d879"
+      },
+      {
+        "name": "000-lo.lo",
+        "size": 131072,
+        "crc32": "5a86cff2"
+      },
+      {
+        "name": "ng-lo.rom",
+        "size": 65536,
+        "crc32": "e09e253c"
+      },
+      {
+        "name": "NG-LO.ROM",
+        "size": 65536,
+        "crc32": "e09e253c"
+      },
+      {
+        "name": "sfix.sfix",
+        "size": 131072,
+        "crc32": "354029fc"
+      },
+      {
+        "name": "sfix.sfx",
+        "size": 131072,
+        "crc32": "354029fc"
+      },
+      {
+        "name": "ng-sfix.rom",
+        "size": 131072,
+        "crc32": "354029fc"
+      },
+      {
+        "name": "NG-SFIX.ROM",
+        "size": 131072,
+        "crc32": "354029fc"
+      },
+      {
+        "name": "sm1.sm1",
+        "size": 131072,
+        "crc32": "97cf998b"
+      },
+      {
+        "name": "ng-sm1.rom",
+        "size": 131072,
+        "crc32": "97cf998b"
+      }
+    ]
+  },
+  "romData": {
+    "file": "/roms/kf2k2mp2web.dat",
+    "sha256": "ac832757a83d16af1d8a2a2991319735714ce4a9af8a9857e89a0b3f847ee788"
+  },
+  "bios": {
+    "file": "/roms/neogeo-web.zip",
+    "sha256": "604bfd6f327efc0383d1d0692814564c80b7ba7833436ca017b61da157e16a42",
+    "size": 438347,
+    "files": [
+      {
+        "name": "sp-s2.sp1",
+        "size": 131072,
+        "crc32": "c7f2fa45"
+      },
+      {
+        "name": "sp-s.sp1",
+        "size": 131072,
+        "crc32": "c7f2fa45"
+      },
+      {
+        "name": "sp-s3.sp1",
+        "size": 131072,
+        "crc32": "91b64be3"
+      },
+      {
+        "name": "asia-s3.rom",
+        "size": 131072,
+        "crc32": "91b64be3"
+      },
+      {
+        "name": "sp-e.sp1",
+        "size": 131072,
+        "crc32": "2723a5b5"
+      },
+      {
+        "name": "sp-j2.sp1",
+        "size": 131072,
+        "crc32": "acede59c"
+      },
+      {
+        "name": "sp-j2.rom",
+        "size": 131072,
+        "crc32": "acede59c"
+      },
+      {
+        "name": "sp1.jipan.1024",
+        "size": 131072,
+        "crc32": "9fb0abe4"
+      },
+      {
+        "name": "usa_2slt.bin",
+        "size": 131072,
+        "crc32": "e72943de"
+      },
+      {
+        "name": "vs-bios.rom",
+        "size": 131072,
+        "crc32": "f0e8f27d"
+      },
+      {
+        "name": "neo-geo.rom",
+        "size": 131072,
+        "crc32": "9036d879"
+      },
+      {
+        "name": "NEO-GEO.ROM",
+        "size": 131072,
+        "crc32": "9036d879"
+      },
+      {
+        "name": "000-lo.lo",
+        "size": 131072,
+        "crc32": "5a86cff2"
+      },
+      {
+        "name": "ng-lo.rom",
+        "size": 65536,
+        "crc32": "e09e253c"
+      },
+      {
+        "name": "NG-LO.ROM",
+        "size": 65536,
+        "crc32": "e09e253c"
+      },
+      {
+        "name": "sfix.sfix",
+        "size": 131072,
+        "crc32": "354029fc"
+      },
+      {
+        "name": "sfix.sfx",
+        "size": 131072,
+        "crc32": "354029fc"
+      },
+      {
+        "name": "ng-sfix.rom",
+        "size": 131072,
+        "crc32": "354029fc"
+      },
+      {
+        "name": "NG-SFIX.ROM",
+        "size": 131072,
+        "crc32": "354029fc"
+      },
+      {
+        "name": "sm1.sm1",
+        "size": 131072,
+        "crc32": "97cf998b"
+      },
+      {
+        "name": "ng-sm1.rom",
+        "size": 131072,
+        "crc32": "97cf998b"
+      }
+    ]
+  },
+  "emulator": "EmulatorJS 4.2.3 / FBNeo",
+  "bootStrategy": "full decrypted romset + FBNeo RomData bridge"
 }

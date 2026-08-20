@@ -4,12 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#090b18">
-  <title>Game Guess V14.1 — Arena Fix + Quiz Cloud + KOF Online</title>
+  <title>Game Guess V15 — GeoGuess + Avatar + KOF + Quiz</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/styles.css?v=14.0.0">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="/styles.css?v=15.0.0">
 </head>
 <body>
   <div class="bg-grid"></div>
@@ -21,11 +22,11 @@
     <header class="topbar">
       <button class="brand" id="brandButton" aria-label="Voltar ao menu principal">
         <span class="brand-icon">🎮</span>
-        <span><b>GAME GUESS</b><small>ARENA FIX + QUIZ CLOUD + KOF ONLINE V14.1</small></span>
+        <span><b>GAME GUESS</b><small>GEOGUESS + AVATAR + KOF + QUIZ V15</small></span>
       </button>
       <div class="top-actions">
         <span class="status-pill" id="apiStatus"><i></i> Pronto</span>
-        <button class="mini-pill" id="coinsTop" title="Moedas">🪙 <b>0</b></button>
+        <button class="mini-pill" id="coinsTop" title="Pontos de personalização">🪙 <b>0</b></button>
         <button class="mini-pill" id="recordTop" title="Recorde">🏆 <b>0</b></button>
         <button class="mini-pill online-pill" id="duelButton" title="Duelo 1x1">⚔️ <b>1x1</b></button>
         <button class="mini-pill" id="rankingButton" title="Ranking global">🌍 <b>Ranking</b></button>
@@ -39,7 +40,7 @@
       <div class="hero">
         <p class="eyebrow">ADIVINHE. ARRISQUE. FAÇA COMBO.</p>
         <h1>Quanto você conhece de <span>games e personagens?</span></h1>
-        <p>Games, personagens, Termo, Quiz com histórico na nuvem, KOF 2002 Magic Plus II, ranking por temporada e Arena online.</p>
+        <p>Games, personagens, GeoGuess, avatar, loja, Termo, Quiz, KOF 2002 Magic Plus II, ranking por temporada e Arena online.</p>
         <div class="hero-stats">
           <div><b id="homeBestStreak">0</b><span>Melhor sequência</span></div>
           <div><b id="homeAccuracy">0%</b><span>Taxa de acerto</span></div>
@@ -68,7 +69,7 @@
         <div class="kof-home-copy">
           <p class="eyebrow">🔥 ARCADE ONLINE</p>
           <h2>KOF 2002 Magic Plus II</h2>
-          <p>FBNeo no navegador, treino local e sala 1x1. A ROM clone enviada está integrada; o site pede a ROM parent e a BIOS Neo Geo apenas no seu aparelho.</p>
+          <p>FBNeo no navegador, treino local e sala 1x1. ROM, base KOF 2002, RomData e BIOS Neo Geo carregados diretamente pela web, sem importar arquivos locais.</p>
         </div>
         <div class="kof-home-actions"><button class="primary-btn" id="homeKofButton">🥊 ABRIR KOF</button></div>
       </section>
@@ -126,14 +127,14 @@
     </section>
 
     <section class="screen kof-screen" id="kofScreen">
-      <div class="section-heading kof-heading"><button class="back-link" id="kofBackButton">← Voltar</button><div><p class="eyebrow">🥊 ARCADE ONLINE</p><h2>KOF 2002 MAGIC PLUS II</h2><p>Use o clone local integrado com FBNeo. Para iniciar, importe uma vez neste aparelho a ROM parent <b>kof2002.zip</b> e a BIOS <b>neogeo.zip</b>.</p></div></div>
+      <div class="section-heading kof-heading"><button class="back-link" id="kofBackButton">← Voltar</button><div><p class="eyebrow">🥊 ARCADE ONLINE • V15</p><h2>KOF 2002 MAGIC PLUS II</h2><p>Arcade integrado ao Game Guess: ROM, base KOF 2002, RomData e BIOS são carregados diretamente pela web. <b>Não precisa importar arquivos no PC ou celular.</b></p></div></div>
       <div class="kof-layout">
         <div class="kof-main">
-          <section class="kof-card"><h3>💾 Arquivos do arcade</h3><div class="kof-file-grid"><div id="kofCloneState" class="kof-file-state"></div><div id="kofParentState" class="kof-file-state"></div><div id="kofBiosState" class="kof-file-state"></div></div><div class="kof-file-actions"><label class="secondary-btn file-label">🥊 Importar kf2k2mp2.zip<input id="kofCloneInput" type="file" accept=".zip,application/zip"></label><button class="mini-action" id="kofRemoveClone">Usar ROM do site</button><label class="secondary-btn file-label">📂 Importar kof2002.zip<input id="kofParentInput" type="file" accept=".zip,application/zip"></label><button class="mini-action" id="kofRemoveParent">Remover parent</button><label class="secondary-btn file-label">🧩 Importar neogeo.zip<input id="kofBiosInput" type="file" accept=".zip,application/zip"></label><button class="mini-action" id="kofRemoveBios">Remover BIOS</button></div><p id="kofFilesReady" class="kof-note"></p><button id="kofTrainingButton" class="primary-btn huge">🎮 INICIAR TREINO LOCAL</button></section>
-          <section class="kof-card"><h3>⚔️ Duelo 1x1</h3><p>O Firebase cria a sala e mantém presença/reconexão. O netplay do emulador usa o mesmo Game ID nos dois aparelhos.</p><div class="kof-room-actions"><button class="primary-btn" id="kofCreateRoom">CRIAR SALA</button><div class="kof-join"><input id="kofJoinCode" maxlength="6" placeholder="ABC123" autocomplete="off"><button class="secondary-btn" id="kofJoinRoom">ENTRAR</button></div></div><label class="kof-server-field">Servidor Netplay<input id="kofNetplayServer" value="https://netplay.emulatorjs.org/" autocomplete="off"></label></section>
+          <section class="kof-card kof-web-card"><div class="kof-web-title"><h3>🌐 Arcade Web integrado</h3><span class="kof-web-badge">SEM IMPORTAR ROM</span></div><div class="kof-file-grid"><div id="kofCloneState" class="kof-file-state"></div><div id="kofParentState" class="kof-file-state"></div><div id="kofBiosState" class="kof-file-state"></div></div><p id="kofFilesReady" class="kof-note"></p><div class="kof-web-actions"><button id="kofTrainingButton" class="primary-btn huge">🎮 INICIAR TREINO LOCAL</button><button id="kofRecheckFiles" class="secondary-btn">🔎 REVALIDAR ARQUIVOS</button></div></section>
+          <section class="kof-card"><h3>⚔️ Duelo 1x1 sincronizado</h3><p>O Firebase cria a sala, verifica os dois aparelhos e o HOST dispara o carregamento simultâneo. O EmulatorJS recebe o mesmo Game ID e servidor Netplay nos dois lados.</p><div class="kof-room-actions"><button class="primary-btn" id="kofCreateRoom">CRIAR SALA</button><div class="kof-join"><input id="kofJoinCode" maxlength="6" placeholder="ABC123" autocomplete="off"><button class="secondary-btn" id="kofJoinRoom">ENTRAR</button></div></div><label class="kof-server-field">Servidor Netplay<input id="kofNetplayServer" value="https://netplay.emulatorjs.org/" autocomplete="off"></label></section>
           <section class="kof-card hidden" id="kofRoomPanel"><div class="kof-room-code"><span>SALA</span><b id="kofRoomCode">------</b><button class="icon-btn" id="kofCopyRoom">📋</button></div><div id="kofRoomRole" class="kof-note"></div><div id="kofRoomPlayers" class="kof-players"></div><div id="kofRoomStatus" class="kof-room-status">Aguardando...</div><div class="kof-room-buttons"><button class="primary-btn" id="kofLaunchButton">🚀 INICIAR KOF ONLINE</button><button class="secondary-btn" id="kofLeaveRoom">SAIR DA SALA</button></div><div id="kofResultControls" class="kof-result-controls hidden"><p id="kofVoteStatus">Depois da luta, os dois jogadores confirmam o vencedor.</p><button class="primary-btn" id="kofVoteMe">🏆 EU VENCI</button><button class="secondary-btn" id="kofVoteRival">🥊 O RIVAL VENCEU</button></div></section>
         </div>
-        <aside class="kof-card kof-info"><h3>🛡️ Diagnóstico</h3><div class="kof-diagnostics"><span>✅ Clone kf2k2mp2 integrado</span><span>✅ FBNeo via EmulatorJS 4.2.3</span><span>✅ Parent/BIOS ficam no IndexedDB do aparelho</span><span>✅ Matchmaking Firebase + reconexão</span><span>✅ Resultado confirmado pelos 2 jogadores</span><span id="kofServiceState">🔎 Verificando EmulatorJS + Netplay…</span><span>🏆 Vitória/derrota entra no Ranked</span></div><small>O arquivo Magic Plus II enviado é um clone split. Ele contém os P/S alterados do hack e depende do set parent KOF 2002 e da BIOS Neo Geo.</small></aside>
+        <aside class="kof-card kof-info"><h3>🛡️ Diagnóstico V14.2</h3><div class="kof-diagnostics"><span>✅ Magic Plus II hospedado no site</span><span>✅ Base KOF 2002 incorporada</span><span>✅ BIOS Neo Geo preparada para web</span><span>✅ Ponte RomData para FBNeo</span><span>✅ Ready-check dos 2 jogadores</span><span>✅ Matchmaking Firebase + reconexão</span><span>✅ Resultado confirmado pelos 2 jogadores</span><span id="kofServiceState">🔎 Verificando EmulatorJS + Netplay…</span><span>🏆 Vitória/derrota entra no Ranked</span></div><small>O primeiro carregamento baixa cerca de 40 MB; depois o navegador pode reutilizar o cache. Para redes restritas, a V14.2 também aceita um servidor TURN configurado por variáveis de ambiente.</small></aside>
       </div>
     </section>
 
@@ -257,7 +258,7 @@
           <div class="hints-container" id="hintsContainer"></div>
 
           <div class="assist-panel">
-            <div class="assist-head"><b>🪙 Loja de ajuda</b><span>Gaste moedas para escapar de uma rodada difícil</span></div>
+            <div class="assist-head"><b>🪙 Loja de ajuda</b><span>Gaste pontos para escapar de uma rodada difícil</span></div>
             <div class="assist-grid">
               <button class="assist-btn" data-assist="piece"><span>🧩</span><b>Revelar fragmento</b><small>100 🪙</small></button>
               <button class="assist-btn" data-assist="letters"><span>🔤</span><b>Eliminar letras</b><small>150 🪙</small></button>
@@ -572,7 +573,7 @@
         <div><b>1</b><span>Uma parte da imagem pode começar aberta, dependendo da dificuldade.</span></div>
         <div><b>2</b><span><strong>3 vidas aparecem apenas no Difícil e Insano.</strong> Fácil e Normal usam apenas as tentativas da rodada.</span></div>
         <div><b>3</b><span>Acertos em sequência aumentam o multiplicador de combo.</span></div>
-        <div><b>4</b><span>Use moedas para comprar ajuda quando estiver travado.</span></div>
+        <div><b>4</b><span>Use seus pontos com estratégia nas ajudas e na personalização do avatar.</span></div>
         <div><b>5</b><span>No Quente ou Frio, um chute errado pode virar uma pista útil.</span></div>
         <div><b>6</b><span>No 1x1, Difícil/Insano usam 3 vidas e Fácil/Normal usam 3 tentativas por rodada. No Termo não existem vidas: Uma Palavra tem 6, Dueto 7 e Quarteto 9 tentativas.</span></div>
       </div>
@@ -590,7 +591,7 @@
     <div class="panel-modal compact">
       <div class="result-icon">🚪</div>
       <h2>Sair da partida?</h2>
-      <p class="modal-subtitle">Seu recorde e moedas continuam salvos.</p>
+      <p class="modal-subtitle">Seu recorde e pontos continuam salvos.</p>
       <div class="modal-actions">
         <button class="danger-btn" id="confirmQuit">SAIR</button>
         <button class="secondary-btn" id="cancelQuit">CONTINUAR</button>
@@ -598,14 +599,18 @@
     </div>
   </div>
 
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
   <script src="/firebase-config.js?v=12.0.0" defer></script>
-  <script src="/app.js?v=12.3.0" defer></script>
-  <script src="/multiverse.js?v=12.3.0" defer></script>
-  <script src="/termo.js?v=12.6.0" defer></script>
-  <script src="/quiz-bank.js?v=14.0.0" defer></script>
-  <script src="/quiz.js?v=14.0.0" defer></script>
-  <script type="module" src="/firebase.js?v=14.1.0"></script>
-  <script src="/duel.js?v=14.1.0" defer></script>
-  <script src="/kof.js?v=14.0.0" defer></script>
+  <script src="/app.js?v=15.0.0" defer></script>
+  <script src="/multiverse.js?v=15.0.0" defer></script>
+  <script src="/termo.js?v=15.0.0" defer></script>
+  <script src="/quiz-bank.js?v=15.0.0" defer></script>
+  <script src="/quiz.js?v=15.0.0" defer></script>
+  <script type="module" src="/firebase.js?v=15.0.0"></script>
+  <script src="/duel.js?v=15.0.0" defer></script>
+  <script src="/kof.js?v=15.0.0" defer></script>
+  <script src="https://unpkg.com/three@0.160.0/build/three.min.js" defer></script>
+  <script src="/social.js?v=15.0.0" defer></script>
+  <script src="/geoguess.js?v=15.0.0" defer></script>
 </body>
 </html>

@@ -1,4 +1,7 @@
-# Game Guess V14 — Quiz Cloud + KOF Online
+# Game Guess V15 — GeoGuess + Avatar + KOF Web + Quiz Cloud
+
+
+**KOF Web:** o Magic Plus II agora é carregado diretamente do site através de um pacote RomData preparado para FBNeo; nenhum arquivo local é exigido do jogador. O Quiz Cloud, Arena 2–8, Ranked por temporada e histórico persistente continuam preservados.
 
 A V14 mantém o Arcade/Multiverso, Termo, Quiz, temporadas, Ranked e Arena de 2–8 jogadores e adiciona duas integrações principais:
 
@@ -9,7 +12,7 @@ A V14 mantém o Arcade/Multiverso, Termo, Quiz, temporadas, Ranked e Arena de 2�
 
 Publique `database.rules.json` em **Firebase Console → Realtime Database → Rules**.
 
-As regras V14 adicionam:
+As regras V14.2 mantêm/adicionam:
 
 - `quizHistory/{uid}/seen`
 - `fightRooms/{code}`
@@ -17,16 +20,11 @@ As regras V14 adicionam:
 
 ## KOF
 
-A ROM clone `kf2k2mp2.zip` enviada para esta atualização está em `roms/kf2k2mp2.zip`.
-O set é **split**, então cada aparelho também precisa importar uma vez:
+A V14.2 usa um pacote web completo em `roms/kf2k2mp2web.zip`, acompanhado de `roms/kf2k2mp2web.dat` e `roms/neogeo-web.zip`. Esses arquivos foram preparados a partir dos três pacotes fornecidos pelo usuário, portanto o jogador não precisa importar `kof2002.zip` nem BIOS localmente.
 
-- `kof2002.zip` — ROM parent
-- `neogeo.zip` — BIOS Neo Geo
+O emulador usa **EmulatorJS 4.2.3 + FBNeo**. Antes de liberar treino ou sala, o lobby verifica se os três ativos web respondem. No 1x1, os dois clientes passam por ready-check no Firebase e o HOST dispara um boot sincronizado. O mesmo `EJS_gameID`, servidor Netplay e ICE config são aplicados nos dois aparelhos.
 
-Os dois arquivos ficam no IndexedDB do navegador e não são enviados ao Firebase.
-Também existe um seletor para importar `kf2k2mp2.zip` localmente caso você prefira não hospedar o clone no site.
-
-O emulador usa **EmulatorJS 4.2.3 + FBNeo**, com `EJS_gameParentUrl`, `EJS_biosUrl`, Game ID numérico da sala e servidor de netplay configurável.
+Para redes mais restritas, é possível configurar um TURN opcional pelas variáveis `KOF_TURN_*` descritas em `.env.example` e `KOF-SETUP.md`.
 
 ## Quiz
 
@@ -44,14 +42,17 @@ Mesmo sem API externa, os geradores foram testados para produzir centenas de per
 
 ```bash
 git add .
-git commit -m "Game Guess V14 Quiz Cloud KOF Online"
+git commit -m "Game Guess V14.2 KOF Web"
 git push origin main
 ```
 
-Depois do deploy, publique as regras V14 do Realtime Database.
+Depois do deploy, publique as regras V14.2 do Realtime Database.
 
 ## Observações de produção
 
 - O Ranked continua sendo um sistema de competição casual; para competição com prêmio real, mova cálculo de score/elo para backend autoritativo.
 - O servidor de netplay do EmulatorJS é separado do Firebase. O lobby usa Firebase; a sessão do emulador usa o servidor Netplay/WebRTC.
 - Se você publicar ROMs no site, confirme que possui os direitos necessários para distribuí-las.
+
+## V15
+Veja `CHANGES-V15.md` para GeoGuess Arena, perfil, avatar, loja e nova economia.

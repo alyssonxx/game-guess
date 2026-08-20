@@ -1,0 +1,43 @@
+GAME GUESS V14.2 — VALIDACAO KOF WEB
+
+FONTES RECEBIDAS
+- kf2k2mp2.zip
+  SHA-256: 6c6ab95604d3704f2bd805df4ec9df8ece6b77486a191da672bba8f9d8bf1f61
+- kof2002.zip
+  SHA-256: ac4f90be7380b02ded758a7bf88b4e3a60d07fecb3c0be9e280a63862183290e
+- neoragex-v5.4e.zip
+  SHA-256: 71926882981bd06f8e1e359e07b3ffcc8b1950cd3b6f09e700f8004956bc1bfb
+
+ATIVOS WEB GERADOS
+- roms/kf2k2mp2web.zip
+  tamanho: 42407965 bytes
+  SHA-256: c6e85ea23347ca283b9bcf6c133c5938591b85ad680c5a53ec545f25ad61e1f3
+- roms/kf2k2mp2web.dat
+  SHA-256: ac832757a83d16af1d8a2a2991319735714ce4a9af8a9857e89a0b3f847ee788
+- roms/neogeo-web.zip
+  tamanho: 438347 bytes
+  SHA-256: 604bfd6f327efc0383d1d0692814564c80b7ba7833436ca017b61da157e16a42
+
+VALIDACOES CONCLUIDAS
+[OK] ZIP do romset web integro
+[OK] 16 entradas RomData conferidas por nome, tamanho e CRC32
+[OK] P1/P2/S1 do Magic Plus II conferidos
+[OK] M1/V1-V4/C1-C8 do KOF 2002 decriptado conferidos
+[OK] BIOS web integro
+[OK] sp-s2.sp1 CRC32 c7f2fa45
+[OK] 000-lo.lo reconstruido com 131072 bytes e CRC32 5a86cff2
+[OK] JavaScript do projeto e APIs validado com node --check
+[OK] database.rules.json, vercel.json, package.json e manifest JSON validos
+[OK] index.html sem IDs duplicados
+[OK] fight protocol = 2
+[OK] ready-check + onDisconnect do clientReady
+[OK] boot sincronizado pelo Firebase via launchState/launchAt
+[OK] cache longo dos ativos /roms no Vercel
+[OK] arquivos de atualizacao nao incluem firebase-config.js
+
+VALIDACAO QUE DEPENDE DO DEPLOY
+[NAO EXECUTADA NESTE AMBIENTE] Boot real do WebAssembly FBNeo/EmulatorJS.
+Motivo: o ambiente de validacao nao possui resolucao de rede para o CDN do EmulatorJS.
+[NAO EXECUTADA NESTE AMBIENTE] Netplay real entre dois navegadores/redes.
+
+A V14.2 esta preparada para o teste real apos deploy. Nao e correto declarar 100% de compatibilidade do boot/netplay antes desse teste final em navegador.

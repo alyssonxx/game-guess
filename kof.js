@@ -1,65 +1,64 @@
 (() => {
   'use strict';
   const $=id=>document.getElementById(id),CORE=()=>window.GameGuessCore,FB=()=>window.GameGuessFirebase;
-  const DB_NAME='gameGuessArcadeFiles',STORE='files',DB_VERSION=1;
-  const CLONE_URL='/roms/kf2k2mp2.zip';
-  const CLONE_SHA='6c6ab95604d3704f2bd805df4ec9df8ece6b77486a191da672bba8f9d8bf1f61';
+  const WEB_GAME='/roms/kf2k2mp2web.zip',WEB_DAT='/roms/kf2k2mp2web.dat',WEB_BIOS='/roms/neogeo-web.zip';
+  const GAME_SHA='c6e85ea23347ca283b9bcf6c133c5938591b85ad680c5a53ec545f25ad61e1f3';
+  const BIOS_SHA='604bfd6f327efc0383d1d0692814564c80b7ba7833436ca017b61da157e16a42';
   const DEFAULT_NETPLAY='https://netplay.emulatorjs.org/';
-  let roomCode='',room=null,unsub=null,launched=false;
+  let roomCode='',room=null,unsub=null,launched=false,lastReadyRoom='',lastLaunchAtHandled=0;
+  let assetCache={at:0,ready:false,detail:null};
   const rankedClaimsInFlight=new Set();
 
   function toast(a,b,t=''){CORE()?.toast?.(a,b,t)}
   function show(id){CORE()?.showScreen?.(id)}
   function user(){return FB()?.getUser?.()||null}
   function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-  function db(){return new Promise((resolve,reject)=>{const r=indexedDB.open(DB_NAME,DB_VERSION);r.onupgradeneeded=()=>{if(!r.result.objectStoreNames.contains(STORE))r.result.createObjectStore(STORE)};r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)})}
-  async function putFile(key,file){const d=await db(),sha=await sha256(file);await new Promise((resolve,reject)=>{const tx=d.transaction(STORE,'readwrite');tx.objectStore(STORE).put({blob:file,name:file.name,size:file.size,type:file.type,lastModified:file.lastModified,sha256:sha},key);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});d.close();return sha}
-  async function getFile(key){const d=await db(),v=await new Promise((resolve,reject)=>{const tx=d.transaction(STORE,'readonly'),r=tx.objectStore(STORE).get(key);r.onsuccess=()=>resolve(r.result||null);r.onerror=()=>reject(r.error)});d.close();return v}
-  async function removeFile(key){const d=await db();await new Promise((resolve,reject)=>{const tx=d.transaction(STORE,'readwrite');tx.objectStore(STORE).delete(key);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});d.close()}
-  async function sha256(blob){const buf=await blob.arrayBuffer(),hash=await crypto.subtle.digest('SHA-256',buf);return [...new Uint8Array(hash)].map(x=>x.toString(16).padStart(2,'0')).join('')}
-
   function onlineCount(r=room){return r?Object.keys(r.players||{}).length:0}
   function playerOnline(uid,r=room){return Boolean(uid&&Object.keys(r?.presence?.[uid]||{}).length)}
   function opponent(){const u=user();return u&&room?Object.values(room.players||{}).find(p=>p.uid!==u.uid):null}
   function role(){const u=user();return u&&room?.hostUid===u.uid?'HOST':'CONVIDADO'}
+  function isHost(){const u=user();return Boolean(u&&room?.hostUid===u.uid)}
   function netplayServer(){return (localStorage.getItem('gameGuessKofNetplayServer')||DEFAULT_NETPLAY).trim()||DEFAULT_NETPLAY}
+  function readyPlayers(r=room){return Object.values(r?.clientReady||{}).filter(x=>x?.ready).length}
 
-
+  async function head(url,timeout=5500){
+    const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),timeout);
+    try{const r=await fetch(url,{method:'HEAD',cache:'no-store',signal:ctrl.signal});return {ok:r.ok,status:r.status,size:Number(r.headers.get('content-length')||0)}}
+    catch(e){return {ok:false,status:0,error:e?.name==='AbortError'?'timeout':'network'}}finally{clearTimeout(timer)}
+  }
   async function checkServices(){
     const el=$('kofServiceState');if(el)el.textContent='🔎 Verificando EmulatorJS + Netplay…';
     try{
-      const r=await fetch('/api/kof-health',{cache:'no-store'}),d=await r.json();
-      const emu=Boolean(d?.services?.emulator?.ok),net=Boolean(d?.services?.netplay?.ok);
-      if(el)el.textContent=emu&&net?'✅ EmulatorJS + Netplay respondendo':emu?'🟡 EmulatorJS OK • Netplay indisponível agora':'🔴 Serviço do emulador indisponível agora';
-      return {emulator:emu,netplay:net};
-    }catch{if(el)el.textContent='🟡 Diagnóstico online indisponível';return {emulator:false,netplay:false};}
+      const [r,c]=await Promise.all([fetch('/api/kof-health',{cache:'no-store'}),fetch('/api/kof-config',{cache:'no-store'})]);
+      const d=await r.json(),cfg=await c.json().catch(()=>({}));
+      const emu=Boolean(d?.services?.emulator?.ok),net=Boolean(d?.services?.netplay?.ok),turn=Boolean(cfg?.turnConfigured);
+      if(el)el.textContent=emu&&net?`✅ EmulatorJS + Netplay respondendo${turn?' • TURN configurado':' • STUN ativo'}`:emu?'🟡 EmulatorJS OK • Netplay indisponível agora':'🔴 Serviço do emulador indisponível agora';
+      return {emulator:emu,netplay:net,turn};
+    }catch{if(el)el.textContent='🟡 Diagnóstico online indisponível';return {emulator:false,netplay:false,turn:false}}
   }
 
-  async function bundledCloneAvailable(){
-    try{const r=await fetch(CLONE_URL,{method:'HEAD',cache:'no-store'});return r.ok}catch{return false}
-  }
-  async function refreshFiles(){
-    const [clone,parent,bios,bundled]=await Promise.all([getFile('kof-clone').catch(()=>null),getFile('kof-parent').catch(()=>null),getFile('neogeo-bios').catch(()=>null),bundledCloneAvailable()]);
-    const cloneReady=Boolean(clone||bundled);
-    if($('kofCloneState'))$('kofCloneState').innerHTML=clone?`<b>✅ ${esc(clone.name)}</b><small>Magic Plus II importado • SHA ${String(clone.sha256||'').slice(0,12)}…</small>`:bundled?`<b>✅ Magic Plus II integrado</b><small>ROM enviada por você • SHA ${CLONE_SHA.slice(0,12)}…</small>`:'<b>⚠️ kf2k2mp2.zip necessário</b><small>A ROM não está no site. Importe o seu arquivo local.</small>';
-    if($('kofParentState'))$('kofParentState').innerHTML=parent?`<b>✅ ${esc(parent.name)}</b><small>${(parent.size/1024/1024).toFixed(1)} MB • salvo neste aparelho</small>`:'<b>⚠️ kof2002.zip necessário</b><small>Importe a ROM parent do KOF 2002.</small>';
-    if($('kofBiosState'))$('kofBiosState').innerHTML=bios?`<b>✅ ${esc(bios.name)}</b><small>${(bios.size/1024).toFixed(0)} KB • salvo neste aparelho</small>`:'<b>⚠️ neogeo.zip necessário</b><small>Importe a BIOS Neo Geo.</small>';
-    const ready=Boolean(cloneReady&&parent&&bios);
-    if($('kofTrainingButton'))$('kofTrainingButton').disabled=!ready;
-    if($('kofLaunchButton'))$('kofLaunchButton').disabled=!ready||onlineCount()<2;
-    if($('kofFilesReady'))$('kofFilesReady').textContent=ready?'✅ Magic Plus II + parent + BIOS prontos neste aparelho':'⚠️ Falta importar um ou mais arquivos necessários neste aparelho';
+  async function refreshFiles(force=false){
+    if(!force&&Date.now()-assetCache.at<30000&&assetCache.detail){applyAssetUI(assetCache.detail);return assetCache.ready}
+    const [game,dat,bios]=await Promise.all([head(WEB_GAME),head(WEB_DAT),head(WEB_BIOS)]);
+    const detail={game,dat,bios},ready=game.ok&&dat.ok&&bios.ok;
+    assetCache={at:Date.now(),ready,detail};applyAssetUI(detail);
+    if(roomCode&&ready)ensureRoomReady().catch(()=>{});
     return ready;
   }
-
-  async function importFile(kind,file){
-    if(!file)return;const expected=kind==='kof-clone'?'kf2k2mp2.zip':kind==='kof-parent'?'kof2002.zip':'neogeo.zip';
-    if(!/\.zip$/i.test(file.name))return toast('Arquivo inválido','Selecione um arquivo ZIP.','error');
-    if(file.name.toLowerCase()!==expected)toast('Nome diferente',`Esperado: ${expected}. Vou salvar mesmo assim para você testar.`);
-    toast('Verificando arquivo',`${file.name}…`);
-    const sha=await putFile(kind,file);
-    if(kind==='kof-clone'&&sha!==CLONE_SHA)toast('ROM diferente',`O SHA-256 não é igual ao kf2k2mp2 enviado inicialmente. Vou permitir o teste, mas a compatibilidade pode mudar.`,'error');
-    else toast('Arquivo salvo',`${file.name} • SHA-256 ${sha.slice(0,12)}…`);
-    await refreshFiles();
+  function applyAssetUI(d){
+    const gameOk=Boolean(d?.game?.ok),datOk=Boolean(d?.dat?.ok),biosOk=Boolean(d?.bios?.ok),ready=gameOk&&datOk&&biosOk;
+    if($('kofCloneState'))$('kofCloneState').innerHTML=gameOk?`<b>✅ Magic Plus II Web</b><small>Pacote completo • SHA ${GAME_SHA.slice(0,12)}…</small>`:'<b>❌ Pacote KOF ausente</b><small>Faça o deploy da pasta /roms da V14.2.</small>';
+    if($('kofParentState'))$('kofParentState').innerHTML=datOk?'<b>✅ KOF 2002 Base integrado</b><small>RomData converte o set decriptado para o FBNeo.</small>':'<b>❌ RomData ausente</b><small>Falta kf2k2mp2web.dat no deploy.</small>';
+    if($('kofBiosState'))$('kofBiosState').innerHTML=biosOk?`<b>✅ Neo Geo BIOS Web</b><small>BIOS preparada • SHA ${BIOS_SHA.slice(0,12)}…</small>`:'<b>❌ BIOS web ausente</b><small>Falta neogeo-web.zip no deploy.</small>';
+    if($('kofFilesReady'))$('kofFilesReady').textContent=ready?'✅ Arcade 100% hospedado no site — nenhum arquivo local é necessário.':'⚠️ Um ou mais arquivos web do KOF não estão disponíveis.';
+    if($('kofTrainingButton'))$('kofTrainingButton').disabled=!ready;
+  }
+  async function ensureRoomReady(){
+    const u=user();if(!roomCode||!u||!assetCache.ready)return false;
+    if(room?.clientReady?.[u.uid]?.ready){lastReadyRoom=roomCode;return true}
+    if(lastReadyRoom===roomCode)return true;
+    lastReadyRoom=roomCode;
+    try{return await FB()?.markFightReady?.(roomCode,true)}catch(e){lastReadyRoom='';console.warn('KOF ready:',e);return false}
   }
 
   function updateRoomUI(){
@@ -67,64 +66,90 @@
     $('kofRoomPanel')?.classList.toggle('hidden',!room);
     if(!room)return refreshFiles();
     if($('kofRoomCode'))$('kofRoomCode').textContent=room.code||roomCode;
-    if($('kofRoomRole'))$('kofRoomRole').textContent=`${role()} • Game ID ${room.gameId}`;
-    if($('kofRoomPlayers'))$('kofRoomPlayers').innerHTML=Object.values(room.players||{}).map(p=>`<div class="kof-player-row"><span>${p.uid===room.hostUid?'👑':'🥊'}</span><b>${esc(p.name)}</b><small>${playerOnline(p.uid)?'🟢 online':'🟡 reconectando'}</small></div>`).join('');
-    if($('kofRoomStatus'))$('kofRoomStatus').textContent=onlineCount()>=2?'✅ 2/2 jogadores • pronto para iniciar':'⏳ 1/2 jogadores • aguardando rival';
-    if($('kofLaunchButton'))$('kofLaunchButton').disabled=onlineCount()<2;
+    if($('kofRoomRole'))$('kofRoomRole').textContent=`${role()} • Game ID ${room.gameId} • protocolo ${room.protocolVersion}`;
+    if($('kofRoomPlayers'))$('kofRoomPlayers').innerHTML=Object.values(room.players||{}).map(p=>{
+      const rdy=Boolean(room.clientReady?.[p.uid]?.ready),online=playerOnline(p.uid);
+      return `<div class="kof-player-row"><span>${p.uid===room.hostUid?'👑':'🥊'}</span><b>${esc(p.name)}</b><small>${online?'🟢':'🟡'} ${online?'online':'reconectando'} • ${rdy?'🎮 pronto':'🔎 verificando'}</small></div>`;
+    }).join('');
+    const count=onlineCount(),rdy=readyPlayers();
+    if($('kofRoomStatus'))$('kofRoomStatus').textContent=count>=2?`✅ 2/2 jogadores • ${rdy}/2 aparelhos prontos`:'⏳ 1/2 jogadores • aguardando rival';
+    const launch=$('kofLaunchButton');
+    if(launch){
+      if(room.launchState==='starting'){launch.disabled=true;launch.textContent='🎮 PARTIDA INICIADA'}
+      else if(isHost()){launch.disabled=count<2||rdy<2;launch.textContent=rdy>=2?'🚀 INICIAR KOF ONLINE':`🔎 AGUARDANDO ${Math.max(0,2-rdy)} APARELHO(S)`}
+      else{launch.disabled=true;launch.textContent=rdy>=2?'✅ PRONTO • AGUARDE O HOST':'🔎 VALIDANDO ARCADE…'}
+    }
     const votes=room.resultVotes||{},mineVote=u&&votes[u.uid];
     if($('kofVoteStatus'))$('kofVoteStatus').textContent=room.status==='finished'?`🏆 Resultado confirmado: ${room.players?.[room.winnerUid]?.name||'vencedor'}`:mineVote?'✅ Seu resultado foi enviado. Aguardando confirmação do rival.':'Depois da luta, os dois jogadores confirmam o vencedor.';
-    $('kofResultControls')?.classList.toggle('hidden',onlineCount()<2||room.status==='finished');
-    if(room.status==='finished'&&!rankedClaimsInFlight.has(room.code)){rankedClaimsInFlight.add(room.code);recordRanked(room).finally(()=>rankedClaimsInFlight.delete(room.code));}
-    refreshFiles();
+    $('kofResultControls')?.classList.toggle('hidden',count<2||room.status==='finished');
+    if(room.status==='finished'&&!rankedClaimsInFlight.has(room.code)){rankedClaimsInFlight.add(room.code);recordRanked(room).finally(()=>rankedClaimsInFlight.delete(room.code))}
+    refreshFiles().then(ok=>{if(ok)ensureRoomReady()});
+    const launchAt=Number(room.launchAt||0);
+    if(room.launchState==='starting'&&launchAt&&launchAt!==lastLaunchAtHandled){lastLaunchAtHandled=launchAt;setTimeout(()=>launch(false,true),250)}
   }
 
-  function watch(code){if(unsub)unsub();unsub=FB()?.watchFightRoom?.(code,(data,err)=>{if(err){toast('Sala KOF',err.message||'Falha ao acompanhar sala.','error');return}if(!data){room=null;roomCode='';updateRoomUI();return}room=data;updateRoomUI()})}
+  function watch(code){if(unsub)unsub();unsub=FB()?.watchFightRoom?.(code,(data,err)=>{if(err){toast('Sala KOF',err.message||'Falha ao acompanhar sala.','error');return}if(!data){room=null;roomCode='';lastReadyRoom='';updateRoomUI();return}room=data;updateRoomUI()})}
   async function createRoom(){
     if(!FB()?.ready?.())return toast('Firebase','Configure/entre na conta antes de criar a sala.','error');
-    try{const btn=$('kofCreateRoom');btn.disabled=true;roomCode=await FB().createFightRoom();localStorage.setItem('gameGuessLastKofRoom',roomCode);watch(roomCode);toast('Sala KOF criada',`Código ${roomCode}`)}catch(e){toast('Erro ao criar sala',e.message||String(e),'error')}finally{if($('kofCreateRoom'))$('kofCreateRoom').disabled=false}
+    if(!await refreshFiles(true))return toast('KOF Web incompleto','Faça o deploy completo da V14.2 antes de criar a sala.','error');
+    try{const btn=$('kofCreateRoom');btn.disabled=true;launched=false;lastLaunchAtHandled=0;lastReadyRoom='';roomCode=await FB().createFightRoom();localStorage.setItem('gameGuessLastKofRoom',roomCode);watch(roomCode);toast('Sala KOF criada',`Código ${roomCode} • aguardando rival`)}catch(e){toast('Erro ao criar sala',e.message||String(e),'error')}finally{if($('kofCreateRoom'))$('kofCreateRoom').disabled=false}
   }
   async function joinRoom(){
     const code=String($('kofJoinCode')?.value||'').trim().toUpperCase();
-    try{const btn=$('kofJoinRoom');btn.disabled=true;roomCode=await FB().joinFightRoom(code);localStorage.setItem('gameGuessLastKofRoom',roomCode);watch(roomCode);toast('Conectado',`Você entrou na sala ${roomCode}`)}catch(e){toast('Não consegui entrar',e.message||String(e),'error')}finally{if($('kofJoinRoom'))$('kofJoinRoom').disabled=false}
+    if(!await refreshFiles(true))return toast('KOF Web incompleto','Este deploy não contém todos os arquivos do arcade.','error');
+    try{const btn=$('kofJoinRoom');btn.disabled=true;launched=false;lastLaunchAtHandled=0;lastReadyRoom='';roomCode=await FB().joinFightRoom(code);localStorage.setItem('gameGuessLastKofRoom',roomCode);watch(roomCode);toast('Conectado',`Você entrou na sala ${roomCode}`)}catch(e){toast('Não consegui entrar',e.message||String(e),'error')}finally{if($('kofJoinRoom'))$('kofJoinRoom').disabled=false}
   }
-  async function leaveRoom(){if(roomCode)await FB()?.leaveFightRoom?.(roomCode).catch(()=>{});if(unsub)unsub();unsub=null;room=null;roomCode='';localStorage.removeItem('gameGuessLastKofRoom');updateRoomUI()}
+  async function leaveRoom(){if(roomCode)await FB()?.leaveFightRoom?.(roomCode).catch(()=>{});if(unsub)unsub();unsub=null;room=null;roomCode='';launched=false;lastReadyRoom='';lastLaunchAtHandled=0;localStorage.removeItem('gameGuessLastKofRoom');stopEmulator();updateRoomUI()}
 
-  async function launch(training=false){
-    if(!await refreshFiles())return toast('Arquivos necessários','Garanta kf2k2mp2.zip, kof2002.zip e neogeo.zip primeiro.','error');
+  async function requestOnlineLaunch(){
+    if(!roomCode||!room)return;
+    if(!isHost())return toast('Aguardando HOST','Somente o criador da sala inicia a luta.');
+    if(!await refreshFiles(true))return toast('KOF Web incompleto','Os arquivos do arcade não responderam.','error');
+    await ensureRoomReady();
+    try{await FB()?.requestFightLaunch?.(roomCode);toast('Sincronizando luta','Os dois aparelhos vão abrir o KOF juntos.')}
+    catch(e){toast('Não consegui iniciar',e.message||String(e),'error')}
+  }
+  async function launch(training=false,fromRoom=false){
+    if(!await refreshFiles())return toast('KOF Web indisponível','Os arquivos do arcade não estão acessíveis.','error');
+    if(!training&&!fromRoom)return requestOnlineLaunch();
     if(!training&&onlineCount()<2)return toast('Aguardando rival','A luta online precisa de 2 jogadores.','error');
-    const gameId=training?20020202:Number(room.gameId),roleParam=training?'training':role().toLowerCase(),code=training?'TREINO':roomCode;
+    const gameId=training?20020202:Number(room?.gameId||20020202),roleParam=training?'training':role().toLowerCase(),code=training?'TREINO':roomCode;
     const server=netplayServer();localStorage.setItem('gameGuessKofNetplayServer',server);
     const frame=$('kofEmulatorFrame');if(!frame)return;
-    frame.src=`/kof-player.html?gameId=${encodeURIComponent(gameId)}&room=${encodeURIComponent(code)}&role=${encodeURIComponent(roleParam)}&server=${encodeURIComponent(server)}`;
+    frame.src=`/kof-player.html?v=14.2.0&gameId=${encodeURIComponent(gameId)}&room=${encodeURIComponent(code)}&role=${encodeURIComponent(roleParam)}&server=${encodeURIComponent(server)}`;
     launched=true;show('kofPlayScreen');
     if($('kofPlayRoom'))$('kofPlayRoom').textContent=training?'TREINO LOCAL':`SALA ${roomCode} • ${role()}`;
-    if($('kofNetplayHelp'))$('kofNetplayHelp').classList.toggle('hidden',training);
+    if($('kofNetplayHelp')){
+      $('kofNetplayHelp').classList.toggle('hidden',training);
+      if(!training){const action=isHost()?'abra Netplay e escolha HOST/CREATE':'abra Netplay e escolha JOIN/ENTRAR';$('kofNetplayHelp').innerHTML=`<b>⚔️ Netplay • ${role()}</b><span>O Game ID ${gameId} e o servidor já estão iguais nos dois aparelhos. No menu do EmulatorJS, ${action}. O rival usa a opção complementar.</span>`}
+    }
   }
+  function stopEmulator(){const f=$('kofEmulatorFrame');if(f)f.src='about:blank'}
 
   async function vote(winnerUid){if(!roomCode||!winnerUid)return;try{await FB().submitFightResult(roomCode,winnerUid);toast('Resultado enviado','Aguardando o outro jogador confirmar o mesmo vencedor.')}catch(e){toast('Resultado',e.message||String(e),'error')}}
   async function recordRanked(r){
     const u=user();if(!u)return;const key=`gameGuessKofRecorded:${r.code}:${u.uid}`;if(localStorage.getItem(key))return;
-    // O Firebase é a trava global: mesmo abrindo a conta em outro aparelho,
-    // cada luta só pode afetar o Ranked uma vez por jogador.
     const claimed=await FB()?.claimFightRankedRecord?.(r.code).catch(()=>false);if(!claimed)return;
-    localStorage.setItem(key,'1');
-    const p=CORE()?.getProfile?.()||{},won=r.winnerUid===u.uid;
-    p.kofPlayed=Number(p.kofPlayed||0)+1;p.kofWins=Number(p.kofWins||0)+(won?1:0);p.kofLosses=Number(p.kofLosses||0)+(won?0:1);p.kofCurrentStreak=won?Number(p.kofCurrentStreak||0)+1:0;p.kofBestStreak=Math.max(Number(p.kofBestStreak||0),p.kofCurrentStreak);p.kofRating=Math.max(1000,Number(p.kofRating||1000)+(won?35:-22));
+    localStorage.setItem(key,'1');const p=CORE()?.getProfile?.()||{},won=r.winnerUid===u.uid;
+    p.kofPlayed=Number(p.kofPlayed||0)+1;p.kofWins=Number(p.kofWins||0)+(won?1:0);p.kofLosses=Number(p.kofLosses||0)+(won?0:1);p.kofCurrentStreak=won?Number(p.kofCurrentStreak||0)+1:0;p.kofBestStreak=Math.max(Number(p.kofBestStreak||0),p.kofCurrentStreak);p.kofRating=Math.max(1000,Number(p.kofRating||1000)+(won?35:-22));p.coins=Number(p.coins||0)+(won?12:4);
     window.GameGuessRanked?.record?.(p,{kind:'kof',score:p.kofRating,mode:'kof2002',universe:'arcade',challenge:'1x1',difficulty:'ranked',correct:won?1:0,wrong:won?0:1,won,players:2,streak:p.kofCurrentStreak});
-    CORE()?.replaceProfile?.(p);CORE()?.saveProfile?.();FB()?.syncLocalProfile?.(p);toast(won?'Vitória registrada!':'Partida registrada',`${won?'🏆 Vitória':'🥊 Derrota'} • Elo KOF ${p.kofRating}`);
+    CORE()?.replaceProfile?.(p);CORE()?.saveProfile?.();FB()?.syncLocalProfile?.(p);toast(won?'Vitória registrada!':'Partida registrada',`${won?'🏆 Vitória':'🥊 Derrota'} • Elo KOF ${p.kofRating}`)
   }
 
-  async function open(){show('kofScreen');checkServices();await refreshFiles();if($('kofNetplayServer'))$('kofNetplayServer').value=netplayServer();const saved=localStorage.getItem('gameGuessLastKofRoom');if(saved&&user()&&!roomCode){try{const r=await FB()?.getFightRoom?.(saved);if(r?.players?.[user().uid]&&r.status!=='finished'){roomCode=saved;await FB()?.attachFightPresence?.(roomCode);watch(roomCode)}}catch{}}}
+  async function open(){
+    show('kofScreen');checkServices();await refreshFiles(true);if($('kofNetplayServer'))$('kofNetplayServer').value=netplayServer();
+    const saved=localStorage.getItem('gameGuessLastKofRoom');if(saved&&user()&&!roomCode){try{const r=await FB()?.getFightRoom?.(saved);if(r?.players?.[user().uid]&&r.status!=='finished'&&Number(r.protocolVersion)===Number(FB()?.fightProtocolVersion)){roomCode=saved;await FB()?.attachFightPresence?.(roomCode);watch(roomCode)}}catch{}}
+  }
   function bind(){
-    $('homeKofButton')?.addEventListener('click',open);$('kofBackButton')?.addEventListener('click',()=>show('homeScreen'));$('kofPlayBackButton')?.addEventListener('click',()=>show('kofScreen'));
-    $('kofCloneInput')?.addEventListener('change',e=>importFile('kof-clone',e.target.files?.[0]));$('kofParentInput')?.addEventListener('change',e=>importFile('kof-parent',e.target.files?.[0]));$('kofBiosInput')?.addEventListener('change',e=>importFile('neogeo-bios',e.target.files?.[0]));
-    $('kofRemoveClone')?.addEventListener('click',async()=>{await removeFile('kof-clone');refreshFiles()});$('kofRemoveParent')?.addEventListener('click',async()=>{await removeFile('kof-parent');refreshFiles()});$('kofRemoveBios')?.addEventListener('click',async()=>{await removeFile('neogeo-bios');refreshFiles()});
-    $('kofTrainingButton')?.addEventListener('click',()=>launch(true));$('kofCreateRoom')?.addEventListener('click',createRoom);$('kofJoinRoom')?.addEventListener('click',joinRoom);$('kofLeaveRoom')?.addEventListener('click',leaveRoom);$('kofLaunchButton')?.addEventListener('click',()=>launch(false));
+    $('homeKofButton')?.addEventListener('click',open);$('kofBackButton')?.addEventListener('click',()=>show('homeScreen'));
+    $('kofPlayBackButton')?.addEventListener('click',()=>{stopEmulator();launched=false;show('kofScreen')});
+    $('kofRecheckFiles')?.addEventListener('click',()=>refreshFiles(true).then(ok=>toast(ok?'KOF Web pronto':'Arquivos ausentes',ok?'Todos os arquivos responderam.':'Confira o deploy da pasta /roms.',ok?'':'error')));
+    $('kofTrainingButton')?.addEventListener('click',()=>launch(true));$('kofCreateRoom')?.addEventListener('click',createRoom);$('kofJoinRoom')?.addEventListener('click',joinRoom);$('kofLeaveRoom')?.addEventListener('click',leaveRoom);$('kofLaunchButton')?.addEventListener('click',requestOnlineLaunch);
     $('kofNetplayServer')?.addEventListener('change',e=>localStorage.setItem('gameGuessKofNetplayServer',String(e.target.value||DEFAULT_NETPLAY).trim()));
     $('kofCopyRoom')?.addEventListener('click',()=>navigator.clipboard?.writeText(roomCode).then(()=>toast('Código copiado',roomCode)));
     $('kofVoteMe')?.addEventListener('click',()=>vote(user()?.uid));$('kofVoteRival')?.addEventListener('click',()=>vote(opponent()?.uid));
     window.addEventListener('gameguess:authchange',e=>{if(!e.detail?.user&&roomCode)leaveRoom()});
-    window.addEventListener('message',e=>{if(e.origin!==location.origin)return;if(e.data?.type==='kof-player-error')toast('Emulador KOF',e.data.message||'Falha ao iniciar.','error');if(e.data?.type==='kof-player-ready')toast('KOF pronto',e.data.message||'Emulador carregado.')});
+    window.addEventListener('message',e=>{if(e.origin!==location.origin)return;const d=e.data||{};if(d.type==='kof-player-error')toast('Emulador KOF',d.message||'Falha ao iniciar.','error');if(d.type==='kof-player-ready')toast('KOF pronto',d.message||'Emulador carregado.');if(d.type==='kof-player-slow')toast('KOF carregando','O primeiro carregamento pode demorar por causa do pacote de ~40 MB.')});
   }
   window.GameGuessKOF={open};if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind);else bind();
 })();

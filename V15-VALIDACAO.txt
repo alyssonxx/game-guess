@@ -1,0 +1,32 @@
+GAME GUESS V15 — VALIDACAO
+
+OK: app.js
+OK: multiverse.js
+OK: termo.js
+OK: quiz-bank.js
+OK: quiz.js
+OK: firebase.js
+OK: duel.js
+OK: kof.js
+OK: social.js
+OK: geoguess.js
+OK: api/geoguess.js
+OK: database.rules.json
+OK: vercel.json
+OK: package.json
+
+Implementado:
+- GeoGuess solo com mapa Leaflet/OpenStreetMap.
+- Fotos geolocalizadas via Wikipedia PT-BR.
+- GeoGuess Arena Firebase para 2 a 8 jogadores.
+- Presence, timeout, host migration, placar e reconexao.
+- Perfil do jogador com nickname, bio, favorito e estatisticas.
+- Avatar 3D WebGL/Three.js + fallback SVG.
+- Loja de cabelo, olhos, roupas, calcas, calcados e acessorios.
+- Personalizacao de pele/cabelo/olhos/roupa por cores.
+- Carteira com avatarSpent para compras persistentes entre dispositivos.
+- Economia de pontos reduzida em todos os modos principais.
+- Nenhum banner/mensagem dizendo que todos os jogos geram moedas/pontos.
+
+IMPORTANTE:
+Publique database.rules.json da V15 no Firebase Realtime Database antes de usar GeoGuess Arena.

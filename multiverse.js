@@ -106,7 +106,7 @@
 
   function updateProfileWin(points,streak,item){
     const p=readProfile();
-    p.coins=Number(p.coins||0)+Math.max(8,Math.round(points/65));
+    p.coins=Number(p.coins||0)+Math.max(2,Math.min(7,Math.round(points/300)));
     p.highScore=Math.max(Number(p.highScore||0),Number(points||0));
     p.gamesPlayed=Number(p.gamesPlayed||0)+1;
     p.gamesWon=Number(p.gamesWon||0)+1;
@@ -117,9 +117,9 @@
     if(session?.config?.universe==='random')p.multiverseWins.random=Number(p.multiverseWins.random||0)+1;
     p.achievements={...(p.achievements||{})};
     const wins=p.multiverseWins;
-    const rewards={challenger:160,pokemonMaster:220,digichosen:160,cartoonMemory:160,globinhoKid:180,zWarrior:180,duelKing:180,hokage:180,cosmoBurning:200,chaosWalker:220,multiverse:350};
+    const rewards={challenger:25,pokemonMaster:35,digichosen:25,cartoonMemory:25,globinhoKid:25,zWarrior:25,duelKing:25,hokage:25,cosmoBurning:30,chaosWalker:35,multiverse:50};
     const labels={challenger:'⚔️ Challenger',pokemonMaster:'🔴 Mestre Pokémon',digichosen:'🔵 DigiEscolhido',cartoonMemory:'📺 Memória de Elefante',globinhoKid:'☀️ Filho da Globinho',zWarrior:'🐉 Guerreiro Z',duelKing:'🃏 Rei dos Duelos',hokage:'🍥 Caminho do Hokage',cosmoBurning:'♈ Queime o Cosmo',chaosWalker:'🎲 Senhor do Caos',multiverse:'🌌 Viajante do Multiverso'};
-    const unlock=k=>{if(!p.achievements[k]){p.achievements[k]=Date.now();p.coins+=rewards[k]||0;toast('Conquista desbloqueada!',`${labels[k]||k} • +${rewards[k]||0} moedas`,'achievement');}};
+    const unlock=k=>{if(!p.achievements[k]){p.achievements[k]=Date.now();p.coins+=rewards[k]||0;toast('Conquista desbloqueada!',`${labels[k]||k} • +${rewards[k]||0} pontos`,'achievement');}};
     if((wins.lol||0)>=20)unlock('challenger');
     if((wins.pokemon||0)>=50)unlock('pokemonMaster');
     if((wins.digimon||0)>=20)unlock('digichosen');
@@ -133,7 +133,7 @@
     if(['lol','pokemon','digimon','dragonball','yugioh','naruto','saintseiya','cartoons','globinho'].every(k=>(wins[k]||0)>0))unlock('multiverse');
     saveProfile(p);
   }
-  function updateProfileLoss(){const p=readProfile();p.gamesPlayed=Number(p.gamesPlayed||0)+1;saveProfile(p);}
+  function updateProfileLoss(){const p=readProfile();p.gamesPlayed=Number(p.gamesPlayed||0)+1;p.coins=Number(p.coins||0)+1;saveProfile(p);}
 
   function renderCards(){
     const grid=$('universeGrid');if(!grid)return;grid.innerHTML='';

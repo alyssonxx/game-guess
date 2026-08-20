@@ -1054,7 +1054,7 @@
     if(!room||!user())return;
     const key=`gameGuessDuelRecorded:${room.code||roomCode}:${user().uid}`;if(localStorage.getItem(key))return;localStorage.setItem(key,'1');
     const p=CORE()?.getProfile?.()||{},mine=me(),winner=room.winnerUid,tie=winner==='tie',won=winner===user().uid;
-    p.duelPlayed=Number(p.duelPlayed||0)+1;if(won)p.duelWins=Number(p.duelWins||0)+1;else if(!tie)p.duelLosses=Number(p.duelLosses||0)+1;
+    p.duelPlayed=Number(p.duelPlayed||0)+1;if(won)p.duelWins=Number(p.duelWins||0)+1;else if(!tie)p.duelLosses=Number(p.duelLosses||0)+1;p.coins=Number(p.coins||0)+(won?10:tie?5:3);
     p.duelBestScore=Math.max(Number(p.duelBestScore||0),Number(mine?.score||0));
     window.GameGuessRanked?.record?.(p,{kind:'arena',score:Number(mine?.score||0),mode:arenaName(playerList().filter(x=>!x.left).length),universe:room.config?.universe||'random',challenge:(room.config?.universe==='quiz'?(room.config?.category||'misto'):(room.config?.challenge||'random')),difficulty:room.config?.difficulty||'normal',correct:Number(mine?.correct||0),wrong:Number(mine?.wrong||0),won,tie,players:playerList().filter(x=>!x.left).length});
     CORE()?.replaceProfile?.(p);CORE()?.saveProfile?.();FB()?.syncLocalProfile?.(p);

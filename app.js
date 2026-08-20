@@ -158,35 +158,35 @@
     return 'a câmera não é a principal pista desta rodada';
   }
 
-  const ASSIST_COSTS = { piece:100, letters:150, first:200, platform:250 };
+  const ASSIST_COSTS = { piece:20, letters:30, first:40, platform:50 };
 
   const ACHIEVEMENTS = {
-    firstWin:{icon:'🎯',title:'Primeiro Acerto',desc:'Acerte seu primeiro jogo.',reward:50},
-    nostalgia:{icon:'📼',title:'Nostalgia',desc:'Acerte 10 jogos do PlayStation 1.',reward:120},
-    unstoppable:{icon:'🔥',title:'Imparável',desc:'Chegue a 10 acertos seguidos.',reward:180},
-    encyclopedia:{icon:'🧠',title:'Enciclopédia Gamer',desc:'Acerte jogos de 10 plataformas diferentes.',reward:180},
-    speedrunner:{icon:'⚡',title:'Speedrunner',desc:'Acerte um jogo em menos de 5 segundos.',reward:100},
-    survivor:{icon:'❤️',title:'Sobrevivente',desc:'Acerte 10 jogos numa partida Survival.',reward:150},
-    blitzMaster:{icon:'⏱️',title:'Mestre do Blitz',desc:'Acerte 10 jogos numa única partida Blitz.',reward:150},
-    pureGuess:{icon:'🔮',title:'Instinto Gamer',desc:'Acerte sem usar pistas nem comprar ajuda.',reward:100},
-    rich:{icon:'🪙',title:'Colecionador',desc:'Tenha 1.000 moedas ao mesmo tempo.',reward:100},
-    challenger:{icon:'⚔️',title:'Challenger',desc:'Acerte 20 campeões de League of Legends.',reward:160},
-    pokemonMaster:{icon:'🔴',title:'Mestre Pokémon',desc:'Acerte 50 Pokémon.',reward:220},
-    digichosen:{icon:'🔵',title:'DigiEscolhido',desc:'Acerte 20 Digimon.',reward:160},
-    cartoonMemory:{icon:'📺',title:'Memória de Elefante',desc:'Acerte 20 personagens de desenhos clássicos.',reward:160},
-    globinhoKid:{icon:'☀️',title:'Filho da Globinho',desc:'Acerte 15 personagens do especial TV Globinho.',reward:180},
-    zWarrior:{icon:'🐉',title:'Guerreiro Z',desc:'Acerte 20 personagens do universo Dragon Ball.',reward:180},
-    duelKing:{icon:'🃏',title:'Rei dos Duelos',desc:'Acerte 20 personagens de Yu-Gi-Oh!.',reward:180},
-    hokage:{icon:'🍥',title:'Caminho do Hokage',desc:'Acerte 20 personagens de Naruto.',reward:180},
-    cosmoBurning:{icon:'♈',title:'Queime o Cosmo',desc:'Acerte 20 personagens de Cavaleiros do Zodíaco.',reward:200},
-    chaosWalker:{icon:'🎲',title:'Senhor do Caos',desc:'Acerte 20 personagens no Caos Multiverso.',reward:220},
-    wordsmith:{icon:'🔤',title:'Mestre das Palavras',desc:'Resolva 10 palavras no Termo Arcade.',reward:140},
-    termoStreak:{icon:'♾️',title:'Sequência Infinita',desc:'Acerte 5 palavras seguidas no Termo Arcade.',reward:190},
-    multiverse:{icon:'🌌',title:'Viajante do Multiverso',desc:'Acerte ao menos um desafio em cada universo de personagens.',reward:350}
+    firstWin:{icon:'🎯',title:'Primeiro Acerto',desc:'Acerte seu primeiro jogo.',reward:10},
+    nostalgia:{icon:'📼',title:'Nostalgia',desc:'Acerte 10 jogos do PlayStation 1.',reward:20},
+    unstoppable:{icon:'🔥',title:'Imparável',desc:'Chegue a 10 acertos seguidos.',reward:25},
+    encyclopedia:{icon:'🧠',title:'Enciclopédia Gamer',desc:'Acerte jogos de 10 plataformas diferentes.',reward:25},
+    speedrunner:{icon:'⚡',title:'Speedrunner',desc:'Acerte um jogo em menos de 5 segundos.',reward:15},
+    survivor:{icon:'❤️',title:'Sobrevivente',desc:'Acerte 10 jogos numa partida Survival.',reward:25},
+    blitzMaster:{icon:'⏱️',title:'Mestre do Blitz',desc:'Acerte 10 jogos numa única partida Blitz.',reward:25},
+    pureGuess:{icon:'🔮',title:'Instinto Gamer',desc:'Acerte sem usar pistas nem comprar ajuda.',reward:15},
+    rich:{icon:'🪙',title:'Colecionador',desc:'Tenha 1.000 pontos ao mesmo tempo.',reward:15},
+    challenger:{icon:'⚔️',title:'Challenger',desc:'Acerte 20 campeões de League of Legends.',reward:25},
+    pokemonMaster:{icon:'🔴',title:'Mestre Pokémon',desc:'Acerte 50 Pokémon.',reward:35},
+    digichosen:{icon:'🔵',title:'DigiEscolhido',desc:'Acerte 20 Digimon.',reward:25},
+    cartoonMemory:{icon:'📺',title:'Memória de Elefante',desc:'Acerte 20 personagens de desenhos clássicos.',reward:25},
+    globinhoKid:{icon:'☀️',title:'Filho da Globinho',desc:'Acerte 15 personagens do especial TV Globinho.',reward:25},
+    zWarrior:{icon:'🐉',title:'Guerreiro Z',desc:'Acerte 20 personagens do universo Dragon Ball.',reward:25},
+    duelKing:{icon:'🃏',title:'Rei dos Duelos',desc:'Acerte 20 personagens de Yu-Gi-Oh!.',reward:25},
+    hokage:{icon:'🍥',title:'Caminho do Hokage',desc:'Acerte 20 personagens de Naruto.',reward:25},
+    cosmoBurning:{icon:'♈',title:'Queime o Cosmo',desc:'Acerte 20 personagens de Cavaleiros do Zodíaco.',reward:30},
+    chaosWalker:{icon:'🎲',title:'Senhor do Caos',desc:'Acerte 20 personagens no Caos Multiverso.',reward:35},
+    wordsmith:{icon:'🔤',title:'Mestre das Palavras',desc:'Resolva 10 palavras no Termo Arcade.',reward:20},
+    termoStreak:{icon:'♾️',title:'Sequência Infinita',desc:'Acerte 5 palavras seguidas no Termo Arcade.',reward:30},
+    multiverse:{icon:'🌌',title:'Viajante do Multiverso',desc:'Acerte ao menos um desafio em cada universo de personagens.',reward:50}
   };
 
   const DEFAULT_PROFILE = {
-    coins:300, highScore:0, gamesPlayed:0, gamesWon:0, bestStreak:0, sound:true,
+    coins:120, highScore:0, gamesPlayed:0, gamesWon:0, bestStreak:0, sound:true,
     achievements:{}, platformWins:{}, modeWins:{}, modeRecords:{survival:0,blitz:0}, recentGameIds:[], tutorialSeen:false
   };
 
@@ -567,7 +567,7 @@
   function updateImageStatus(){if(!session)return;$('imageStatus').textContent=`${session.revealed.size} de 6 fragmentos revelados`;}
 
   function buyAssist(type) {
-    if(!session||session.roundResolved)return; const cost=ASSIST_COSTS[type]; if(profile.coins<cost)return toast('Moedas insuficientes',`Você precisa de ${cost} moedas para essa ajuda.`,'error');
+    if(!session||session.roundResolved)return; const cost=ASSIST_COSTS[type]; if(profile.coins<cost)return toast('Pontos insuficientes',`Você precisa de ${cost} pontos para essa ajuda.`,'error');
     if(type!=='piece'&&session.assistsUsed.has(type))return; if(type==='piece'&&session.revealed.size>=6)return toast('Imagem completa','Todos os fragmentos já foram revelados.');
     profile.coins-=cost; session.purchases++; if(type!=='piece')session.assistsUsed.add(type); playSound('coin');
     let text='';
@@ -624,17 +624,17 @@
 
   function winRound() {
     if(!session||session.roundResolved)return; session.roundResolved=true; isResolving=true; const elapsed=(Date.now()-session.roundStart)/1000; const nextStreak=session.streak+1; const points=currentPotentialPoints(); session.streak=nextStreak; session.wins++; profile.gamesPlayed++;profile.gamesWon++;profile.bestStreak=Math.max(profile.bestStreak,session.streak);
-    const mult=comboMultiplier(session.streak); const speedBonus=elapsed<5?120:elapsed<10?60:elapsed<20?25:0; const finalPoints=points+Math.round(speedBonus*mult); const d=DIFFICULTIES[session.currentDifficulty]; const coinsEarned=35+d.coinBonus+(elapsed<10?15:0)+Math.min(40,session.streak*2);
+    const mult=comboMultiplier(session.streak); const speedBonus=elapsed<5?120:elapsed<10?60:elapsed<20?25:0; const finalPoints=points+Math.round(speedBonus*mult); const d=DIFFICULTIES[session.currentDifficulty]; const coinsEarned=3+(d===DIFFICULTIES.hard?2:d===DIFFICULTIES.insane?3:d===DIFFICULTIES.normal?1:0)+(elapsed<10?1:0)+Math.min(2,Math.floor(session.streak/4));
     session.score+=finalPoints; profile.highScore=Math.max(profile.highScore,session.score); profile.coins+=coinsEarned; profile.modeWins[session.config.mode]=(profile.modeWins[session.config.mode]||0)+1;
     (session.currentGame.platforms||[]).forEach(p=>{if(p?.id)profile.platformWins[p.id]=(profile.platformWins[p.id]||0)+1;}); rememberCurrentGame(); saveProfile(); revealAllPieces(); playSound('win'); spawnConfetti(); checkAchievements({elapsed}); updateGameUI();
-    if(session.config.mode==='blitz') { toast('✅ Acertou!',`+${finalPoints} pontos • +${coinsEarned} moedas`); setTimeout(()=>advanceRound(),520); isResolving=false; return; }
+    if(session.config.mode==='blitz') { toast('✅ Acertou!',`+${finalPoints} pontos • +${coinsEarned} pontos`); setTimeout(()=>advanceRound(),520); isResolving=false; return; }
     showRoundResult(true,{points:finalPoints,coins:coinsEarned,elapsed}); isResolving=false;
   }
 
   function loseRound(reason='tentativas',consumeLife=true) {
     if(!session||session.roundResolved)return;
     const withLives=roundUsesLives(); if(consumeLife&&withLives) session.lives=Math.max(0,Number(session.lives||0)-1);
-    session.roundResolved=true; isResolving=true; session.losses++; profile.gamesPlayed++; session.streak=0; rememberCurrentGame();saveProfile();revealAllPieces();playSound('lose');updateGameUI();
+    session.roundResolved=true; isResolving=true; session.losses++; profile.gamesPlayed++; profile.coins=Number(profile.coins||0)+1; session.streak=0; rememberCurrentGame();saveProfile();revealAllPieces();playSound('lose');updateGameUI();
     if(session.config.mode==='blitz'&&(!withLives||session.lives>0)){toast(reason==='tempo'?(withLives?'⏱️ Tempo da rodada! -1 ❤️':'⏱️ Tempo da rodada!'):(withLives?'❌ Rodada perdida -1 ❤️':'❌ Rodada perdida'),`Era ${session.currentGame.name}.`,'error');setTimeout(()=>advanceRound(),650);isResolving=false;return;}
     showRoundResult(false,{reason}); isResolving=false;
   }
@@ -653,7 +653,7 @@
     $('resultIcon').textContent=won?'✅':'❌'; $('resultEyebrow').textContent=won?'VOCÊ ACERTOU!':data.reason==='tempo'?'TEMPO ESGOTADO':'RESPOSTA REVELADA'; $('resultGameName').textContent=game.name;
     const img=$('resultImage'); const url=getCover(game); if(url){img.src=url;img.style.display='block';img.onerror=()=>{img.src=game._puzzleImage||'';};}else img.style.display='none';
     $('resultInfo').innerHTML=gameInfoHTML(game);
-    $('rewardLine').innerHTML=won?`⭐ <b>+${data.points} pontos</b> &nbsp; 🪙 <b>+${data.coins} moedas</b> &nbsp; 🔥 combo x${comboMultiplier(session.streak)}`:(roundUsesLives()?`A sequência foi zerada. Restam <b>${session.lives}</b> vida(s).`:'A sequência foi zerada. A próxima rodada começa com novas tentativas.');
+    $('rewardLine').innerHTML=won?`⭐ <b>+${data.points} pontos</b> &nbsp; 🪙 <b>+${data.coins} pontos</b> &nbsp; 🔥 combo x${comboMultiplier(session.streak)}`:(roundUsesLives()?`A sequência foi zerada. Restam <b>${session.lives}</b> vida(s).`:'A sequência foi zerada. A próxima rodada começa com novas tentativas.');
     $('learnButton').classList.toggle('hidden',!game.url); $('learnButton').onclick=()=>{if(game.url)window.open(game.url,'_blank','noopener,noreferrer');};
     $('nextButton').textContent=(roundUsesLives()&&session.lives===0)?'VER RESULTADO ▶':session.config.mode==='quick'?(won?'OUTRO JOGO ▶':'TENTAR OUTRO ▶'):'PRÓXIMO ▶';
     resultAction=()=>{closeOverlay('resultOverlay'); if(roundUsesLives()&&session.lives===0)endSession('lives'); else if(session.config.mode==='quick')startSession({...session.config}); else advanceRound();};
@@ -670,7 +670,7 @@
     const mode=MODES[session.config.mode];$('resultModal').className='result-modal success';$('resultIcon').textContent=reason==='lives'?'💔':reason==='blitz'?'⏱️':'🏆';$('resultEyebrow').textContent=reason==='lives'?'GAME OVER':reason==='blitz'?'TEMPO!':'SESSÃO ENCERRADA';$('resultGameName').textContent=mode.title;
     const modeRecord=['survival','blitz'].includes(session.config.mode)?`<div>🎖️ Recorde do modo: <strong>${profile.modeRecords[session.config.mode]}</strong> acertos</div>`:'';
     $('resultImage').style.display='none';$('resultInfo').innerHTML=`<div>✅ Acertos: <strong>${session.wins}</strong></div><div>❌ Perdidos: <strong>${session.losses}</strong></div><div>⭐ Pontuação: <strong>${session.score}</strong></div><div>🏆 Recorde local: <strong>${profile.highScore}</strong></div>${modeRecord}`;
-    $('rewardLine').innerHTML=`Você terminou com <b>${profile.coins} moedas</b>. Melhor sequência histórica: <b>${profile.bestStreak}</b>.`;$('learnButton').classList.add('hidden');$('nextButton').textContent='VOLTAR AO MENU';
+    $('rewardLine').innerHTML=`Você terminou com <b>${profile.coins} pontos</b>. Melhor sequência histórica: <b>${profile.bestStreak}</b>.`;$('learnButton').classList.add('hidden');$('nextButton').textContent='VOLTAR AO MENU';
     resultAction=()=>{closeOverlay('resultOverlay');session=null;showScreen('homeScreen');updatePersistentUI();};openOverlay('resultOverlay');
   }
 
@@ -698,7 +698,7 @@
   function stopTicker(){if(ticker){clearInterval(ticker);ticker=null;}}
 
   function checkAchievements(context={}) {
-    const unlock=(id)=>{if(profile.achievements[id])return;profile.achievements[id]=Date.now();const a=ACHIEVEMENTS[id];profile.coins+=a.reward;toast(`Conquista: ${a.title}`,`${a.desc} +${a.reward} moedas`,'achievement');playSound('achievement');};
+    const unlock=(id)=>{if(profile.achievements[id])return;profile.achievements[id]=Date.now();const a=ACHIEVEMENTS[id];profile.coins+=a.reward;toast(`Conquista: ${a.title}`,`${a.desc} +${a.reward} pontos`,'achievement');playSound('achievement');};
     if(profile.gamesWon>=1)unlock('firstWin'); if((profile.platformWins[7]||0)>=10)unlock('nostalgia'); if(profile.bestStreak>=10)unlock('unstoppable'); if(Object.keys(profile.platformWins).filter(k=>profile.platformWins[k]>0).length>=10)unlock('encyclopedia'); if(context.elapsed&&context.elapsed<5)unlock('speedrunner'); if(session?.config.mode==='survival'&&session.wins>=10)unlock('survivor'); if(session?.config.mode==='blitz'&&session.wins>=10)unlock('blitzMaster'); if(session&&session.hintsUsed.size===0&&session.purchases===0)unlock('pureGuess'); if(profile.coins>=1000)unlock('rich'); saveProfile();
   }
 

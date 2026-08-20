@@ -64,7 +64,7 @@
   }
   function finish(){
     clearTimer();if(!state)return;const p=readProfile(),won=state.correct>=Math.ceil(state.questions.length*.6),cat=meta(config.category);
-    p.gamesPlayed=Number(p.gamesPlayed||0)+1;if(won)p.gamesWon=Number(p.gamesWon||0)+1;p.highScore=Math.max(Number(p.highScore||0),state.score);p.bestStreak=Math.max(Number(p.bestStreak||0),state.bestStreak);p.modeWins={...(p.modeWins||{})};if(won)p.modeWins.quiz=Number(p.modeWins.quiz||0)+1;p.multiverseWins={...(p.multiverseWins||{})};if(won)p.multiverseWins.quiz=Number(p.multiverseWins.quiz||0)+1;
+    p.gamesPlayed=Number(p.gamesPlayed||0)+1;if(won)p.gamesWon=Number(p.gamesWon||0)+1;p.coins=Number(p.coins||0)+Math.max(2,Math.min(10,Math.round(state.correct/2)+(won?2:0)));p.highScore=Math.max(Number(p.highScore||0),state.score);p.bestStreak=Math.max(Number(p.bestStreak||0),state.bestStreak);p.modeWins={...(p.modeWins||{})};if(won)p.modeWins.quiz=Number(p.modeWins.quiz||0)+1;p.multiverseWins={...(p.multiverseWins||{})};if(won)p.multiverseWins.quiz=Number(p.multiverseWins.quiz||0)+1;
     window.GameGuessRanked?.record?.(p,{kind:'quiz',score:state.score,mode:'quiz',universe:'quiz',challenge:config.category==='random'?'misto':config.category,difficulty:config.difficulty,correct:state.correct,wrong:state.wrong,won});saveProfile(p);
     if(won)CORE()?.spawnConfetti?.();
     if($('quizResultTitle'))$('quizResultTitle').textContent=won?'Mandou bem!':'Fim do Quiz';
