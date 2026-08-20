@@ -1,0 +1,126 @@
+{
+  "kf2k2mp2.zip": {
+    "size": 2432456,
+    "entries": 3,
+    "sha256": "d6d5588b151a2b1f55ad16dcbc2bd1290d9e93ad4ee43fa49f3add092ec16781",
+    "checks": {
+      "k2k2m2p1.bin": {
+        "crc": "1016806c",
+        "expected": "1016806c",
+        "ok": true
+      },
+      "k2k2m2p2.bin": {
+        "crc": "432fdf53",
+        "expected": "432fdf53",
+        "ok": true
+      },
+      "k2k2m2s1.bin": {
+        "crc": "446e74c5",
+        "expected": "446e74c5",
+        "ok": true
+      }
+    },
+    "ok": true
+  },
+  "kof2002.zip": {
+    "size": 82483673,
+    "entries": 13,
+    "sha256": "870204ac21027c010de7a70da00da2202bb710a16f7c01b9b11ab680fe5c2c51",
+    "checks": {
+      "265-c1.c1": {
+        "crc": "2b65a656",
+        "expected": "2b65a656",
+        "ok": true
+      },
+      "265-c2.c2": {
+        "crc": "adf18983",
+        "expected": "adf18983",
+        "ok": true
+      },
+      "265-c3.c3": {
+        "crc": "875e9fd7",
+        "expected": "875e9fd7",
+        "ok": true
+      },
+      "265-c4.c4": {
+        "crc": "2da13947",
+        "expected": "2da13947",
+        "ok": true
+      },
+      "265-c5.c5": {
+        "crc": "61bd165d",
+        "expected": "61bd165d",
+        "ok": true
+      },
+      "265-c6.c6": {
+        "crc": "03fdd1eb",
+        "expected": "03fdd1eb",
+        "ok": true
+      },
+      "265-c7.c7": {
+        "crc": "1a2749d8",
+        "expected": "1a2749d8",
+        "ok": true
+      },
+      "265-c8.c8": {
+        "crc": "ab0bb549",
+        "expected": "ab0bb549",
+        "ok": true
+      },
+      "265-m1.m1": {
+        "crc": "85aaa632",
+        "expected": "85aaa632",
+        "ok": true
+      },
+      "265-p1.p1": {
+        "crc": "9ede7323",
+        "expected": "9ede7323",
+        "ok": true
+      },
+      "265-p2.sp2": {
+        "crc": "327266b8",
+        "expected": "327266b8",
+        "ok": true
+      },
+      "265-v1.v1": {
+        "crc": "15e8f3f5",
+        "expected": "15e8f3f5",
+        "ok": true
+      },
+      "265-v2.v2": {
+        "crc": "da41d6f9",
+        "expected": "da41d6f9",
+        "ok": true
+      }
+    },
+    "ok": true
+  },
+  "neogeo.zip": {
+    "size": 1766500,
+    "entries": 34,
+    "sha256": "b8cf7226e6b737bae17aec63d5973d96e6bab047d92570cd4cef5fb7f67ed7bc",
+    "checks": {
+      "000-lo.lo": {
+        "crc": "5a86cff2",
+        "expected": "5a86cff2",
+        "ok": true
+      },
+      "sfix.sfix": {
+        "crc": "c2ea0cfd",
+        "expected": "c2ea0cfd",
+        "ok": true
+      },
+      "sm1.sm1": {
+        "crc": "94416d67",
+        "expected": "94416d67",
+        "ok": true
+      },
+      "sp-s3.sp1": {
+        "crc": "91b64be3",
+        "expected": "91b64be3",
+        "ok": true
+      }
+    },
+    "ok": true
+  }
+}

@@ -1,0 +1,42 @@
+GAME GUESS — KOF V17.5
+
+Objetivo
+- Usar EmulatorJS 4.2.1 com o sistema "arcade" (que usa FBNeo).
+- Manter o romset clone, parent e BIOS em ZIPs separados.
+- Usar a BIOS FBNeo enviada pelo usuário, corrigida para o formato esperado pelo navegador/core.
+
+SUBSTITUA ESTES ARQUIVOS NO PROJETO:
+/kof-player.html
+/kof-player.js
+/kof.js
+/api/kof-config.js
+/api/kof-health.js
+/roms/kf2k2mp2.zip
+/roms/kof2002.zip
+/roms/neogeo.zip
+
+IMPORTANTE SOBRE A BIOS ENVIADA
+O arquivo BIOS/fbneo/neogeo.zip dentro do RAR veio com os arquivos dentro da pasta interna "neogeo/".
+Para FBNeo via EmulatorJS, a V17.5 repacota esses arquivos na RAIZ de neogeo.zip.
+Também cria o alias sp-s3.sp1 a partir de asia-s3.rom, pois os dois têm o mesmo conteúdo/CRC 91b64be3 e o erro do FBNeo exigia exatamente o nome sp-s3.sp1.
+
+CRCs críticos confirmados:
+000-lo.lo = 5a86cff2
+sfix.sfix = c2ea0cfd
+sm1.sm1 = 94416d67
+sp-s3.sp1 = 91b64be3
+
+KOF clone:
+k2k2m2p1.bin = 1016806c
+k2k2m2p2.bin = 432fdf53
+k2k2m2s1.bin = 446e74c5
+
+Depois de substituir:
+1. git add kof-player.html kof-player.js kof.js api/kof-config.js api/kof-health.js roms/kf2k2mp2.zip roms/kof2002.zip roms/neogeo.zip
+2. git commit -m "KOF V17.5 FBNeo BIOS"
+3. git push origin main
+4. Aguarde o deploy do Vercel.
+5. Teste primeiro KOF > Treino Local.
+6. Se abrir, teste sala online com dois navegadores/contas.
+
+O arquivo kof2002.zip continua grande (~79 MB), então o GitHub pode mostrar aviso acima de 50 MB; abaixo de 100 MiB o push normal ainda é aceito.
