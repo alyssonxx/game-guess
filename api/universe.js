@@ -1,5 +1,5 @@
-import { EXTRA_DRAGON_BALL, EXTRA_YUGIOH, EXTRA_NARUTO, SAINT_SEIYA, LEGACY_DETAILS } from './data/expanded.js';
-import { V8_DRAGON_BALL, V8_YUGIOH, V8_NARUTO, V8_SAINT_SEIYA, V8_CARTOONS } from './data/v8-extra.js';
+import { EXTRA_DRAGON_BALL, EXTRA_YUGIOH, EXTRA_NARUTO, SAINT_SEIYA, LEGACY_DETAILS } from '../server-data/expanded.js';
+import { V8_DRAGON_BALL, V8_YUGIOH, V8_NARUTO, V8_SAINT_SEIYA, V8_CARTOONS } from '../server-data/v8-extra.js';
 const CACHE_TTL = 30 * 60 * 1000;
 const cache = new Map();
 

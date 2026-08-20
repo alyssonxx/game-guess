@@ -1,4 +1,4 @@
-import { COMMON_PT5 } from './data/words-pt.js';
+import { COMMON_PT5 } from '../server-data/words-pt.js';
 const LOCAL=new Set(COMMON_PT5);
 const CACHE=new Map();
 function norm(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z]/g,'');}

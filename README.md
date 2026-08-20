@@ -1,4 +1,4 @@
-# Game Guess V15 — GeoGuess + Avatar + KOF Web + Quiz Cloud
+# Game Guess V15.1 — GeoGuess + Avatar + KOF Web + Quiz Cloud
 
 
 **KOF Web:** o Magic Plus II agora é carregado diretamente do site através de um pacote RomData preparado para FBNeo; nenhum arquivo local é exigido do jogador. O Quiz Cloud, Arena 2–8, Ranked por temporada e histórico persistente continuam preservados.

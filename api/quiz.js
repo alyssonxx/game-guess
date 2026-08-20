@@ -1,4 +1,4 @@
-import { QUIZ_FALLBACK } from './data/quiz-fallback.js';
+import { QUIZ_FALLBACK } from '../server-data/quiz-fallback.js';
 const TRYVIA_BASE='https://tryvia.ptr.red';
 
 function out(res,status,body){res.statusCode=status;res.setHeader('Content-Type','application/json; charset=utf-8');res.setHeader('Cache-Control','no-store');res.end(JSON.stringify(body));}
