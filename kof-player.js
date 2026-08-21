@@ -16,7 +16,7 @@
   const room = String(params.get('room') || 'TREINO').toUpperCase();
   const online = role !== 'training' && room !== 'TREINO';
   const EJS_VERSION = online ? '4.3.0-pre' : '4.2.1';
-  const PATCH_VERSION = '19.4.4';
+  const PATCH_VERSION = '19.4.5';
   const EJS_DATA = `https://cdn.emulatorjs.org/${EJS_VERSION}/data/`;
 
   const GAME_URL = '/roms/v178/kf2k2mp2.zip';
