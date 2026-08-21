@@ -10,8 +10,7 @@
     html,body{width:100%;height:100%;margin:0;overflow:hidden;background:#050913;color:#fff;font-family:Arial,sans-serif;overscroll-behavior:none;touch-action:manipulation}
     body.gg-mobile-coarse{user-select:none;-webkit-user-select:none}
     #game{position:fixed;inset:0;width:100%;height:100%;margin:0;background:#050913;overflow:hidden}
-    #game>*{width:100%!important;height:100%!important;max-width:none!important;max-height:none!important}
-    #game canvas,#game iframe,#game video,#game object{width:100%!important;height:100%!important;max-width:none!important;max-height:none!important;object-fit:fill!important;image-rendering:pixelated}
+    #game canvas,#game iframe,#game video,#game object{max-width:100%!important;max-height:100%!important;touch-action:none!important}
     #boot{position:fixed;inset:0;display:grid;place-items:center;text-align:center;padding:24px;background:radial-gradient(circle at 50% 25%,#17254a 0,#090f20 42%,#050913 76%);z-index:80}
     #boot .panel{max-width:620px}#boot b{font-size:1.15rem}#boot small{display:block;color:#9ca9c3;margin:10px auto 18px;max-width:580px;line-height:1.5}
     #startKofButton{border:1px solid #42e8ff;background:linear-gradient(135deg,#26d8f2,#518bff);color:#04111c;font-weight:900;letter-spacing:.06em;padding:13px 24px;border-radius:12px;cursor:pointer;box-shadow:0 10px 35px rgba(66,232,255,.18)}#startKofButton:disabled{opacity:.6;cursor:wait}
@@ -55,13 +54,9 @@
     body.gg-mobile-coarse #game .ejs_menu_bar,
     body.gg-mobile-coarse #game .ejs_context_menu,
     body.gg-mobile-coarse #game .ejs_message {display:none!important;visibility:hidden!important;opacity:0!important;pointer-events:none!important}
-    body.gg-mobile-coarse #game .ejs_game,
-    body.gg-mobile-coarse #game .ejs_game_parent,
-    body.gg-mobile-coarse #game .ejs_canvas_parent,
-    body.gg-mobile-coarse #game .ejs_game_background {position:absolute!important;inset:0!important;width:100%!important;height:100%!important;max-width:none!important;max-height:none!important;margin:0!important;padding:0!important;transform:none!important}
-    body.gg-mobile-coarse #game canvas {position:absolute!important;inset:0!important;width:100vw!important;height:100dvh!important;max-width:none!important;max-height:none!important;margin:0!important;object-fit:fill!important}
+    body.gg-mobile-coarse #game canvas{max-width:100%!important;max-height:100%!important;margin:auto!important;touch-action:none!important}
     body.gg-mobile-coarse .gg-kof-combos{display:flex;flex-direction:row;align-items:center;justify-content:center;gap:10px;right:auto;bottom:auto;width:auto;z-index:72}
-    body.gg-mobile-coarse .gg-kof-combo{width:70px;height:70px;min-width:70px;padding:0;border-radius:50%;display:grid;place-items:center;border:2px solid rgba(235,245,255,.56);background:rgba(15,20,32,.28);box-shadow:0 5px 18px rgba(0,0,0,.22),inset 0 -6px 14px rgba(0,0,0,.16);backdrop-filter:blur(2px);opacity:.72;text-shadow:0 1px 2px #000}
+    body.gg-mobile-coarse .gg-kof-combo{width:var(--gg-action-size,70px);height:var(--gg-action-size,70px);min-width:var(--gg-action-size,70px);padding:0;border-radius:50%;display:grid;place-items:center;border:2px solid rgba(235,245,255,.56);background:rgba(15,20,32,.28);box-shadow:0 5px 18px rgba(0,0,0,.22),inset 0 -6px 14px rgba(0,0,0,.16);backdrop-filter:blur(2px);opacity:.72;text-shadow:0 1px 2px #000}
     body.gg-mobile-coarse .gg-kof-combo b{font-size:.72rem;line-height:1;letter-spacing:.02em;max-width:60px;overflow:hidden;text-overflow:clip}
     body.gg-mobile-coarse .gg-kof-combo.combo-max{border-color:rgba(82,225,255,.72)}
     body.gg-mobile-coarse .gg-kof-combo.combo-roll{border-color:rgba(255,218,88,.68)}
@@ -72,11 +67,22 @@
     body.gg-mobile-coarse.gameplay-active.gg-toast-hidden #kofNetplayStatus{display:none!important}
     body.gg-mobile-coarse.gameplay-active #kofNetplayMenuButton{display:none!important}
     @media(orientation:landscape) and (max-height:620px){
-      body.gg-mobile-coarse .gg-kof-combo{width:60px;height:60px;min-width:60px}
+      body.gg-mobile-coarse .gg-kof-combo{width:var(--gg-action-size,60px);height:var(--gg-action-size,60px);min-width:var(--gg-action-size,60px)}
       body.gg-mobile-coarse .gg-kof-combo b{font-size:.64rem}
       body.gg-mobile-coarse .gg-kof-toolbar{top:max(4px,env(safe-area-inset-top));left:max(5px,env(safe-area-inset-left));right:max(5px,env(safe-area-inset-right))}
       body.gg-mobile-coarse .gg-kof-tool{min-height:29px;padding:4px 7px;font-size:.61rem}
     }
+
+    /* V19.4.2: hide only EmulatorJS chrome; never stretch its parent containers. */
+    body.gg-mobile-coarse #game .ejs_menu_bar,
+    body.gg-mobile-coarse #game .ejs_menu_bar_parent,
+    body.gg-mobile-coarse #game .ejs_message,
+    body.gg-mobile-coarse #game .ejs_context_menu{display:none!important;visibility:hidden!important;opacity:0!important;pointer-events:none!important}
+    body.gg-mobile-coarse #game .ejs_virtualGamepad_parent,
+    body.gg-mobile-coarse #game .ejs_virtual_gamepad_parent,
+    body.gg-mobile-coarse #game [class*="virtualGamepad"]{background:transparent!important;box-shadow:none!important;border:none!important}
+    body.gg-mobile-coarse #game [id^="gg-neo-"]{pointer-events:auto!important;touch-action:none!important}
+    body.gg-mobile-coarse .gg-kof-combo{pointer-events:auto!important;touch-action:none!important;opacity:.52}
   </style>
 </head>
 <body>
@@ -179,6 +185,6 @@
     </div>
   </div>
   <div id="boot"><div class="panel"><b>🥊 KOF 2002 Magic Plus II</b><small id="bootText">Preparando FBNeo.</small><button id="startKofButton" type="button">INICIAR KOF</button></div></div>
-  <script src="/kof-player.js?v=19.4.1"></script>
+  <script src="/kof-player.js?v=19.4.2"></script>
 </body>
 </html>

@@ -16,7 +16,7 @@
   const room = String(params.get('room') || 'TREINO').toUpperCase();
   const online = role !== 'training' && room !== 'TREINO';
   const EJS_VERSION = online ? '4.3.0-pre' : '4.2.1';
-  const PATCH_VERSION = '19.4.1';
+  const PATCH_VERSION = '19.4.2';
   const EJS_DATA = `https://cdn.emulatorjs.org/${EJS_VERSION}/data/`;
 
   const GAME_URL = '/roms/v178/kf2k2mp2.zip';
@@ -139,40 +139,41 @@
   }
   function forceGameFill() {
     const root = document.getElementById('game');
-    const canvas = root?.querySelector('canvas');
-    if (!root || !canvas) return;
-    canvas.style.setProperty('position','absolute','important');
-    canvas.style.setProperty('inset','0','important');
-    canvas.style.setProperty('width','100vw','important');
-    canvas.style.setProperty('height','100dvh','important');
-    canvas.style.setProperty('max-width','none','important');
-    canvas.style.setProperty('max-height','none','important');
-    canvas.style.setProperty('margin','0','important');
-    canvas.style.setProperty('object-fit','fill','important');
-    let node = canvas.parentElement;
-    while (node && node !== root) {
-      node.style.setProperty('width','100%','important');
-      node.style.setProperty('height','100%','important');
-      node.style.setProperty('max-width','none','important');
-      node.style.setProperty('max-height','none','important');
-      node.style.setProperty('margin','0','important');
-      node = node.parentElement;
+    if (!root) return;
+    const canvas = root.querySelector('canvas');
+    if (canvas) {
+      canvas.style.removeProperty('width');
+      canvas.style.removeProperty('height');
+      canvas.style.removeProperty('inset');
+      canvas.style.removeProperty('position');
+      canvas.style.removeProperty('object-fit');
+      canvas.style.setProperty('max-width','100%','important');
+      canvas.style.setProperty('max-height','100%','important');
+      canvas.style.setProperty('touch-action','none','important');
     }
+    root.querySelectorAll('.ejs_virtualGamepad_parent,.ejs_virtual_gamepad_parent,[class*="virtualGamepad"]').forEach(el => {
+      el.style.setProperty('background','transparent','important');
+      el.style.setProperty('box-shadow','none','important');
+      el.style.setProperty('border','0','important');
+    });
   }
   function positionComboButtons() {
     if (!coarsePointer || !comboShell || comboShell.hidden) return;
     const buttons = ['A','B','C','D'].map(findArcadeButton).filter(Boolean);
     if (buttons.length < 2) return;
-    const rects = buttons.map(el => el.getBoundingClientRect());
+    const rects = buttons.map(el => el.getBoundingClientRect()).filter(r => r.width > 20 && r.height > 20);
+    if (!rects.length) return;
     const left = Math.min(...rects.map(r => r.left));
     const right = Math.max(...rects.map(r => r.right));
     const top = Math.min(...rects.map(r => r.top));
+    const sizes = rects.map(r => Math.min(r.width,r.height)).sort((a,b)=>a-b);
+    const actionSize = Math.max(42, Math.min(82, sizes[Math.floor(sizes.length/2)] || 60));
     const clusterWidth = right - left;
-    const macroHeight = matchMedia('(orientation:landscape) and (max-height:620px)').matches ? 60 : 70;
-    const gap = 9;
-    comboShell.style.left = `${Math.max(8, Math.min(innerWidth - clusterWidth - 8, left))}px`;
-    comboShell.style.top = `${Math.max(8, top - macroHeight - gap)}px`;
-    comboShell.style.width = `${Math.max(132, clusterWidth)}px`;
+    const gap = Math.max(6, Math.round(actionSize * .12));
+    comboShell.style.setProperty('--gg-action-size', `${actionSize}px`);
+    comboShell.style.left = `${Math.max(6, Math.min(innerWidth - clusterWidth - 6, left))}px`;
+    comboShell.style.top = `${Math.max(6, top - actionSize - gap)}px`;
+    comboShell.style.width = `${Math.max(actionSize * 2 + gap, clusterWidth)}px`;
     comboShell.style.right = 'auto';
     comboShell.style.bottom = 'auto';
   }
@@ -180,24 +181,28 @@
     const stick = document.getElementById('gg-neo-stick');
     if (stick) {
       stick.style.setProperty('opacity','.42','important');
-      stick.style.setProperty('filter','saturate(.88)','important');
-      stick.style.setProperty('transform','scale(.72)','important');
-      stick.style.setProperty('transform-origin','center center','important');
+      stick.style.setProperty('filter','saturate(.9)','important');
+      stick.style.removeProperty('transform');
+      stick.style.setProperty('pointer-events','auto','important');
+      stick.style.setProperty('touch-action','none','important');
     }
     ['A','B','C','D'].forEach(label => {
       const el = findArcadeButton(label);
       if (!el) return;
       el.style.setProperty('opacity','.48','important');
-      el.style.setProperty('filter','saturate(.9)','important');
-      el.style.setProperty('transform','scale(.86)','important');
+      el.style.setProperty('filter','saturate(.92)','important');
+      el.style.removeProperty('transform');
       el.style.setProperty('border-radius','999px','important');
-      el.style.setProperty('transform-origin','center center','important');
+      el.style.setProperty('pointer-events','auto','important');
+      el.style.setProperty('touch-action','none','important');
     });
     ['gg-neo-coin','gg-neo-start'].forEach(id => {
       const el = document.getElementById(id);
       if (!el) return;
-      el.style.setProperty('opacity','.38','important');
-      el.style.setProperty('transform','scale(.82)','important');
+      el.style.setProperty('opacity','.58','important');
+      el.style.removeProperty('transform');
+      el.style.setProperty('pointer-events','auto','important');
+      el.style.setProperty('touch-action','none','important');
     });
     forceGameFill();
     positionComboButtons();
@@ -758,10 +763,6 @@
     } catch { return false; }
   }
   function setStickDirection(x = 0, y = 0) {
-    if (getGameManager()?.simulateInput) {
-      applyDirectDirection(x, y);
-      return;
-    }
     const hasDir = Math.abs(x) > 0.12 || Math.abs(y) > 0.12;
     if (!hasDir) {
       if (stickPointerActive) emitStick('pointerup', 0, 0);
@@ -775,28 +776,46 @@
     else emitStick('pointermove', nx, ny);
   }
 
+
+  function setPhysicalDirection(x = 0, y = 0) {
+    if (getGameManager()?.simulateInput) {
+      applyDirectDirection(x, y);
+      return;
+    }
+    setStickDirection(x, y);
+  }
+
   function bindComboShortcut(button, combo) {
     if (!button || !combo) return;
     const indices = combo.labels.map(label => BUTTON_INPUTS[label]).filter(Number.isFinite);
+    let pressedTargets = [];
     const release = event => {
       if (event) event.preventDefault();
       button.classList.remove('active');
-      if (!simulateCombo(indices, 0)) {
-        combo.labels.map(getButtonElementByLabel).filter(Boolean).forEach(releaseVirtualButton);
+      if (pressedTargets.length) {
+        pressedTargets.forEach(releaseVirtualButton);
+        pressedTargets = [];
+      } else {
+        simulateCombo(indices, 0);
       }
     };
     const press = () => {
       button.classList.add('active');
-      if (simulateCombo(indices, 1)) return true;
       const targets = combo.labels.map(getButtonElementByLabel).filter(Boolean);
-      if (targets.length) { targets.forEach(pressVirtualButton); return true; }
+      if (targets.length === combo.labels.length) {
+        pressedTargets = targets;
+        pressedTargets.forEach(pressVirtualButton);
+        return true;
+      }
+      pressedTargets = [];
+      if (simulateCombo(indices, 1)) return true;
       button.classList.remove('active');
       return false;
     };
     button.__ggPress = press;
     button.__ggRelease = release;
-    button.addEventListener('pointerdown', event => { event.preventDefault(); press(); });
-    ['pointerup','pointercancel','pointerleave'].forEach(evt => button.addEventListener(evt, release));
+    button.addEventListener('pointerdown', event => { event.preventDefault(); event.stopPropagation(); press(); });
+    ['pointerup','pointercancel','pointerleave'].forEach(evt => button.addEventListener(evt, event => { event.stopPropagation(); release(event); }));
   }
   function pressComboShortcut(button, combo) {
     if (!button || !combo) return false;
@@ -956,7 +975,7 @@
     const dpadY = (buttonPressed(pad, 13) ? 1 : 0) + (buttonPressed(pad, 12) ? -1 : 0);
     const mx = Math.abs(axisX) > 0.28 ? axisX : dpadX;
     const my = Math.abs(axisY) > 0.28 ? axisY : dpadY;
-    setStickDirection(mx, my);
+    setPhysicalDirection(mx, my);
 
     for (const action of ['a','b','c','d','coin','start','max','dodge']) {
       const isPressed = !captureGamepadAction && mappingPressed(pad, action);
@@ -976,7 +995,7 @@
   function syncKeyboardStick() {
     const x = (keyboardDirections.right ? 1 : 0) + (keyboardDirections.left ? -1 : 0);
     const y = (keyboardDirections.down ? 1 : 0) + (keyboardDirections.up ? -1 : 0);
-    setStickDirection(x, y);
+    setPhysicalDirection(x, y);
   }
   function onKeyboardDown(e) {
     if (e.repeat) return;
