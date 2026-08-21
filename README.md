@@ -1,3 +1,5 @@
+# Game Guess V18.6
+
 # Game Guess V18.1
 
 GeoGuess com Mapillary + Leaflet/OpenStreetMap, Avatar, KOF, Quiz e multiplayer.

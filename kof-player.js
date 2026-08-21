@@ -18,7 +18,7 @@
   // Treino permanece na build já validada. O online usa 4.3.0-pre porque essa
   // é a primeira linha oficial do EmulatorJS com Netplay WebRTC novo.
   const EJS_VERSION = online ? '4.3.0-pre' : '4.2.1';
-  const PATCH_VERSION = '19.1.0';
+  const PATCH_VERSION = '19.2.0';
   const EJS_DATA = `https://cdn.emulatorjs.org/${EJS_VERSION}/data/`;
 
   const GAME_URL = '/roms/v178/kf2k2mp2.zip';
@@ -30,7 +30,7 @@
   const playerName = String(params.get('name') || (role === 'host' ? 'HOST' : role === 'guest' ? 'CONVIDADO' : 'PLAYER')).trim().slice(0, 20) || 'PLAYER';
   const rtcRoomName = `GG-${room}-${launchToken}`.slice(0, 20);
 
-  const CONTROL_LAYOUT_KEY = 'gg_kof_mobile_layout_v1';
+  const CONTROL_LAYOUT_KEY = 'gg_kof_mobile_layout_v2';
   const DEFAULT_CONTROL_LAYOUT = { tl: 'C', tr: 'D', bl: 'A', br: 'B' };
   const SLOT_KEYS = ['tl', 'tr', 'bl', 'br'];
   const SLOT_COORDS = {
@@ -41,6 +41,10 @@
   };
   const BUTTON_INPUTS = { A: 0, B: 8, C: 1, D: 9 };
   const BUTTON_CLASSES = { A: 'slot-a', B: 'slot-b', C: 'slot-c', D: 'slot-d' };
+  const COMBO_BUTTONS = {
+    burst: { labels: ['B', 'C'], title: 'MAX (B+C)' },
+    dodge: { labels: ['A', 'B'], title: 'ESQUIVA (A+B)' }
+  };
 
   let started = false;
   let loading = false;
@@ -118,7 +122,7 @@
       };
     });
     return [
-      { type: 'dpad', location: 'left', left: '50%', top: '50%', joystickInput: true, inputValues: [4, 5, 6, 7] },
+      { type: 'zone', location: 'left', left: '50%', top: '50%', color: 'cyan', joystickInput: false, inputValues: [4, 5, 6, 7] },
       ...buttons,
       { type: 'button', text: 'COIN', id: 'gg-neo-coin', location: 'center', left: -54, top: 0, bold: true, fontSize: 12, block: true, input_value: 2 },
       { type: 'button', text: 'START', id: 'gg-neo-start', location: 'center', left: 54, top: 0, bold: true, fontSize: 12, block: true, input_value: 3 }
@@ -513,7 +517,7 @@
       window.EJS_backgroundColor = '#050913';
       window.EJS_controlScheme = 'arcade';
 
-      // V18.8: joystick estilo fliperama + ordem A/B/C/D personalizada por aparelho.
+      // V19.2: alavanca virtual 360° + ordem A/B/C/D personalizada por aparelho + atalhos de combo.
       window.EJS_VirtualGamepadSettings = buildVirtualGamepadSettings(currentControlLayout);
 
       window.EJS_AdTimer = -1;
@@ -532,7 +536,7 @@
         const coreInfo = online ? 'FBNeo da linha WebRTC' : `FBNeo build ${TRAINING_FBN_BUILD}`;
         setText(`EmulatorJS ${EJS_VERSION} + ${coreInfo} carregado. Entregando o Full Non-Merged…`);
         post('kof-player-core-ready', `EmulatorJS ${EJS_VERSION} / FBNeo carregado.`, {
-          version: EJS_VERSION, gameId, online, layout: 'full-non-merged', controls: 'neo-geo-abcd-custom-layout'
+          version: EJS_VERSION, gameId, online, layout: 'full-non-merged', controls: 'neo-geo-abcd-custom-layout+combo-shortcuts'
         });
       };
 
@@ -541,7 +545,7 @@
         loading = false;
         if (boot) boot.style.display = 'none';
         post('kof-player-ready', `KOF iniciado • EmulatorJS ${EJS_VERSION} • FBNeo • Game ID ${gameId}`, {
-          gameId, version: EJS_VERSION, online, role, room, rtcRoomName, layout: 'full-non-merged', controls: 'neo-geo-abcd-custom-layout'
+          gameId, version: EJS_VERSION, online, role, room, rtcRoomName, layout: 'full-non-merged', controls: 'neo-geo-abcd-custom-layout+combo-shortcuts'
         });
         if (online) setTimeout(() => startAutomaticNetplay(), 600);
       };
@@ -557,7 +561,7 @@
         if (!started) setText('FBNeo está preparando o romset Full Non-Merged. No primeiro carregamento isso pode demorar.');
       }, 8000);
       setTimeout(() => {
-        if (!started) post('kof-player-slow', 'O KOF ainda está preparando o romset Full Non-Merged.', { version: EJS_VERSION, online, layout: 'full-non-merged', controls: 'neo-geo-abcd-custom-layout' });
+        if (!started) post('kof-player-slow', 'O KOF ainda está preparando o romset Full Non-Merged.', { version: EJS_VERSION, online, layout: 'full-non-merged', controls: 'neo-geo-abcd-custom-layout+combo-shortcuts' });
       }, 20000);
     } catch (e) {
       fail(e?.message || String(e));
@@ -569,6 +573,77 @@
   });
 
   startButton?.addEventListener('click', bootGame);
+
+  const comboShell = document.getElementById('ggKofCombos');
+  const burstButton = document.getElementById('ggKofBurstButton');
+  const dodgeButton = document.getElementById('ggKofDodgeButton');
+
+  function getButtonElementByLabel(label) {
+    const slot = SLOT_KEYS.find(key => currentControlLayout[key] === label);
+    if (!slot) return null;
+    return document.getElementById(`gg-neo-${String(label).toLowerCase()}-${slot}`);
+  }
+
+  function emitSyntheticInput(target, type) {
+    if (!target) return;
+    const init = { bubbles: true, cancelable: true, composed: true };
+    try {
+      if (type.startsWith('pointer') && typeof PointerEvent === 'function') {
+        target.dispatchEvent(new PointerEvent(type, { ...init, pointerId: 77, pointerType: 'touch', isPrimary: true, buttons: type === 'pointerdown' ? 1 : 0 }));
+        return;
+      }
+      if (type.startsWith('mouse') && typeof MouseEvent === 'function') {
+        target.dispatchEvent(new MouseEvent(type, { ...init, buttons: type === 'mousedown' ? 1 : 0 }));
+        return;
+      }
+      target.dispatchEvent(new Event(type, init));
+    } catch {
+      try { target.dispatchEvent(new Event(type, init)); } catch {}
+    }
+  }
+
+  function pressVirtualButton(target) {
+    emitSyntheticInput(target, 'pointerdown');
+    emitSyntheticInput(target, 'touchstart');
+    emitSyntheticInput(target, 'mousedown');
+  }
+
+  function releaseVirtualButton(target) {
+    emitSyntheticInput(target, 'pointerup');
+    emitSyntheticInput(target, 'touchend');
+    emitSyntheticInput(target, 'mouseup');
+  }
+
+  function bindComboShortcut(button, combo) {
+    if (!button || !combo) return;
+    let pressedTargets = [];
+    const release = event => {
+      if (event) event.preventDefault();
+      button.classList.remove('active');
+      pressedTargets.forEach(releaseVirtualButton);
+      pressedTargets = [];
+    };
+    button.addEventListener('pointerdown', event => {
+      event.preventDefault();
+      const targets = combo.labels.map(getButtonElementByLabel).filter(Boolean);
+      if (!targets.length) {
+        setNetplayState(`⚠️ O atalho ${combo.title} ainda não está pronto. Aguarde o controle virtual aparecer.`, 'error');
+        return;
+      }
+      pressedTargets = targets;
+      button.classList.add('active');
+      pressedTargets.forEach(pressVirtualButton);
+    });
+    ['pointerup','pointercancel','pointerleave'].forEach(evt => button.addEventListener(evt, release));
+  }
+
+  function setupMobileComboButtons() {
+    const coarse = matchMedia('(hover:none) and (pointer:coarse)').matches || 'ontouchstart' in window;
+    if (comboShell) comboShell.hidden = !coarse;
+    if (!coarse) return;
+    bindComboShortcut(burstButton, COMBO_BUTTONS.burst);
+    bindComboShortcut(dodgeButton, COMBO_BUTTONS.dodge);
+  }
 
   const arcadeHelpButton = document.getElementById('arcadeHelpButton');
   const arcadeHelpModal = document.getElementById('arcadeHelpModal');
@@ -646,7 +721,7 @@
     const next = saveControlLayout(readLayoutForm());
     fillLayoutForm(next);
     closeLayoutModal();
-    setNetplayState(`🕹 Layout salvo: ${next.tl}-${next.tr}-${next.bl}-${next.br}.`, 'info');
+    setNetplayState(`🕹 Layout salvo: ${next.tl}-${next.tr}-${next.bl}-${next.br}. Atalhos: MAX=B+C • ESQUIVA=A+B.`, 'info');
     setText('Layout do celular salvo. Se o KOF já estava aberto, a página será recarregada para aplicar o novo joystick e a nova ordem.');
     if (started || loading) {
       setTimeout(() => location.reload(), 450);
@@ -673,14 +748,15 @@
   });
 
   fillLayoutForm(currentControlLayout);
+  setupMobileComboButtons();
 
   if (online) {
     if (startButton) startButton.textContent = role === 'host' ? 'CONECTAR HOST' : 'CONECTAR CONVIDADO';
-    setText(`PVP ${role === 'host' ? 'HOST' : 'CONVIDADO'} • sessão ${rtcRoomName}. Carregando KOF e conectando o Netplay automaticamente. Use 🕹 LAYOUT para salvar a ordem dos botões deste aparelho.`);
+    setText(`PVP ${role === 'host' ? 'HOST' : 'CONVIDADO'} • sessão ${rtcRoomName}. Carregando KOF e conectando o Netplay automaticamente. Use 🕹 LAYOUT para salvar a ordem dos botões deste aparelho. Atalhos fixos: MAX = B+C e ESQUIVA = A+B.`);
     if (netplayStatus) netplayStatus.hidden = false;
     setTimeout(() => bootGame(), 180);
   } else {
     if (netplayStatus) netplayStatus.hidden = true;
-    setText('Clique em INICIAR KOF. Use ⛶ CHEIA, ↕ VERTICAL, ↔ HORIZONTAL e 🕹 LAYOUT para jogar melhor no celular.');
+    setText('Clique em INICIAR KOF. Use ⛶ CHEIA, ↕ VERTICAL, ↔ HORIZONTAL e 🕹 LAYOUT para jogar melhor no celular. Atalhos fixos: MAX = B+C e ESQUIVA = A+B.');
   }
 })();
