@@ -14,24 +14,31 @@
     .gg-kof-toolbar{position:fixed;top:max(8px,env(safe-area-inset-top));left:max(8px,env(safe-area-inset-left));right:max(8px,env(safe-area-inset-right));z-index:65;display:flex;gap:6px;align-items:flex-start;justify-content:space-between;pointer-events:none}
     .gg-kof-toolbar-group{display:flex;gap:6px;flex-wrap:wrap;pointer-events:auto}
     .gg-kof-tool{min-height:36px;border:1px solid rgba(66,232,255,.75);background:rgba(5,9,19,.88);color:#eafcff;font-weight:900;padding:7px 9px;border-radius:9px;cursor:pointer;backdrop-filter:blur(8px);box-shadow:0 4px 18px rgba(0,0,0,.2)}
-    #arcadeHelpButton,#kofLayoutButton{white-space:nowrap}
-    .gg-kof-combos{position:fixed;right:max(12px,env(safe-area-inset-right));bottom:calc(max(90px,env(safe-area-inset-bottom)) + 84px);z-index:67;display:flex;flex-direction:column;gap:10px;pointer-events:auto}.gg-kof-combos[hidden]{display:none}.gg-kof-combo{min-width:96px;padding:10px 12px;border-radius:16px;border:1px solid rgba(255,255,255,.28);color:#fff;background:linear-gradient(145deg,rgba(10,18,34,.94),rgba(6,10,20,.96));box-shadow:0 12px 30px rgba(0,0,0,.35);font-weight:900;cursor:pointer;text-align:center;backdrop-filter:blur(10px)}.gg-kof-combo b{display:block;font-size:.85rem;letter-spacing:.05em}.gg-kof-combo small{display:block;opacity:.88;font-size:.72rem;margin-top:4px}.gg-kof-combo.combo-max{border-color:rgba(61,205,255,.75);box-shadow:0 10px 26px rgba(61,205,255,.18)}.gg-kof-combo.combo-roll{border-color:rgba(255,209,72,.6);box-shadow:0 10px 26px rgba(255,209,72,.14)}.gg-kof-combo.active{transform:scale(.96);filter:brightness(1.15)}
+    #arcadeHelpButton,#kofLayoutButton,#kofPadButton{white-space:nowrap}
+    .gg-kof-combos{position:fixed;right:max(12px,env(safe-area-inset-right));bottom:calc(max(118px,env(safe-area-inset-bottom)) + 88px);z-index:67;display:flex;flex-direction:column;gap:12px;pointer-events:auto}.gg-kof-combos[hidden]{display:none}
+    .gg-kof-combo{min-width:112px;padding:12px 14px;border-radius:18px;border:1px solid rgba(255,255,255,.28);color:#fff;background:linear-gradient(145deg,rgba(10,18,34,.94),rgba(6,10,20,.96));box-shadow:0 12px 30px rgba(0,0,0,.35);font-weight:900;cursor:pointer;text-align:center;backdrop-filter:blur(10px)}
+    .gg-kof-combo b{display:block;font-size:.95rem;letter-spacing:.06em}.gg-kof-combo small{display:block;opacity:.88;font-size:.72rem;margin-top:4px}
+    .gg-kof-combo.combo-max{border-color:rgba(61,205,255,.75);box-shadow:0 10px 26px rgba(61,205,255,.18)}.gg-kof-combo.combo-roll{border-color:rgba(255,209,72,.6);box-shadow:0 10px 26px rgba(255,209,72,.14)}.gg-kof-combo.active{transform:scale(.96);filter:brightness(1.15)}
     #kofNetplayStatus{position:fixed;left:50%;bottom:max(8px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:66;width:min(720px,calc(100vw - 20px));display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid #314b70;border-radius:12px;background:rgba(4,9,19,.92);backdrop-filter:blur(10px);font-size:.78rem;line-height:1.35;pointer-events:auto}
     #kofNetplayStatus[hidden]{display:none}#kofNetplayStatus[data-kind="connected"]{border-color:#36d98a}#kofNetplayStatus[data-kind="error"]{border-color:#ff667c}
     #kofNetplayStatus [data-netplay-text]{flex:1}.netplay-mini{border:1px solid #405779;background:#101a2c;color:#fff;border-radius:8px;padding:6px 8px;font-weight:800;white-space:nowrap}
-    #arcadeHelpModal,#layoutModal{position:fixed;inset:0;z-index:90;display:grid;place-items:center;padding:18px;background:rgba(2,5,12,.78);backdrop-filter:blur(8px)}#arcadeHelpModal[hidden],#layoutModal[hidden]{display:none}
-    .arcade-help-card,.layout-card{width:min(620px,94vw);border:1px solid #354a70;border-radius:18px;background:linear-gradient(145deg,#111b30,#080e1b);box-shadow:0 28px 90px rgba(0,0,0,.55);padding:20px}
-    .arcade-help-head,.layout-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:15px}.arcade-help-head h2,.layout-head h2{margin:0;font-size:1.15rem}.arcade-help-close,.layout-close{border:1px solid #405476;background:#131e32;color:#fff;border-radius:9px;padding:7px 10px;cursor:pointer}
+    #arcadeHelpModal,#layoutModal,#padModal{position:fixed;inset:0;z-index:90;display:grid;place-items:center;padding:18px;background:rgba(2,5,12,.78);backdrop-filter:blur(8px)}#arcadeHelpModal[hidden],#layoutModal[hidden],#padModal[hidden]{display:none}
+    .arcade-help-card,.layout-card,.pad-card{width:min(760px,96vw);border:1px solid #354a70;border-radius:18px;background:linear-gradient(145deg,#111b30,#080e1b);box-shadow:0 28px 90px rgba(0,0,0,.55);padding:20px}
+    .arcade-help-head,.layout-head,.pad-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:15px}.arcade-help-head h2,.layout-head h2,.pad-head h2{margin:0;font-size:1.15rem}.arcade-help-close,.layout-close,.pad-close{border:1px solid #405476;background:#131e32;color:#fff;border-radius:9px;padding:7px 10px;cursor:pointer}
     .arcade-help-layout{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0}.arcade-key,.layout-preview-slot{display:grid;place-items:center;min-height:72px;border-radius:50%;aspect-ratio:1;max-width:86px;justify-self:center;font-size:2rem;font-weight:1000;border:3px solid rgba(255,255,255,.72);box-shadow:inset 0 -8px 18px rgba(0,0,0,.22),0 8px 22px rgba(0,0,0,.22)}
     .arcade-a,.slot-a{background:#df334d}.arcade-b,.slot-b{background:#f0c52f;color:#17120a}.arcade-c,.slot-c{background:#35b86d}.arcade-d,.slot-d{background:#278dd8}
-    .arcade-functions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.arcade-functions span{padding:10px 12px;border:1px solid #2f4161;border-radius:10px;background:#0b1425}.arcade-help-note,.layout-note{color:#a7b5cd;line-height:1.45;font-size:.9rem;margin-top:13px}
+    .arcade-functions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.arcade-functions span{padding:10px 12px;border:1px solid #2f4161;border-radius:10px;background:#0b1425}.arcade-help-note,.layout-note,.pad-note{color:#a7b5cd;line-height:1.45;font-size:.9rem;margin-top:13px}
     .layout-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}.layout-preview{display:grid;grid-template-columns:repeat(2,minmax(78px,1fr));gap:12px;justify-items:center;background:#0b1425;border:1px solid #2f4161;border-radius:14px;padding:14px}.layout-preview small{grid-column:1/-1;color:#9bb2cf;font-size:.78rem;text-align:center}
     .layout-form{display:grid;gap:10px}.layout-field{display:grid;gap:6px}.layout-field label{font-size:.86rem;color:#d7e9ff}.layout-field select{width:100%;padding:11px 12px;border-radius:10px;border:1px solid #35507d;background:#0d1728;color:#fff;font-weight:800}
-    .layout-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}.layout-save,.layout-reset{border-radius:10px;padding:10px 14px;border:1px solid #3a5378;font-weight:900;cursor:pointer}.layout-save{background:linear-gradient(135deg,#26d8f2,#518bff);color:#04111c;border-color:#42e8ff}.layout-reset{background:#121d31;color:#fff}
-    .layout-stick{display:flex;align-items:center;gap:10px;margin:14px 0 0;padding:12px;border:1px solid #2f4161;border-radius:12px;background:#0b1425}.layout-stick-visual{position:relative;width:58px;height:58px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#5a6783 0,#303b52 50%,#101728 100%);border:2px solid rgba(255,255,255,.14)}.layout-stick-visual:before{content:'';position:absolute;left:50%;top:50%;width:22px;height:22px;border-radius:50%;transform:translate(-50%,-50%);background:#d9e3f2;box-shadow:0 0 0 4px rgba(255,255,255,.12)}
+    .layout-actions,.pad-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}.layout-save,.layout-reset,.pad-save,.pad-reset{border-radius:10px;padding:10px 14px;border:1px solid #3a5378;font-weight:900;cursor:pointer}.layout-save,.pad-save{background:linear-gradient(135deg,#26d8f2,#518bff);color:#04111c;border-color:#42e8ff}.layout-reset,.pad-reset{background:#121d31;color:#fff}
+    .layout-stick{display:flex;align-items:center;gap:10px;margin:14px 0 0;padding:12px;border:1px solid #2f4161;border-radius:12px;background:#0b1425}.layout-stick-visual{position:relative;width:64px;height:64px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#5a6783 0,#303b52 50%,#101728 100%);border:2px solid rgba(255,255,255,.14)}.layout-stick-visual:before{content:'';position:absolute;left:50%;top:50%;width:24px;height:24px;border-radius:50%;transform:translate(-50%,-50%);background:#d9e3f2;box-shadow:0 0 0 4px rgba(255,255,255,.12)}
+    .pad-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:14px}.pad-status,.pad-keyboard,.pad-map{background:#0b1425;border:1px solid #2f4161;border-radius:14px;padding:14px}.pad-status strong{display:block;margin-bottom:6px}.pad-device{margin-top:8px;padding:10px 12px;border-radius:10px;background:#101a2c;border:1px solid #334a73;color:#d9ecff}
+    .pad-map-list{display:grid;gap:8px;margin-top:8px}.pad-map-row{display:grid;grid-template-columns:92px 1fr auto;gap:8px;align-items:center}.pad-map-row label{font-weight:800}.pad-map-value{padding:9px 10px;border-radius:10px;border:1px solid #334a73;background:#101a2c;color:#fff;min-height:40px;display:flex;align-items:center}.pad-map-row button{padding:9px 10px;border-radius:10px;border:1px solid #35507d;background:#121d31;color:#fff;font-weight:900;cursor:pointer}
+    .pad-keyboard ul{margin:10px 0 0;padding-left:18px}.pad-keyboard li{margin:6px 0;color:#d7e9ff}.pad-capture{color:#ffd76c;font-weight:800}.pad-ok{color:#74f2b1}.pad-warn{color:#ffd76c}.pad-muted{color:#9bb2cf}
     :fullscreen,:fullscreen body,:fullscreen #game{width:100vw!important;height:100dvh!important;max-width:none!important;max-height:none!important}
-    @media(max-width:560px){.gg-kof-tool{font-size:.66rem;padding:6px 7px;min-height:32px}.gg-kof-toolbar{gap:4px}.gg-kof-toolbar-group{gap:4px}#arcadeHelpButton,#kofLayoutButton{max-width:112px;overflow:hidden;text-overflow:ellipsis}.arcade-help-card,.layout-card{padding:15px}.arcade-key,.layout-preview-slot{min-height:58px;max-width:68px;font-size:1.55rem}.arcade-functions{grid-template-columns:1fr}.arcade-help-note,.layout-note{font-size:.82rem}#kofNetplayStatus{font-size:.7rem;padding:7px 8px}.netplay-mini{font-size:.66rem;padding:5px 6px}.layout-grid{grid-template-columns:1fr}.layout-actions{flex-direction:column}.layout-save,.layout-reset{width:100%}}
-    @media(orientation:landscape) and (max-height:560px){.gg-kof-toolbar{top:max(4px,env(safe-area-inset-top))}.gg-kof-tool{min-height:28px;padding:4px 7px;font-size:.62rem}#kofNetplayStatus{bottom:max(4px,env(safe-area-inset-bottom));padding:5px 8px}.gg-kof-combos{right:max(8px,env(safe-area-inset-right));bottom:calc(max(70px,env(safe-area-inset-bottom)) + 56px)}.gg-kof-combo{min-width:88px;padding:8px 10px}}
+    @media(max-width:720px){.pad-grid,.layout-grid{grid-template-columns:1fr}.pad-map-row{grid-template-columns:80px 1fr}.pad-map-row button{grid-column:1/-1}.pad-map-value{grid-column:2}}
+    @media(max-width:560px){.gg-kof-tool{font-size:.66rem;padding:6px 7px;min-height:32px}.gg-kof-toolbar{gap:4px}.gg-kof-toolbar-group{gap:4px}#arcadeHelpButton,#kofLayoutButton,#kofPadButton{max-width:112px;overflow:hidden;text-overflow:ellipsis}.arcade-help-card,.layout-card,.pad-card{padding:15px}.arcade-key,.layout-preview-slot{min-height:58px;max-width:68px;font-size:1.55rem}.arcade-functions{grid-template-columns:1fr}.arcade-help-note,.layout-note,.pad-note{font-size:.82rem}#kofNetplayStatus{font-size:.7rem;padding:7px 8px}.netplay-mini{font-size:.66rem;padding:5px 6px}.layout-actions,.pad-actions{flex-direction:column}.layout-save,.layout-reset,.pad-save,.pad-reset{width:100%}.gg-kof-combos{right:max(8px,env(safe-area-inset-right));bottom:calc(max(122px,env(safe-area-inset-bottom)) + 92px)}.gg-kof-combo{min-width:104px;padding:10px 12px}}
+    @media(orientation:landscape) and (max-height:560px){.gg-kof-toolbar{top:max(4px,env(safe-area-inset-top))}.gg-kof-tool{min-height:28px;padding:4px 7px;font-size:.62rem}#kofNetplayStatus{bottom:max(4px,env(safe-area-inset-bottom));padding:5px 8px}.gg-kof-combos{right:max(8px,env(safe-area-inset-right));bottom:calc(max(76px,env(safe-area-inset-bottom)) + 56px)}.gg-kof-combo{min-width:90px;padding:8px 10px}}
   </style>
 </head>
 <body>
@@ -44,6 +51,7 @@
     </div>
     <div class="gg-kof-toolbar-group">
       <button class="gg-kof-tool" id="kofLayoutButton" type="button" aria-haspopup="dialog">🕹 LAYOUT</button>
+      <button class="gg-kof-tool" id="kofPadButton" type="button" aria-haspopup="dialog">🎮 CONTROLE</button>
       <button class="gg-kof-tool" id="arcadeHelpButton" type="button" aria-haspopup="dialog">🎛 A B C D</button>
     </div>
   </div>
@@ -64,7 +72,7 @@
             <div class="layout-preview-slot" data-layout-slot="br">B</div>
             <small>Prévia do bloco 2×2 do lado direito.</small>
           </div>
-          <div class="layout-stick"><div class="layout-stick-visual" aria-hidden="true"></div><div><b>Alavanca virtual 360°</b><br><small>O lado esquerdo agora usa uma bolinha 360° no estilo fliperama, mais confortável para girar e fazer golpes especiais no celular.</small></div></div>
+          <div class="layout-stick"><div class="layout-stick-visual" aria-hidden="true"></div><div><b>Alavanca virtual 360°</b><br><small>Layout mobile mais próximo de fliperama: alavanca estilo bola no lado esquerdo, bloco A/B/C/D no lado direito e atalhos MAX/ESQUIVA acima dos botões principais.</small></div></div>
         </div>
         <div class="layout-form">
           <div class="layout-field"><label for="layoutSlotTL">Canto superior esquerdo</label><select id="layoutSlotTL"><option>A</option><option>B</option><option>C</option><option>D</option></select></div>
@@ -77,15 +85,61 @@
       <div class="layout-note">A ordem salva fica gravada neste aparelho. Se o KOF já estiver aberto, a página reinicia automaticamente para aplicar o novo layout.</div>
     </div>
   </div>
+  <div id="padModal" hidden role="dialog" aria-modal="true" aria-labelledby="padTitle">
+    <div class="pad-card">
+      <div class="pad-head"><h2 id="padTitle">🎮 CONTROLE EXTERNO • ANDROID E PC</h2><button class="pad-close" id="padClose" type="button">✕ FECHAR</button></div>
+      <div class="pad-grid">
+        <div>
+          <section class="pad-status">
+            <strong>Status do controle</strong>
+            <div id="padStatusText" class="pad-muted">Conecte um controle USB/Bluetooth no Android ou PC. O navegador detecta pelo Gamepad API.</div>
+            <div id="padDeviceName" class="pad-device">Nenhum controle detectado.</div>
+          </section>
+          <section class="pad-map" style="margin-top:12px">
+            <strong>Mapeamento salvo</strong>
+            <div class="pad-map-list">
+              <div class="pad-map-row"><label>A</label><div class="pad-map-value" id="mapValueA">Botão 4</div><button type="button" data-map-action="a">CAPTURAR</button></div>
+              <div class="pad-map-row"><label>B</label><div class="pad-map-value" id="mapValueB">Botão 5</div><button type="button" data-map-action="b">CAPTURAR</button></div>
+              <div class="pad-map-row"><label>C</label><div class="pad-map-value" id="mapValueC">Botão 6</div><button type="button" data-map-action="c">CAPTURAR</button></div>
+              <div class="pad-map-row"><label>D</label><div class="pad-map-value" id="mapValueD">Botão 1</div><button type="button" data-map-action="d">CAPTURAR</button></div>
+              <div class="pad-map-row"><label>COIN</label><div class="pad-map-value" id="mapValueCoin">Botão 8</div><button type="button" data-map-action="coin">CAPTURAR</button></div>
+              <div class="pad-map-row"><label>START</label><div class="pad-map-value" id="mapValueStart">Botão 9</div><button type="button" data-map-action="start">CAPTURAR</button></div>
+              <div class="pad-map-row"><label>MAX</label><div class="pad-map-value" id="mapValueMax">Botão 7</div><button type="button" data-map-action="max">CAPTURAR</button></div>
+              <div class="pad-map-row"><label>ESQ.</label><div class="pad-map-value" id="mapValueDodge">Botão 0</div><button type="button" data-map-action="dodge">CAPTURAR</button></div>
+            </div>
+            <div id="padCaptureHint" class="pad-note">Clique em <b>CAPTURAR</b> e pressione o botão físico do controle para salvar.</div>
+            <div class="pad-actions"><button class="pad-save" id="padSave" type="button">SALVAR MAPEAMENTO</button><button class="pad-reset" id="padReset" type="button">RESTAURAR PADRÃO</button></div>
+          </section>
+        </div>
+        <div>
+          <section class="pad-keyboard">
+            <strong>Teclado arcade padrão no PC</strong>
+            <ul>
+              <li><b>Movimento:</b> setas do teclado</li>
+              <li><b>A:</b> 4 / Numpad 4</li>
+              <li><b>B:</b> 5 / Numpad 5</li>
+              <li><b>C:</b> 6 / Numpad 6</li>
+              <li><b>D:</b> 1 ou 3 / Numpad 1 ou 3</li>
+              <li><b>COIN:</b> 0 / Numpad 0</li>
+              <li><b>START:</b> Enter</li>
+              <li><b>MAX:</b> Q</li>
+              <li><b>ESQUIVA:</b> W</li>
+            </ul>
+          </section>
+          <div class="pad-note">Compatibilidade prevista: controles Bluetooth ou via cabo no Android, além de controles USB/Bluetooth no PC. O usuário pode manter o padrão sugerido ou salvar o próprio mapeamento.</div>
+        </div>
+      </div>
+    </div>
+  </div>
   <div id="arcadeHelpModal" hidden role="dialog" aria-modal="true" aria-labelledby="arcadeHelpTitle">
     <div class="arcade-help-card">
       <div class="arcade-help-head"><h2 id="arcadeHelpTitle">🕹️ CONTROLE NEO GEO • KOF 2002</h2><button class="arcade-help-close" id="arcadeHelpClose" type="button">✕ FECHAR</button></div>
       <div class="arcade-help-layout" aria-label="Botões arcade A B C D"><div class="arcade-key arcade-a">A</div><div class="arcade-key arcade-b">B</div><div class="arcade-key arcade-c">C</div><div class="arcade-key arcade-d">D</div></div>
       <div class="arcade-functions"><span><b>A</b> — Soco fraco</span><span><b>B</b> — Chute fraco</span><span><b>C</b> — Soco forte</span><span><b>D</b> — Chute forte</span><span><b>COIN</b> — Inserir crédito</span><span><b>START</b> — Iniciar/confirmar</span></div>
-      <div class="arcade-help-note">Agora o celular usa alavanca virtual 360° no lado esquerdo, permite personalizar a ordem do bloco A/B/C/D pelo botão <b>🕹 LAYOUT</b> e ganhou dois atalhos: <b>MAX = B+C</b> e <b>ESQUIVA = A+B</b>.</div>
+      <div class="arcade-help-note">Celular: alavanca 360° + layout personalizável + atalhos <b>MAX = B+C</b> e <b>ESQUIVA = A+B</b>. PC/Android com controle: abra <b>🎮 CONTROLE</b> para detectar o gamepad, usar o padrão sugerido e salvar um mapeamento próprio.</div>
     </div>
   </div>
   <div id="boot"><div class="panel"><b>🥊 KOF 2002 Magic Plus II</b><small id="bootText">Preparando FBNeo.</small><button id="startKofButton" type="button">INICIAR KOF</button></div></div>
-  <script src="/kof-player.js?v=19.2.0"></script>
+  <script src="/kof-player.js?v=19.3.0"></script>
 </body>
 </html>
