@@ -16,7 +16,7 @@
   const room = String(params.get('room') || 'TREINO').toUpperCase();
   const online = role !== 'training' && room !== 'TREINO';
   const EJS_VERSION = online ? '4.3.0-pre' : '4.2.1';
-  const PATCH_VERSION = '19.4.2';
+  const PATCH_VERSION = '19.4.3';
   const EJS_DATA = `https://cdn.emulatorjs.org/${EJS_VERSION}/data/`;
 
   const GAME_URL = '/roms/v178/kf2k2mp2.zip';
@@ -87,6 +87,10 @@
   const activePhysicalButtons = new Map();
   const activeDirectDirections = { up: false, down: false, left: false, right: false };
   let comboPositionTimer = 0;
+  let virtualControlObserver = null;
+  let uiRefreshTimer = 0;
+  let emulatorResizeTimer = 0;
+  let virtualControlsReady = false;
   const keyboardPressedActions = new Set();
   const keyboardDirections = { up: false, down: false, left: false, right: false };
 
@@ -207,13 +211,44 @@
     forceGameFill();
     positionComboButtons();
   }
+  function hasVirtualControls() {
+    return !!document.getElementById('gg-neo-stick') && ['A','B','C','D'].every(label => !!findArcadeButton(label));
+  }
+  function refreshMobileUi() {
+    if (uiRefreshTimer) clearTimeout(uiRefreshTimer);
+    uiRefreshTimer = setTimeout(() => {
+      uiRefreshTimer = 0;
+      restyleVirtualControls();
+      virtualControlsReady = hasVirtualControls();
+      if (virtualControlsReady && virtualControlObserver) {
+        virtualControlObserver.disconnect();
+        virtualControlObserver = null;
+      }
+    }, 80);
+  }
+  function scheduleEmulatorResize(delay = 220) {
+    if (emulatorResizeTimer) clearTimeout(emulatorResizeTimer);
+    emulatorResizeTimer = setTimeout(() => {
+      emulatorResizeTimer = 0;
+      try { window.EJS_emulator?.handleResize?.(); } catch {}
+      refreshMobileUi();
+    }, delay);
+  }
   function installVirtualControlObserver() {
-    restyleVirtualControls();
-    const obs = new MutationObserver(() => restyleVirtualControls());
-    obs.observe(document.body, { childList: true, subtree: true });
-    window.addEventListener('resize', () => setTimeout(() => { forceGameFill(); positionComboButtons(); }, 120), { passive: true });
-    if (comboPositionTimer) clearInterval(comboPositionTimer);
-    comboPositionTimer = setInterval(() => { if (gameplayStarted) { forceGameFill(); positionComboButtons(); } }, 900);
+    refreshMobileUi();
+    const gameRoot = document.getElementById('game');
+    if (!gameRoot) return;
+    if (virtualControlObserver) virtualControlObserver.disconnect();
+    virtualControlObserver = new MutationObserver(() => refreshMobileUi());
+    virtualControlObserver.observe(gameRoot, { childList: true, subtree: true });
+    const stopObserver = setTimeout(() => {
+      if (virtualControlObserver) {
+        virtualControlObserver.disconnect();
+        virtualControlObserver = null;
+      }
+    }, 12000);
+    window.addEventListener('beforeunload', () => clearTimeout(stopObserver), { once: true });
+    window.addEventListener('resize', () => scheduleEmulatorResize(220), { passive: true });
   }
 
   function post(type, message, extra = {}) {
@@ -577,12 +612,22 @@
     }
   }
 
+  function applyFullscreenPerformanceMode(active) {
+    document.body.classList.toggle('gg-fullscreen-performance', !!active);
+    if (coarsePointer && active) {
+      setHudVisible(false, 0);
+      setNetplayToastVisible(false);
+    }
+    // Não fica recalculando layout durante a partida. Uma atualização é suficiente
+    // depois que o navegador termina a transição para/da tela cheia.
+    scheduleEmulatorResize(active ? 320 : 220);
+  }
   async function requestFullscreen() {
     const target = document.documentElement;
     try {
       if (!document.fullscreenElement) {
         const fn = target.requestFullscreen || target.webkitRequestFullscreen || target.msRequestFullscreen;
-        if (fn) await fn.call(target);
+        if (fn) await fn.call(target, { navigationUI: 'hide' });
       }
       return true;
     } catch {
@@ -607,11 +652,12 @@
     } catch {
       post('kof-fullscreen-status', `Tela cheia ativada. Se a rotação não travar, gire o aparelho manualmente para ${mode === 'landscape' ? 'horizontal' : 'vertical'}.`);
     }
-    setTimeout(() => window.EJS_emulator?.handleResize?.(), 250);
+    scheduleEmulatorResize(340);
   }
   function updateFullscreenUi() {
-    if (fullscreenButton) fullscreenButton.textContent = document.fullscreenElement ? '↙ SAIR' : '⛶ CHEIA';
-    setTimeout(() => window.EJS_emulator?.handleResize?.(), 120);
+    const active = !!document.fullscreenElement;
+    if (fullscreenButton) fullscreenButton.textContent = active ? '↙ SAIR' : '⛶ CHEIA';
+    applyFullscreenPerformanceMode(active);
   }
 
   async function bootGame() {
@@ -634,9 +680,10 @@
       window.EJS_language = 'pt-BR';
       window.EJS_startOnLoaded = true;
       window.EJS_noAutoFocus = matchMedia('(hover:none) and (pointer:coarse)').matches;
-      window.EJS_threads = false;
+      window.EJS_threads = !!(window.crossOriginIsolated && typeof SharedArrayBuffer !== 'undefined');
       window.EJS_color = '#42e8ff';
       window.EJS_backgroundColor = '#050913';
+      window.EJS_backgroundBlur = false;
       window.EJS_controlScheme = 'arcade';
       window.EJS_VirtualGamepadSettings = buildVirtualGamepadSettings(currentControlLayout);
       if (coarsePointer) {
@@ -659,10 +706,8 @@
         started = true; loading = false; gameplayStarted = true;
         document.body.classList.add('gameplay-active');
         if (boot) boot.style.display = 'none';
-        restyleVirtualControls();
-        forceGameFill();
-        setTimeout(() => { forceGameFill(); positionComboButtons(); restyleVirtualControls(); }, 450);
-        setTimeout(() => { forceGameFill(); positionComboButtons(); }, 1400);
+        refreshMobileUi();
+        setTimeout(refreshMobileUi, 420);
         if (coarsePointer) {
           showHudTemporarily(2200);
           setTimeout(() => setNetplayToastVisible(false), 1900);
@@ -1081,7 +1126,8 @@
   portraitButton?.addEventListener('click', () => setOrientation('portrait'));
   landscapeButton?.addEventListener('click', () => setOrientation('landscape'));
   document.addEventListener('fullscreenchange', updateFullscreenUi);
-  window.addEventListener('orientationchange', () => setTimeout(() => { window.EJS_emulator?.handleResize?.(); forceGameFill(); positionComboButtons(); }, 250));
+  document.addEventListener('webkitfullscreenchange', updateFullscreenUi);
+  window.addEventListener('orientationchange', () => scheduleEmulatorResize(360), { passive: true });
   window.addEventListener('gamepadconnected', e => { activeGamepadIndex = e.gamepad?.index ?? activeGamepadIndex; setPadStatus('<span class="pad-ok">Controle conectado.</span> O mapeamento externo está pronto para uso.', `${e.gamepad?.id || 'Gamepad'} • slot ${e.gamepad?.index ?? 0}`); startGamepadLoop(); });
   window.addEventListener('gamepaddisconnected', () => { setPadStatus('<span class="pad-warn">Controle desconectado.</span> Conecte um controle USB/Bluetooth no Android ou PC.', 'Nenhum controle detectado.'); releaseAllPhysicalInputs(); });
   window.addEventListener('keydown', onKeyboardDown, { passive: false });

@@ -45,6 +45,24 @@
     .pad-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:14px}.pad-status,.pad-keyboard,.pad-map{background:#0b1425;border:1px solid #2f4161;border-radius:14px;padding:14px}.pad-status strong{display:block;margin-bottom:6px}.pad-device{margin-top:8px;padding:10px 12px;border-radius:10px;background:#101a2c;border:1px solid #334a73;color:#d9ecff}
     .pad-map-list{display:grid;gap:8px;margin-top:8px}.pad-map-row{display:grid;grid-template-columns:92px 1fr auto;gap:8px;align-items:center}.pad-map-row label{font-weight:800}.pad-map-value{padding:9px 10px;border-radius:10px;border:1px solid #334a73;background:#101a2c;color:#fff;min-height:40px;display:flex;align-items:center}.pad-map-row button{padding:9px 10px;border-radius:10px;border:1px solid #35507d;background:#121d31;color:#fff;font-weight:900;cursor:pointer}
     .pad-keyboard ul{margin:10px 0 0;padding-left:18px}.pad-keyboard li{margin:6px 0;color:#d7e9ff}.pad-capture{color:#ffd76c;font-weight:800}.pad-ok{color:#74f2b1}.pad-warn{color:#ffd76c}.pad-muted{color:#9bb2cf}
+
+    /* V19.4.3: modo de desempenho para fullscreen mobile. Evita blur, sombras e
+       animações de HUD que fazem o compositor do Android trabalhar a cada frame. */
+    body.gg-fullscreen-performance .gg-kof-toolbar,
+    body.gg-fullscreen-performance .gg-kof-tool,
+    body.gg-fullscreen-performance .gg-kof-combos,
+    body.gg-fullscreen-performance .gg-kof-combo,
+    body.gg-fullscreen-performance #kofNetplayStatus{
+      -webkit-backdrop-filter:none!important;backdrop-filter:none!important;
+      box-shadow:none!important;transition:none!important;filter:none!important
+    }
+    body.gg-fullscreen-performance .gg-kof-tool{background:rgba(5,9,19,.88)!important}
+    body.gg-fullscreen-performance .gg-kof-combo{background:rgba(15,20,32,.34)!important}
+    body.gg-fullscreen-performance #kofNetplayStatus{background:rgba(4,9,19,.94)!important}
+    body.gg-fullscreen-performance.gg-mobile-coarse:not(.gg-hud-visible) .gg-kof-toolbar{display:none!important}
+    body.gg-fullscreen-performance.gg-toast-hidden #kofNetplayStatus{display:none!important}
+    body.gg-fullscreen-performance #game{contain:layout paint style}
+
     :fullscreen,:fullscreen body,:fullscreen #game{width:100vw!important;height:100dvh!important;max-width:none!important;max-height:none!important}
     @media(max-width:720px){.pad-grid,.layout-grid{grid-template-columns:1fr}.pad-map-row{grid-template-columns:80px 1fr}.pad-map-row button{grid-column:1/-1}.pad-map-value{grid-column:2}}
     @media(max-width:560px){#kofHudHotspot{height:24px}.gg-kof-tool{font-size:.64rem;padding:6px 7px;min-height:31px}.gg-kof-toolbar{gap:4px}.gg-kof-toolbar-group{gap:4px}#arcadeHelpButton,#kofLayoutButton,#kofPadButton{max-width:112px;overflow:hidden;text-overflow:ellipsis}.arcade-help-card,.layout-card,.pad-card{padding:15px}.arcade-key,.layout-preview-slot{min-height:58px;max-width:68px;font-size:1.55rem}.arcade-functions{grid-template-columns:1fr}.arcade-help-note,.layout-note,.pad-note{font-size:.82rem}#kofNetplayStatus{font-size:.7rem;padding:7px 8px;width:min(96vw,720px)}.netplay-mini{font-size:.66rem;padding:5px 6px}.layout-actions,.pad-actions{flex-direction:column}.layout-save,.layout-reset,.pad-save,.pad-reset{width:100%}.gg-kof-combos{right:max(6px,env(safe-area-inset-right));bottom:calc(max(138px,env(safe-area-inset-bottom)) + 96px);gap:8px}.gg-kof-combo{min-width:92px;padding:8px 9px}}
@@ -56,7 +74,7 @@
     body.gg-mobile-coarse #game .ejs_message {display:none!important;visibility:hidden!important;opacity:0!important;pointer-events:none!important}
     body.gg-mobile-coarse #game canvas{max-width:100%!important;max-height:100%!important;margin:auto!important;touch-action:none!important}
     body.gg-mobile-coarse .gg-kof-combos{display:flex;flex-direction:row;align-items:center;justify-content:center;gap:10px;right:auto;bottom:auto;width:auto;z-index:72}
-    body.gg-mobile-coarse .gg-kof-combo{width:var(--gg-action-size,70px);height:var(--gg-action-size,70px);min-width:var(--gg-action-size,70px);padding:0;border-radius:50%;display:grid;place-items:center;border:2px solid rgba(235,245,255,.56);background:rgba(15,20,32,.28);box-shadow:0 5px 18px rgba(0,0,0,.22),inset 0 -6px 14px rgba(0,0,0,.16);backdrop-filter:blur(2px);opacity:.72;text-shadow:0 1px 2px #000}
+    body.gg-mobile-coarse .gg-kof-combo{width:var(--gg-action-size,70px);height:var(--gg-action-size,70px);min-width:var(--gg-action-size,70px);padding:0;border-radius:50%;display:grid;place-items:center;border:2px solid rgba(235,245,255,.56);background:rgba(15,20,32,.28);box-shadow:0 5px 18px rgba(0,0,0,.22),inset 0 -6px 14px rgba(0,0,0,.16);backdrop-filter:none;opacity:.72;text-shadow:0 1px 2px #000}
     body.gg-mobile-coarse .gg-kof-combo b{font-size:.72rem;line-height:1;letter-spacing:.02em;max-width:60px;overflow:hidden;text-overflow:clip}
     body.gg-mobile-coarse .gg-kof-combo.combo-max{border-color:rgba(82,225,255,.72)}
     body.gg-mobile-coarse .gg-kof-combo.combo-roll{border-color:rgba(255,218,88,.68)}
@@ -185,6 +203,6 @@
     </div>
   </div>
   <div id="boot"><div class="panel"><b>🥊 KOF 2002 Magic Plus II</b><small id="bootText">Preparando FBNeo.</small><button id="startKofButton" type="button">INICIAR KOF</button></div></div>
-  <script src="/kof-player.js?v=19.4.2"></script>
+  <script src="/kof-player.js?v=19.4.3"></script>
 </body>
 </html>
