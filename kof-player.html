@@ -65,6 +65,17 @@
 
     :fullscreen,:fullscreen body,:fullscreen #game{width:100vw!important;height:100dvh!important;max-width:none!important;max-height:none!important}
     @media(max-width:720px){.pad-grid,.layout-grid{grid-template-columns:1fr}.pad-map-row{grid-template-columns:80px 1fr}.pad-map-row button{grid-column:1/-1}.pad-map-value{grid-column:2}}
+    /* V19.4.4 — editor de posição dos controles mobile */
+    .layout-position-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+    .layout-position-edit,.layout-position-reset{border-radius:10px;padding:10px 14px;border:1px solid #3a5378;font-weight:900;cursor:pointer}
+    .layout-position-edit{background:#13263a;color:#71ecff;border-color:#3bd9f1}.layout-position-reset{background:#261927;color:#ffd96a;border-color:#806834}
+    #hudEditor{position:fixed;left:50%;top:max(8px,env(safe-area-inset-top));transform:translateX(-50%);z-index:120;display:flex;align-items:center;gap:7px;padding:7px 9px;border-radius:13px;background:rgba(5,9,19,.94);border:1px solid rgba(66,232,255,.72);box-shadow:0 8px 24px rgba(0,0,0,.36);backdrop-filter:none}
+    #hudEditor[hidden]{display:none}#hudEditor strong{font-size:.72rem;white-space:nowrap;color:#dffaff}
+    .hud-editor-btn{border:1px solid #405779;background:#101a2c;color:#fff;border-radius:9px;padding:7px 9px;font-size:.68rem;font-weight:900;white-space:nowrap}.hud-editor-btn.save{background:#1a7684;border-color:#41dff2}.hud-editor-btn.reset{border-color:#8c7537;color:#ffe28a}.hud-editor-btn.cancel{border-color:#66506d}
+    body.gg-layout-editing #game [data-gg-drag-key],body.gg-layout-editing #ggKofCombos [data-gg-drag-key]{outline:2px dashed rgba(85,235,255,.92)!important;outline-offset:4px!important;filter:brightness(1.25)!important;opacity:.85!important;cursor:move!important;touch-action:none!important;pointer-events:auto!important}
+    body.gg-layout-editing #game [data-gg-drag-key="stick"]{outline-color:rgba(76,238,223,.95)!important}
+    body.gg-layout-editing .gg-kof-toolbar,body.gg-layout-editing #kofNetplayStatus{display:none!important}
+    body.gg-layout-editing #kofHudHotspot{display:none!important}
     @media(max-width:560px){#kofHudHotspot{height:24px}.gg-kof-tool{font-size:.64rem;padding:6px 7px;min-height:31px}.gg-kof-toolbar{gap:4px}.gg-kof-toolbar-group{gap:4px}#arcadeHelpButton,#kofLayoutButton,#kofPadButton{max-width:112px;overflow:hidden;text-overflow:ellipsis}.arcade-help-card,.layout-card,.pad-card{padding:15px}.arcade-key,.layout-preview-slot{min-height:58px;max-width:68px;font-size:1.55rem}.arcade-functions{grid-template-columns:1fr}.arcade-help-note,.layout-note,.pad-note{font-size:.82rem}#kofNetplayStatus{font-size:.7rem;padding:7px 8px;width:min(96vw,720px)}.netplay-mini{font-size:.66rem;padding:5px 6px}.layout-actions,.pad-actions{flex-direction:column}.layout-save,.layout-reset,.pad-save,.pad-reset{width:100%}.gg-kof-combos{right:max(6px,env(safe-area-inset-right));bottom:calc(max(138px,env(safe-area-inset-bottom)) + 96px);gap:8px}.gg-kof-combo{min-width:92px;padding:8px 9px}}
     @media(orientation:landscape) and (max-height:560px){.gg-kof-toolbar{top:max(4px,env(safe-area-inset-top))}.gg-kof-tool{min-height:28px;padding:4px 7px;font-size:.62rem}#kofNetplayStatus{bottom:max(4px,env(safe-area-inset-bottom));padding:5px 8px}.gg-kof-combos{right:max(6px,env(safe-area-inset-right));bottom:calc(max(122px,env(safe-area-inset-bottom)) + 74px);gap:8px}.gg-kof-combo{min-width:88px;padding:7px 9px}}
 
@@ -123,6 +134,12 @@
     <button class="gg-kof-combo combo-max" id="ggKofBurstButton" type="button"><b>MAX</b></button>
     <button class="gg-kof-combo combo-roll" id="ggKofDodgeButton" type="button"><b>ESQUIVA</b></button>
   </div>
+  <div id="hudEditor" hidden aria-label="Editor de posição dos controles">
+    <strong>ARRASTE OS CONTROLES</strong>
+    <button class="hud-editor-btn save" id="hudEditorSave" type="button">SALVAR</button>
+    <button class="hud-editor-btn reset" id="hudEditorReset" type="button">PADRÃO</button>
+    <button class="hud-editor-btn cancel" id="hudEditorCancel" type="button">CANCELAR</button>
+  </div>
   <div id="layoutModal" hidden role="dialog" aria-modal="true" aria-labelledby="layoutTitle">
     <div class="layout-card">
       <div class="layout-head"><h2 id="layoutTitle">🕹️ PERSONALIZAR CONTROLES DO CELULAR</h2><button class="layout-close" id="layoutClose" type="button">✕ FECHAR</button></div>
@@ -145,7 +162,8 @@
         </div>
       </div>
       <div class="layout-actions"><button class="layout-save" id="layoutSave" type="button">SALVAR ORDEM DOS BOTÕES</button><button class="layout-reset" id="layoutReset" type="button">RESTAURAR PADRÃO</button></div>
-      <div class="layout-note">A ordem salva fica gravada neste aparelho. Se o KOF já estiver aberto, a página reinicia automaticamente para aplicar o novo layout.</div>
+      <div class="layout-position-actions"><button class="layout-position-edit" id="layoutPositionEdit" type="button">✥ EDITAR POSIÇÕES NA TELA</button><button class="layout-position-reset" id="layoutPositionReset" type="button">↺ RESETAR POSIÇÕES</button></div>
+      <div class="layout-note">A ordem A/B/C/D e a posição de cada controle ficam salvas neste aparelho. Use <b>EDITAR POSIÇÕES NA TELA</b> para arrastar alavanca, A/B/C/D, MAX, ESQUIVA, COIN e START. O layout é salvo separadamente para vertical e horizontal.</div>
     </div>
   </div>
   <div id="padModal" hidden role="dialog" aria-modal="true" aria-labelledby="padTitle">
@@ -203,6 +221,6 @@
     </div>
   </div>
   <div id="boot"><div class="panel"><b>🥊 KOF 2002 Magic Plus II</b><small id="bootText">Preparando FBNeo.</small><button id="startKofButton" type="button">INICIAR KOF</button></div></div>
-  <script src="/kof-player.js?v=19.4.3"></script>
+  <script src="/kof-player.js?v=19.4.4"></script>
 </body>
 </html>

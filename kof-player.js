@@ -16,7 +16,7 @@
   const room = String(params.get('room') || 'TREINO').toUpperCase();
   const online = role !== 'training' && room !== 'TREINO';
   const EJS_VERSION = online ? '4.3.0-pre' : '4.2.1';
-  const PATCH_VERSION = '19.4.3';
+  const PATCH_VERSION = '19.4.4';
   const EJS_DATA = `https://cdn.emulatorjs.org/${EJS_VERSION}/data/`;
 
   const GAME_URL = '/roms/v178/kf2k2mp2.zip';
@@ -32,10 +32,10 @@
   const DEFAULT_CONTROL_LAYOUT = { tl: 'C', tr: 'D', bl: 'A', br: 'B' };
   const SLOT_KEYS = ['tl', 'tr', 'bl', 'br'];
   const SLOT_COORDS = {
-    tl: { left: 12, top: 6 },
-    tr: { left: 82, top: 0 },
-    bl: { left: 0, top: 72 },
-    br: { left: 70, top: 78 }
+    tl: { left: 8, top: 34 },
+    tr: { left: 76, top: 30 },
+    bl: { left: 0, top: 98 },
+    br: { left: 68, top: 102 }
   };
   const BUTTON_INPUTS = { A: 0, B: 8, C: 1, D: 9 };
   const ACTION_INPUTS = { a: 0, b: 8, c: 1, d: 9, coin: 2, start: 3 };
@@ -67,6 +67,23 @@
     dodge: ['KeyW']
   };
   const GAMEPAD_ACTION_LABELS = { a: 'A', b: 'B', c: 'C', d: 'D', coin: 'COIN', start: 'START', max: 'MAX', dodge: 'ESQUIVA' };
+  const TOUCH_POSITION_KEY = 'gg_kof_touch_positions_v1';
+  const DEFAULT_TOUCH_POSITIONS = {
+    landscape: {
+      stick: { x: .18, y: .68 },
+      c: { x: .86, y: .64 }, d: { x: .95, y: .65 },
+      a: { x: .84, y: .80 }, b: { x: .93, y: .81 },
+      max: { x: .86, y: .48 }, dodge: { x: .95, y: .48 },
+      coin: { x: .40, y: .86 }, start: { x: .53, y: .86 }
+    },
+    portrait: {
+      stick: { x: .22, y: .76 },
+      c: { x: .72, y: .67 }, d: { x: .88, y: .68 },
+      a: { x: .69, y: .80 }, b: { x: .85, y: .81 },
+      max: { x: .72, y: .57 }, dodge: { x: .88, y: .57 },
+      coin: { x: .27, y: .91 }, start: { x: .55, y: .91 }
+    }
+  };
 
   let started = false;
   let loading = false;
@@ -91,6 +108,11 @@
   let uiRefreshTimer = 0;
   let emulatorResizeTimer = 0;
   let virtualControlsReady = false;
+  let touchPositions = loadTouchPositions();
+  let touchLayoutEditing = false;
+  let touchLayoutDraft = null;
+  let touchLayoutSnapshot = null;
+  let dragState = null;
   const keyboardPressedActions = new Set();
   const keyboardDirections = { up: false, down: false, left: false, right: false };
 
@@ -128,6 +150,139 @@
       netplayToastTimer = setTimeout(() => setNetplayToastVisible(false), ms);
     }
   }
+  function touchOrientation() { return innerWidth >= innerHeight ? 'landscape' : 'portrait'; }
+  function clonePositionSet(value) { return JSON.parse(JSON.stringify(value || {})); }
+  function normalizeTouchPoint(value, fallback) {
+    const x = Number(value?.x), y = Number(value?.y);
+    return {
+      x: Number.isFinite(x) ? Math.max(.035, Math.min(.965, x)) : fallback.x,
+      y: Number.isFinite(y) ? Math.max(.05, Math.min(.95, y)) : fallback.y
+    };
+  }
+  function normalizeTouchPositions(value) {
+    const out = {};
+    for (const orientation of ['landscape','portrait']) {
+      out[orientation] = {};
+      const defaults = DEFAULT_TOUCH_POSITIONS[orientation];
+      for (const key of Object.keys(defaults)) out[orientation][key] = normalizeTouchPoint(value?.[orientation]?.[key], defaults[key]);
+    }
+    return out;
+  }
+  function loadTouchPositions() {
+    try { return normalizeTouchPositions(JSON.parse(localStorage.getItem(TOUCH_POSITION_KEY) || 'null') || DEFAULT_TOUCH_POSITIONS); }
+    catch { return normalizeTouchPositions(DEFAULT_TOUCH_POSITIONS); }
+  }
+  function saveTouchPositions(value) {
+    touchPositions = normalizeTouchPositions(value);
+    try { localStorage.setItem(TOUCH_POSITION_KEY, JSON.stringify(touchPositions)); } catch {}
+    return touchPositions;
+  }
+  function resetTouchPositions(orientation = touchOrientation()) {
+    touchPositions = loadTouchPositions();
+    touchPositions[orientation] = clonePositionSet(DEFAULT_TOUCH_POSITIONS[orientation]);
+    saveTouchPositions(touchPositions);
+    return touchPositions[orientation];
+  }
+  function controlForTouchKey(key) {
+    if (key === 'stick') return document.getElementById('gg-neo-stick');
+    if (key === 'coin') return document.getElementById('gg-neo-coin');
+    if (key === 'start') return document.getElementById('gg-neo-start');
+    if (key === 'max') return document.getElementById('ggKofBurstButton');
+    if (key === 'dodge') return document.getElementById('ggKofDodgeButton');
+    return findArcadeButton(String(key).toUpperCase());
+  }
+  function touchControlEntries() {
+    return ['stick','a','b','c','d','max','dodge','coin','start']
+      .map(key => [key, controlForTouchKey(key)])
+      .filter(([,el]) => !!el);
+  }
+  function actionButtonSize() {
+    const rects = ['A','B','C','D'].map(findArcadeButton).filter(Boolean).map(el => el.getBoundingClientRect()).filter(r => r.width > 20 && r.height > 20);
+    if (!rects.length) return innerWidth > innerHeight ? 62 : 58;
+    const values = rects.map(r => Math.min(r.width,r.height)).sort((a,b)=>a-b);
+    return Math.max(48, Math.min(78, values[Math.floor(values.length/2)] || 62));
+  }
+  function applyTouchPoint(key, point, el = controlForTouchKey(key)) {
+    if (!coarsePointer || !el || !point) return;
+    const rect = el.getBoundingClientRect();
+    const width = Math.max(28, rect.width || (key === 'stick' ? 120 : actionButtonSize()));
+    const height = Math.max(28, rect.height || (key === 'stick' ? 120 : actionButtonSize()));
+    const cx = Math.max(width / 2 + 4, Math.min(innerWidth - width / 2 - 4, point.x * innerWidth));
+    const cy = Math.max(height / 2 + 4, Math.min(innerHeight - height / 2 - 4, point.y * innerHeight));
+    el.style.setProperty('position','fixed','important');
+    el.style.setProperty('left', `${Math.round(cx - width / 2)}px`, 'important');
+    el.style.setProperty('top', `${Math.round(cy - height / 2)}px`, 'important');
+    el.style.setProperty('right','auto','important');
+    el.style.setProperty('bottom','auto','important');
+    el.style.setProperty('margin','0','important');
+    el.style.setProperty('transform','none','important');
+    el.style.setProperty('z-index', key === 'max' || key === 'dodge' ? '73' : '71', 'important');
+    el.dataset.ggDragKey = key;
+  }
+  function applyTouchPositions(source = null) {
+    if (!coarsePointer || !gameplayStarted) return;
+    const orientation = touchOrientation();
+    const positions = source || (touchLayoutEditing ? touchLayoutDraft : touchPositions[orientation]) || DEFAULT_TOUCH_POSITIONS[orientation];
+    const size = actionButtonSize();
+    if (comboShell) comboShell.style.setProperty('--gg-action-size', `${size}px`);
+    if (burstButton) { burstButton.style.setProperty('width',`${size}px`,'important'); burstButton.style.setProperty('height',`${size}px`,'important'); burstButton.style.setProperty('min-width',`${size}px`,'important'); }
+    if (dodgeButton) { dodgeButton.style.setProperty('width',`${size}px`,'important'); dodgeButton.style.setProperty('height',`${size}px`,'important'); dodgeButton.style.setProperty('min-width',`${size}px`,'important'); }
+    for (const [key, el] of touchControlEntries()) applyTouchPoint(key, positions[key] || DEFAULT_TOUCH_POSITIONS[orientation][key], el);
+  }
+  function markTouchControlsEditable(enabled) {
+    for (const [key,el] of touchControlEntries()) {
+      if (enabled) el.dataset.ggDragKey = key;
+      else if (el.dataset.ggDragKey) delete el.dataset.ggDragKey;
+    }
+  }
+  function startTouchLayoutEditor() {
+    if (!coarsePointer || !gameplayStarted || !hasVirtualControls()) {
+      setNetplayState('⚠️ Inicie o KOF no celular antes de editar a posição dos controles.', 'error');
+      return;
+    }
+    const orientation = touchOrientation();
+    touchLayoutSnapshot = clonePositionSet(touchPositions[orientation]);
+    touchLayoutDraft = clonePositionSet(touchPositions[orientation]);
+    touchLayoutEditing = true;
+    closeLayoutModal();
+    document.body.classList.add('gg-layout-editing');
+    if (hudEditor) hudEditor.hidden = false;
+    if (comboShell) comboShell.hidden = false;
+    markTouchControlsEditable(true);
+    applyTouchPositions(touchLayoutDraft);
+  }
+  function finishTouchLayoutEditor(save) {
+    if (!touchLayoutEditing) return;
+    const orientation = touchOrientation();
+    if (save && touchLayoutDraft) {
+      touchPositions[orientation] = clonePositionSet(touchLayoutDraft);
+      saveTouchPositions(touchPositions);
+      setNetplayState('✅ Posição dos controles salva neste aparelho.', 'connected');
+    } else if (touchLayoutSnapshot) {
+      touchPositions[orientation] = clonePositionSet(touchLayoutSnapshot);
+    }
+    touchLayoutEditing = false;
+    dragState = null;
+    document.body.classList.remove('gg-layout-editing');
+    if (hudEditor) hudEditor.hidden = true;
+    markTouchControlsEditable(false);
+    applyTouchPositions(touchPositions[orientation]);
+    showHudTemporarily(1800);
+  }
+  function resetTouchLayoutEditor() {
+    const orientation = touchOrientation();
+    const defaults = clonePositionSet(DEFAULT_TOUCH_POSITIONS[orientation]);
+    if (touchLayoutEditing) {
+      touchLayoutDraft = defaults;
+      applyTouchPositions(touchLayoutDraft);
+    } else {
+      touchPositions[orientation] = defaults;
+      saveTouchPositions(touchPositions);
+      applyTouchPositions(touchPositions[orientation]);
+      setNetplayState('↺ Posições padrão restauradas para esta orientação.', 'info');
+    }
+  }
+
   function findArcadeButton(label) {
     const exactId = getButtonElementByLabel?.(label);
     if (exactId) return exactId;
@@ -163,24 +318,12 @@
   }
   function positionComboButtons() {
     if (!coarsePointer || !comboShell || comboShell.hidden) return;
-    const buttons = ['A','B','C','D'].map(findArcadeButton).filter(Boolean);
-    if (buttons.length < 2) return;
-    const rects = buttons.map(el => el.getBoundingClientRect()).filter(r => r.width > 20 && r.height > 20);
-    if (!rects.length) return;
-    const left = Math.min(...rects.map(r => r.left));
-    const right = Math.max(...rects.map(r => r.right));
-    const top = Math.min(...rects.map(r => r.top));
-    const sizes = rects.map(r => Math.min(r.width,r.height)).sort((a,b)=>a-b);
-    const actionSize = Math.max(42, Math.min(82, sizes[Math.floor(sizes.length/2)] || 60));
-    const clusterWidth = right - left;
-    const gap = Math.max(6, Math.round(actionSize * .12));
-    comboShell.style.setProperty('--gg-action-size', `${actionSize}px`);
-    comboShell.style.left = `${Math.max(6, Math.min(innerWidth - clusterWidth - 6, left))}px`;
-    comboShell.style.top = `${Math.max(6, top - actionSize - gap)}px`;
-    comboShell.style.width = `${Math.max(actionSize * 2 + gap, clusterWidth)}px`;
-    comboShell.style.right = 'auto';
-    comboShell.style.bottom = 'auto';
+    const size = actionButtonSize();
+    comboShell.style.setProperty('--gg-action-size', `${size}px`);
+    if (!gameplayStarted) return;
+    applyTouchPositions();
   }
+
   function restyleVirtualControls() {
     const stick = document.getElementById('gg-neo-stick');
     if (stick) {
@@ -210,6 +353,7 @@
     });
     forceGameFill();
     positionComboButtons();
+    if (gameplayStarted) applyTouchPositions();
   }
   function hasVirtualControls() {
     return !!document.getElementById('gg-neo-stick') && ['A','B','C','D'].every(label => !!findArcadeButton(label));
@@ -353,7 +497,7 @@
       };
     });
     return [
-      { type: 'zone', id: 'gg-neo-stick', location: 'left', left: '48%', top: '54%', color: 'cyan', joystickInput: false, inputValues: [4, 5, 6, 7] },
+      { type: 'zone', id: 'gg-neo-stick', location: 'left', left: '72%', top: '62%', color: 'cyan', joystickInput: false, inputValues: [4, 5, 6, 7] },
       ...buttons,
       { type: 'button', text: 'COIN', id: 'gg-neo-coin', location: 'center', left: -54, top: 18, bold: true, fontSize: 11, block: true, input_value: 2 },
       { type: 'button', text: 'START', id: 'gg-neo-start', location: 'center', left: 54, top: 18, bold: true, fontSize: 11, block: true, input_value: 3 }
@@ -738,6 +882,10 @@
   const burstButton = document.getElementById('ggKofBurstButton');
   const dodgeButton = document.getElementById('ggKofDodgeButton');
   const hudHotspot = document.getElementById('kofHudHotspot');
+  const hudEditor = document.getElementById('hudEditor');
+  const hudEditorSave = document.getElementById('hudEditorSave');
+  const hudEditorReset = document.getElementById('hudEditorReset');
+  const hudEditorCancel = document.getElementById('hudEditorCancel');
 
   function getButtonElementByLabel(label) {
     const slot = SLOT_KEYS.find(key => currentControlLayout[key] === label);
@@ -930,6 +1078,8 @@
   const layoutClose = document.getElementById('layoutClose');
   const layoutSave = document.getElementById('layoutSave');
   const layoutReset = document.getElementById('layoutReset');
+  const layoutPositionEdit = document.getElementById('layoutPositionEdit');
+  const layoutPositionReset = document.getElementById('layoutPositionReset');
   const layoutInputs = { tl: document.getElementById('layoutSlotTL'), tr: document.getElementById('layoutSlotTR'), bl: document.getElementById('layoutSlotBL'), br: document.getElementById('layoutSlotBR') };
   const layoutPreview = { tl: document.querySelector('[data-layout-slot="tl"]'), tr: document.querySelector('[data-layout-slot="tr"]'), bl: document.querySelector('[data-layout-slot="bl"]'), br: document.querySelector('[data-layout-slot="br"]') };
 
@@ -1095,6 +1245,40 @@
     if (started || loading) setTimeout(() => location.reload(), 450);
   });
 
+  layoutPositionEdit?.addEventListener('click', startTouchLayoutEditor);
+  layoutPositionReset?.addEventListener('click', resetTouchLayoutEditor);
+  hudEditorSave?.addEventListener('click', () => finishTouchLayoutEditor(true));
+  hudEditorCancel?.addEventListener('click', () => finishTouchLayoutEditor(false));
+  hudEditorReset?.addEventListener('click', resetTouchLayoutEditor);
+
+  document.addEventListener('pointerdown', event => {
+    if (!touchLayoutEditing) return;
+    const target = event.target?.closest?.('[data-gg-drag-key]');
+    if (!target) return;
+    const key = target.dataset.ggDragKey;
+    const point = touchLayoutDraft?.[key];
+    if (!key || !point) return;
+    event.preventDefault(); event.stopPropagation();
+    const rect = target.getBoundingClientRect();
+    dragState = { key, target, dx: event.clientX - (rect.left + rect.width / 2), dy: event.clientY - (rect.top + rect.height / 2), pointerId: event.pointerId };
+    try { target.setPointerCapture?.(event.pointerId); } catch {}
+  }, true);
+  document.addEventListener('pointermove', event => {
+    if (!touchLayoutEditing || !dragState || dragState.pointerId !== event.pointerId) return;
+    event.preventDefault(); event.stopPropagation();
+    const x = Math.max(.035, Math.min(.965, (event.clientX - dragState.dx) / innerWidth));
+    const y = Math.max(.05, Math.min(.95, (event.clientY - dragState.dy) / innerHeight));
+    touchLayoutDraft[dragState.key] = { x, y };
+    applyTouchPoint(dragState.key, touchLayoutDraft[dragState.key], dragState.target);
+  }, true);
+  const endTouchDrag = event => {
+    if (!dragState || (event.pointerId != null && dragState.pointerId !== event.pointerId)) return;
+    try { dragState.target?.releasePointerCapture?.(dragState.pointerId); } catch {}
+    dragState = null;
+  };
+  document.addEventListener('pointerup', endTouchDrag, true);
+  document.addEventListener('pointercancel', endTouchDrag, true);
+
   padButton?.addEventListener('click', openPadModal);
   padClose?.addEventListener('click', closePadModal);
   padModal?.addEventListener('click', e => { if (e.target === padModal) closePadModal(); });
@@ -1127,7 +1311,7 @@
   landscapeButton?.addEventListener('click', () => setOrientation('landscape'));
   document.addEventListener('fullscreenchange', updateFullscreenUi);
   document.addEventListener('webkitfullscreenchange', updateFullscreenUi);
-  window.addEventListener('orientationchange', () => scheduleEmulatorResize(360), { passive: true });
+  window.addEventListener('orientationchange', () => { scheduleEmulatorResize(360); setTimeout(() => applyTouchPositions(), 520); }, { passive: true });
   window.addEventListener('gamepadconnected', e => { activeGamepadIndex = e.gamepad?.index ?? activeGamepadIndex; setPadStatus('<span class="pad-ok">Controle conectado.</span> O mapeamento externo está pronto para uso.', `${e.gamepad?.id || 'Gamepad'} • slot ${e.gamepad?.index ?? 0}`); startGamepadLoop(); });
   window.addEventListener('gamepaddisconnected', () => { setPadStatus('<span class="pad-warn">Controle desconectado.</span> Conecte um controle USB/Bluetooth no Android ou PC.', 'Nenhum controle detectado.'); releaseAllPhysicalInputs(); });
   window.addEventListener('keydown', onKeyboardDown, { passive: false });
@@ -1140,7 +1324,7 @@
   renderPadMapping(currentGamepadMapping);
   setupMobileComboButtons();
   installVirtualControlObserver();
-  if (coarsePointer) setHudVisible(true, 0);
+  if (coarsePointer) { setHudVisible(true, 0); setTimeout(() => applyTouchPositions(), 500); }
   startGamepadLoop();
 
   if (online) {
@@ -1150,6 +1334,6 @@
     setTimeout(() => bootGame(), 180);
   } else {
     if (netplayStatus) netplayStatus.hidden = true;
-    setText('Clique em INICIAR KOF. No celular, toque no topo da tela para mostrar o HUD, use 🕹 LAYOUT para trocar a ordem A/B/C/D e 🎮 CONTROLE para mapear gamepad USB/Bluetooth. Atalhos fixos: MAX = B+C e ESQUIVA = A+B.');
+    setText('Clique em INICIAR KOF. No celular, toque no topo para mostrar o HUD. Em 🕹 LAYOUT você pode trocar a ordem A/B/C/D e também arrastar individualmente alavanca, A/B/C/D, MAX, ESQUIVA, COIN e START; a posição é salva separadamente para vertical e horizontal. Atalhos fixos: MAX = B+C e ESQUIVA = A+B.');
   }
 })();
