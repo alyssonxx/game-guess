@@ -16,7 +16,7 @@
   const room = String(params.get('room') || 'TREINO').toUpperCase();
   const online = role !== 'training' && room !== 'TREINO';
   const EJS_VERSION = online ? '4.3.0-pre' : '4.2.1';
-  const PATCH_VERSION = '19.3.0';
+  const PATCH_VERSION = '19.4.0';
   const EJS_DATA = `https://cdn.emulatorjs.org/${EJS_VERSION}/data/`;
 
   const GAME_URL = '/roms/v178/kf2k2mp2.zip';
@@ -32,10 +32,10 @@
   const DEFAULT_CONTROL_LAYOUT = { tl: 'C', tr: 'D', bl: 'A', br: 'B' };
   const SLOT_KEYS = ['tl', 'tr', 'bl', 'br'];
   const SLOT_COORDS = {
-    tl: { left: 0, top: 0 },
-    tr: { left: 62, top: 0 },
-    bl: { left: 0, top: 64 },
-    br: { left: 62, top: 64 }
+    tl: { left: 12, top: 6 },
+    tr: { left: 82, top: 0 },
+    bl: { left: 0, top: 72 },
+    br: { left: 70, top: 78 }
   };
   const BUTTON_INPUTS = { A: 0, B: 8, C: 1, D: 9 };
   const BUTTON_CLASSES = { A: 'slot-a', B: 'slot-b', C: 'slot-c', D: 'slot-d' };
@@ -78,9 +78,73 @@
   let gamepadFrame = 0;
   let lastGamepadButtons = [];
   let stickPointerActive = false;
+  const coarsePointer = matchMedia('(hover:none) and (pointer:coarse)').matches || 'ontouchstart' in window;
+  let hudHideTimer = 0;
+  let netplayToastTimer = 0;
+  let gameplayStarted = false;
   const activePhysicalButtons = new Map();
   const keyboardPressedActions = new Set();
   const keyboardDirections = { up: false, down: false, left: false, right: false };
+
+  if (coarsePointer) document.body.classList.add('gg-mobile-coarse');
+  document.body.classList.add('gg-toast-hidden');
+
+  function clearHudHideTimer() { if (hudHideTimer) clearTimeout(hudHideTimer); hudHideTimer = 0; }
+  function clearNetplayToastTimer() { if (netplayToastTimer) clearTimeout(netplayToastTimer); netplayToastTimer = 0; }
+  function hasOpenModal() {
+    return [document.getElementById('arcadeHelpModal'), document.getElementById('layoutModal'), document.getElementById('padModal')].some(el => el && !el.hidden);
+  }
+  function setHudVisible(visible, autoHideMs = 0) {
+    if (!coarsePointer) return;
+    if (visible) document.body.classList.add('gg-hud-visible');
+    else document.body.classList.remove('gg-hud-visible');
+    clearHudHideTimer();
+    if (visible && autoHideMs > 0) {
+      hudHideTimer = setTimeout(() => { if (!hasOpenModal()) setHudVisible(false, 0); }, autoHideMs);
+    }
+  }
+  function showHudTemporarily(ms = 2600) { setHudVisible(true, ms); }
+  function setNetplayToastVisible(visible) {
+    if (visible) document.body.classList.remove('gg-toast-hidden');
+    else document.body.classList.add('gg-toast-hidden');
+  }
+  function showTransientNetplay(message, kind = 'info', ms = 2200) {
+    if (!netplayStatus) return;
+    const span = netplayStatus.querySelector('[data-netplay-text]');
+    if (span) span.textContent = message;
+    netplayStatus.dataset.kind = kind;
+    netplayStatus.hidden = false;
+    setNetplayToastVisible(true);
+    clearNetplayToastTimer();
+    if (coarsePointer && gameplayStarted) {
+      netplayToastTimer = setTimeout(() => setNetplayToastVisible(false), ms);
+    }
+  }
+  function restyleVirtualControls() {
+    const stick = document.getElementById('gg-neo-stick');
+    if (stick) {
+      stick.style.opacity = '.36';
+      stick.style.filter = 'saturate(.92)';
+      stick.style.transform = 'scale(.88)';
+    }
+    const actionIds = [
+      ...SLOT_KEYS.map(slot => currentControlLayout[slot]).filter(Boolean).map(label => `gg-neo-${String(label).toLowerCase()}-${SLOT_KEYS.find(key => currentControlLayout[key] === label)}`),
+      'gg-neo-coin','gg-neo-start'
+    ];
+    actionIds.forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.style.opacity = id.includes('coin') || id.includes('start') ? '.58' : '.38';
+      el.style.filter = 'saturate(.92)';
+      el.style.borderRadius = id.includes('coin') || id.includes('start') ? '12px' : '999px';
+      if (!id.includes('coin') && !id.includes('start')) el.style.transform = 'scale(.9)';
+    });
+  }
+  function installVirtualControlObserver() {
+    restyleVirtualControls();
+    const obs = new MutationObserver(() => restyleVirtualControls());
+    obs.observe(document.body, { childList: true, subtree: true });
+  }
 
   function post(type, message, extra = {}) {
     try { window.parent?.postMessage({ type, message, ...extra }, location.origin); } catch {}
@@ -92,6 +156,14 @@
       netplayStatus.dataset.kind = kind;
       const span = netplayStatus.querySelector('[data-netplay-text]');
       if (span) span.textContent = message;
+      if (coarsePointer && gameplayStarted) {
+        const duration = kind === 'error' ? 3200 : kind === 'connected' ? 1800 : 2200;
+        setNetplayToastVisible(true);
+        clearNetplayToastTimer();
+        netplayToastTimer = setTimeout(() => setNetplayToastVisible(false), duration);
+      } else {
+        setNetplayToastVisible(true);
+      }
     }
     post('kof-netplay-status', message, { role, room, state: kind, rtcRoomName });
   }
@@ -171,15 +243,15 @@
         left: pos.left,
         top: pos.top,
         bold: true,
-        fontSize: 27,
+        fontSize: 24,
         input_value: BUTTON_INPUTS[label]
       };
     });
     return [
-      { type: 'zone', id: 'gg-neo-stick', location: 'left', left: '50%', top: '50%', color: 'cyan', joystickInput: false, inputValues: [4, 5, 6, 7] },
+      { type: 'zone', id: 'gg-neo-stick', location: 'left', left: '48%', top: '54%', color: 'cyan', joystickInput: false, inputValues: [4, 5, 6, 7] },
       ...buttons,
-      { type: 'button', text: 'COIN', id: 'gg-neo-coin', location: 'center', left: -58, top: 6, bold: true, fontSize: 12, block: true, input_value: 2 },
-      { type: 'button', text: 'START', id: 'gg-neo-start', location: 'center', left: 58, top: 6, bold: true, fontSize: 12, block: true, input_value: 3 }
+      { type: 'button', text: 'COIN', id: 'gg-neo-coin', location: 'center', left: -54, top: 18, bold: true, fontSize: 11, block: true, input_value: 2 },
+      { type: 'button', text: 'START', id: 'gg-neo-start', location: 'center', left: 54, top: 18, bold: true, fontSize: 11, block: true, input_value: 3 }
     ];
   }
 
@@ -511,8 +583,13 @@
         });
       };
       window.EJS_onGameStart = () => {
-        started = true; loading = false;
+        started = true; loading = false; gameplayStarted = true;
         if (boot) boot.style.display = 'none';
+        restyleVirtualControls();
+        if (coarsePointer) {
+          showHudTemporarily(2600);
+          setTimeout(() => setNetplayToastVisible(false), 1900);
+        }
         post('kof-player-ready', `KOF iniciado • EmulatorJS ${EJS_VERSION} • FBNeo • Game ID ${gameId}`, {
           gameId, version: EJS_VERSION, patch: PATCH_VERSION, online, role, room, rtcRoomName, layout: 'full-non-merged', controls: 'neo-geo-abcd-custom-layout+combo-shortcuts+gamepad-support'
         });
@@ -538,6 +615,7 @@
   const comboShell = document.getElementById('ggKofCombos');
   const burstButton = document.getElementById('ggKofBurstButton');
   const dodgeButton = document.getElementById('ggKofDodgeButton');
+  const hudHotspot = document.getElementById('kofHudHotspot');
 
   function getButtonElementByLabel(label) {
     const slot = SLOT_KEYS.find(key => currentControlLayout[key] === label);
@@ -667,7 +745,7 @@
   const arcadeHelpButton = document.getElementById('arcadeHelpButton');
   const arcadeHelpModal = document.getElementById('arcadeHelpModal');
   const arcadeHelpClose = document.getElementById('arcadeHelpClose');
-  const setArcadeHelp = open => { if (arcadeHelpModal) arcadeHelpModal.hidden = !open; };
+  const setArcadeHelp = open => { if (arcadeHelpModal) arcadeHelpModal.hidden = !open; if (open) setHudVisible(true, 0); else if (gameplayStarted) showHudTemporarily(); };
   arcadeHelpButton?.addEventListener('click', () => setArcadeHelp(true));
   arcadeHelpClose?.addEventListener('click', () => setArcadeHelp(false));
   arcadeHelpModal?.addEventListener('click', e => { if (e.target === arcadeHelpModal) setArcadeHelp(false); });
@@ -706,8 +784,8 @@
     refreshLayoutPreview(normalized);
   }
   function readLayoutForm() { return normalizeControlLayout({ tl: layoutInputs.tl?.value, tr: layoutInputs.tr?.value, bl: layoutInputs.bl?.value, br: layoutInputs.br?.value }); }
-  function openLayoutModal() { fillLayoutForm(currentControlLayout); if (layoutModal) layoutModal.hidden = false; }
-  function closeLayoutModal() { if (layoutModal) layoutModal.hidden = true; }
+  function openLayoutModal() { fillLayoutForm(currentControlLayout); if (layoutModal) layoutModal.hidden = false; setHudVisible(true, 0); }
+  function closeLayoutModal() { if (layoutModal) layoutModal.hidden = true; if (gameplayStarted) showHudTemporarily(); }
 
   function setPadStatus(message, device) {
     if (padStatusText) padStatusText.innerHTML = message;
@@ -727,11 +805,12 @@
   function openPadModal() {
     renderPadMapping(currentGamepadMapping);
     if (padModal) padModal.hidden = false;
+    setHudVisible(true, 0);
     const pad = firstConnectedGamepad();
     if (pad) setPadStatus('<span class="pad-ok">Controle detectado.</span> Movimento pelo direcional ou analógico esquerdo. Você pode remapear os botões abaixo.', `${pad.id || 'Gamepad genérico'} • slot ${pad.index}`);
     else setPadStatus('<span class="pad-warn">Nenhum controle detectado.</span> Conecte um controle USB/Bluetooth no Android ou PC.', 'Nenhum controle detectado.');
   }
-  function closePadModal() { if (padModal) padModal.hidden = true; captureGamepadAction = ''; renderPadMapping(currentGamepadMapping); }
+  function closePadModal() { if (padModal) padModal.hidden = true; captureGamepadAction = ''; renderPadMapping(currentGamepadMapping); if (gameplayStarted) showHudTemporarily(); }
   function startCapture(action) { captureGamepadAction = action; renderPadMapping(currentGamepadMapping); }
   function buttonPressed(pad, index) { const btn = pad?.buttons?.[index]; return !!btn && (!!btn.pressed || Number(btn.value || 0) > 0.5); }
   function mappingPressed(pad, action) { return (currentGamepadMapping[action] || []).some(index => buttonPressed(pad, index)); }
@@ -858,6 +937,17 @@
     setNetplayState('🎮 Mapeamento padrão do controle restaurado.', 'info');
   });
 
+  hudHotspot?.addEventListener('click', () => showHudTemporarily(4200));
+  document.addEventListener('pointerdown', event => {
+    if (!coarsePointer || !gameplayStarted) return;
+    const target = event.target;
+    if (target && (target.closest?.('.gg-kof-toolbar') || target.closest?.('#ggKofCombos') || target.closest?.('#kofNetplayStatus') || target.closest?.('#arcadeHelpModal') || target.closest?.('#layoutModal') || target.closest?.('#padModal'))) {
+      showHudTemporarily(4200);
+      return;
+    }
+    if (event.clientY <= 40) showHudTemporarily(4200);
+  }, { passive: true });
+
   fullscreenButton?.addEventListener('click', toggleFullscreen);
   portraitButton?.addEventListener('click', () => setOrientation('portrait'));
   landscapeButton?.addEventListener('click', () => setOrientation('landscape'));
@@ -874,15 +964,17 @@
   fillLayoutForm(currentControlLayout);
   renderPadMapping(currentGamepadMapping);
   setupMobileComboButtons();
+  installVirtualControlObserver();
+  if (coarsePointer) setHudVisible(true, 0);
   startGamepadLoop();
 
   if (online) {
     if (startButton) startButton.textContent = role === 'host' ? 'CONECTAR HOST' : 'CONECTAR CONVIDADO';
-    setText(`PVP ${role === 'host' ? 'HOST' : 'CONVIDADO'} • sessão ${rtcRoomName}. Carregando KOF e conectando o Netplay automaticamente. Use 🕹 LAYOUT para salvar a ordem dos botões deste aparelho. Atalhos fixos: MAX = B+C e ESQUIVA = A+B. Controle externo e teclado arcade podem ser configurados em 🎮 CONTROLE.`);
+    setText(`PVP ${role === 'host' ? 'HOST' : 'CONVIDADO'} • sessão ${rtcRoomName}. Carregando KOF e conectando o Netplay automaticamente. No celular, o HUD some durante a luta e reaparece ao tocar no topo da tela. Use 🕹 LAYOUT para salvar a ordem dos botões e 🎮 CONTROLE para mapear gamepad.`);
     if (netplayStatus) netplayStatus.hidden = false;
     setTimeout(() => bootGame(), 180);
   } else {
     if (netplayStatus) netplayStatus.hidden = true;
-    setText('Clique em INICIAR KOF. Use ⛶ CHEIA, ↕ VERTICAL, ↔ HORIZONTAL, 🕹 LAYOUT e 🎮 CONTROLE para jogar melhor no celular, Android com gamepad ou PC. Atalhos fixos: MAX = B+C e ESQUIVA = A+B.');
+    setText('Clique em INICIAR KOF. No celular, toque no topo da tela para mostrar o HUD, use 🕹 LAYOUT para trocar a ordem A/B/C/D e 🎮 CONTROLE para mapear gamepad USB/Bluetooth. Atalhos fixos: MAX = B+C e ESQUIVA = A+B.');
   }
 })();
