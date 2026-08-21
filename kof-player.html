@@ -14,7 +14,7 @@
     #boot{position:fixed;inset:0;display:grid;place-items:center;text-align:center;padding:24px;background:radial-gradient(circle at 50% 25%,#17254a 0,#090f20 42%,#050913 76%);z-index:80}
     #boot .panel{max-width:620px}#boot b{font-size:1.15rem}#boot small{display:block;color:#9ca9c3;margin:10px auto 18px;max-width:580px;line-height:1.5}
     #startKofButton{border:1px solid #42e8ff;background:linear-gradient(135deg,#26d8f2,#518bff);color:#04111c;font-weight:900;letter-spacing:.06em;padding:13px 24px;border-radius:12px;cursor:pointer;box-shadow:0 10px 35px rgba(66,232,255,.18)}#startKofButton:disabled{opacity:.6;cursor:wait}
-    #kofHudHotspot{position:fixed;left:0;right:0;top:0;height:28px;z-index:68;background:transparent}
+    #kofHudHotspot{position:fixed;left:0;right:0;top:0;height:28px;z-index:68;background:transparent;border:0;padding:0;margin:0;appearance:none;-webkit-appearance:none;box-shadow:none;outline:none;opacity:0;pointer-events:none}
     .gg-kof-toolbar{position:fixed;top:max(8px,env(safe-area-inset-top));left:max(8px,env(safe-area-inset-left));right:max(8px,env(safe-area-inset-right));z-index:65;display:flex;gap:6px;align-items:flex-start;justify-content:space-between;pointer-events:none;transition:opacity .22s ease,transform .22s ease}
     .gg-kof-toolbar-group{display:flex;gap:6px;flex-wrap:wrap;pointer-events:auto}
     .gg-kof-tool{min-height:34px;border:1px solid rgba(66,232,255,.68);background:rgba(5,9,19,.78);color:#eafcff;font-weight:900;padding:7px 9px;border-radius:12px;cursor:pointer;backdrop-filter:blur(8px);box-shadow:0 4px 18px rgba(0,0,0,.18)}
@@ -22,6 +22,8 @@
     body.gg-mobile-coarse:not(.gg-hud-visible) .gg-kof-toolbar{opacity:0;transform:translateY(-16px);pointer-events:none}
     body.gg-mobile-coarse.gg-hud-visible .gg-kof-toolbar{opacity:1;transform:none;pointer-events:none}
     body.gg-mobile-coarse.gg-hud-visible .gg-kof-toolbar-group{pointer-events:auto}
+body.gg-mobile-coarse:not(.gg-hud-visible) #kofHudHotspot{pointer-events:auto}
+body.gg-mobile-coarse.gg-hud-visible #kofHudHotspot{pointer-events:none}
     .gg-kof-combos{position:fixed;right:max(10px,env(safe-area-inset-right));bottom:calc(max(150px,env(safe-area-inset-bottom)) + 96px);z-index:67;display:flex;flex-direction:column;gap:9px;pointer-events:auto;transition:opacity .22s ease,transform .22s ease}.gg-kof-combos[hidden]{display:none}
     .gg-kof-combo{min-width:96px;padding:9px 10px;border-radius:12px;border:1px solid rgba(66,232,255,.68);color:#eafcff;background:rgba(5,9,19,.72);box-shadow:0 4px 18px rgba(0,0,0,.18);font-weight:900;cursor:pointer;text-align:center;backdrop-filter:blur(8px);opacity:.92}
     .gg-kof-combo b{display:block;font-size:.88rem;letter-spacing:.06em}.gg-kof-combo small{display:none}
