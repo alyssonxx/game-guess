@@ -1,6 +1,10 @@
 export default function handler(req,res){
   if(req.method!=='GET'){res.status(405).json({ok:false,error:'method_not_allowed'});return;}
-  const netplayServer=String(process.env.KOF_NETPLAY_SERVER||'https://netplay.emulatorjs.org/').trim();
+
+  const rawServer=String(process.env.KOF_NETPLAY_SERVER||'').trim().replace(/\/+$/,'');
+  const netplayConfigured=/^https:\/\/[^\s/]+/i.test(rawServer);
+  const netplayServer=netplayConfigured?rawServer:'';
+
   const iceServers=[
     {urls:'stun:stun.l.google.com:19302'},
     {urls:'stun:stun1.l.google.com:19302'}
@@ -14,10 +18,11 @@ export default function handler(req,res){
     if(credential)turn.credential=credential;
     iceServers.push(turn);
   }
-  res.setHeader('Cache-Control','no-store');
+
+  res.setHeader('Cache-Control','no-store, max-age=0');
   res.status(200).json({
     ok:true,
-    version:'18.6.0',
+    version:'19.1.0',
     emulatorTrainingVersion:'4.2.1',
     emulatorOnlineVersion:'4.3.0-pre',
     core:'fbneo',
@@ -28,7 +33,9 @@ export default function handler(req,res){
     parentUrl:null,
     biosUrl:null,
     netplayServer,
-    netplayMode:'webrtc-auto-room',
+    netplayConfigured,
+    netplayMode:'dedicated-emulatorjs-netplay',
+    socketTransport:'socketio-auto',
     iceServers,
     turnConfigured:Boolean(turnUrl)
   });

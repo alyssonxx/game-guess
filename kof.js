@@ -3,13 +3,13 @@
   const $=id=>document.getElementById(id),CORE=()=>window.GameGuessCore,FB=()=>window.GameGuessFirebase;
   const WEB_GAME='/roms/v178/kf2k2mp2.zip';
   const EXPECTED_GAME_BYTES=86694745;
-  const DEFAULT_NETPLAY='https://netplay.emulatorjs.org/';
-  const KOF_WEB_VERSION='18.6.0';
+  const KOF_WEB_VERSION='19.1.0';
   const KOF_EMULATOR_VERSION='4.3.0-pre';
   const FBN_BUILD='treino 4.2.1 / online WebRTC 4.3.0-pre';
   let roomCode='',room=null,unsub=null,launched=false,lastReadyRoom='',lastLaunchAtHandled=0;
   let launchInFlight=false,launchPollTimer=0,roomSessionArmed=false;
   let assetCache={at:0,ready:false,detail:null};
+  let configuredNetplayServer='';
   const rankedClaimsInFlight=new Set();
 
   function toast(a,b,t=''){CORE()?.toast?.(a,b,t)}
@@ -23,7 +23,6 @@
   function opponent(){const u=user();return u&&room?Object.values(room.players||{}).find(p=>p.uid!==u.uid):null}
   function role(){const u=user();return u&&room?.hostUid===u.uid?'HOST':'CONVIDADO'}
   function isHost(){const u=user();return Boolean(u&&room?.hostUid===u.uid)}
-  function netplayServer(){return (localStorage.getItem('gameGuessKofNetplayServer')||DEFAULT_NETPLAY).trim()||DEFAULT_NETPLAY}
   function readyPlayers(r=room){return Object.values(r?.clientReady||{}).filter(x=>x?.ready).length}
   function mb(v){return v?`${(v/1024/1024).toFixed(1)} MB`:'tamanho não informado'}
 
@@ -37,9 +36,12 @@
     const el=$('kofServiceState');if(el)el.textContent='🔎 Verificando EmulatorJS, build FBNeo e ROM em produção…';
     try{
       const r=await fetch('/api/kof-health',{cache:'no-store'}),d=await r.json();
-      const trainingEmu=Boolean(d?.trainingEmulator?.ok),onlineEmu=Boolean(d?.onlineEmulator?.ok),emu=trainingEmu&&onlineEmu,core=Boolean(d?.coreReport?.ok),rom=Boolean(d?.rom?.sizeMatches),net=Boolean(d?.netplay?.ok);
-      if(el)el.textContent=emu&&core&&rom?`✅ Treino EJS 4.2.1 • Online EJS ${KOF_EMULATOR_VERSION} WebRTC • FBNeo • ROM ${mb(d?.rom?.size)}${net?' • Netplay OK':' • Netplay pendente'}`:'🟡 Diagnóstico incompleto — use REVERIFICAR ROM';
-      return {emulator:emu,trainingEmulator:trainingEmu,onlineEmulator:onlineEmu,core,rom,netplay:net};
+      const trainingEmu=Boolean(d?.trainingEmulator?.ok),onlineEmu=Boolean(d?.onlineEmulator?.ok),emu=trainingEmu&&onlineEmu,core=Boolean(d?.coreReport?.ok),rom=Boolean(d?.rom?.sizeMatches),net=Boolean(d?.netplay?.ok),netConfigured=Boolean(d?.netplayConfigured);
+      configuredNetplayServer=String(d?.netplay?.url||'').trim();
+      const serverField=$('kofNetplayServer');
+      if(serverField){serverField.value=configuredNetplayServer||'Configure KOF_NETPLAY_SERVER no Vercel';serverField.readOnly=true;serverField.disabled=false;}
+      if(el)el.textContent=emu&&core&&rom?`✅ Treino EJS 4.2.1 • Online EJS ${KOF_EMULATOR_VERSION} WebRTC • FBNeo • ROM ${mb(d?.rom?.size)}${!netConfigured?' • ⚠️ servidor PVP não configurado':net?' • Netplay dedicado OK':' • Netplay dedicado acordando/pendente'}`:'🟡 Diagnóstico incompleto — use REVERIFICAR ROM';
+      return {emulator:emu,trainingEmulator:trainingEmu,onlineEmulator:onlineEmu,core,rom,netplay:net,netplayConfigured:netConfigured};
     }catch{if(el)el.textContent='🟡 Diagnóstico online indisponível';return {emulator:false,core:false,rom:false,netplay:false}}
   }
 
@@ -166,15 +168,14 @@
     if(!training&&playerCount()<2)return toast('Aguardando rival','A luta online precisa de 2 jogadores.','error');
     if(!await refreshFiles())return toast('KOF Web indisponível','A ROM Full Non-Merged V17.8 não está acessível.','error');
     const gameId=training?20020202:Number(room?.gameId||20020202),roleParam=training?'training':role().toLowerCase(),code=training?'TREINO':roomCode;
-    const server=netplayServer();localStorage.setItem('gameGuessKofNetplayServer',server);
     const frame=$('kofEmulatorFrame');if(!frame){launchInFlight=false;return toast('KOF Web','Iframe do emulador não foi encontrado. Atualize a página.','error')}
     if(!training){launched=true;launchInFlight=false;stopLaunchPolling()}
     show('kofPlayScreen');
-    const token=training?0:Number(launchAt||room?.launchAt||Date.now());const name=playerName();frame.src=`/kof-player.html?v=${KOF_WEB_VERSION}&gameId=${encodeURIComponent(gameId)}&room=${encodeURIComponent(code)}&role=${encodeURIComponent(roleParam)}&server=${encodeURIComponent(server)}&launch=${encodeURIComponent(token)}&name=${encodeURIComponent(name)}`;
+    const token=training?0:Number(launchAt||room?.launchAt||Date.now());const name=playerName();frame.src=`/kof-player.html?v=${KOF_WEB_VERSION}&gameId=${encodeURIComponent(gameId)}&room=${encodeURIComponent(code)}&role=${encodeURIComponent(roleParam)}&launch=${encodeURIComponent(token)}&name=${encodeURIComponent(name)}`;
     if($('kofPlayRoom'))$('kofPlayRoom').textContent=training?'TREINO LOCAL':`SALA ${roomCode} • ${role()}`;
     if($('kofNetplayHelp')){
       $('kofNetplayHelp').classList.toggle('hidden',training);
-      if(!training){$('kofNetplayHelp').innerHTML=`<b>⚔️ PVP Web • ${role()}</b><span>V18.6 usa o Netplay WebRTC do EmulatorJS ${KOF_EMULATOR_VERSION}. Você não precisa mais criar uma segunda sala dentro do emulador: o HOST cria e o CONVIDADO entra automaticamente usando o código ${esc(roomCode)} + Game ID ${gameId}. No celular use <b>⛶ CHEIA</b>, <b>↕ VERTICAL</b> ou <b>↔ HORIZONTAL</b>.</span>`}
+      if(!training){$('kofNetplayHelp').innerHTML=`<b>⚔️ PVP Web • ${role()}</b><span>V19.1 usa Netplay WebRTC com servidor dedicado e negociação automática do Socket.IO no EmulatorJS ${KOF_EMULATOR_VERSION}. Você não precisa mais criar uma segunda sala dentro do emulador: o HOST cria e o CONVIDADO entra automaticamente usando o código ${esc(roomCode)} + Game ID ${gameId}. No celular use <b>⛶ CHEIA</b>, <b>↕ VERTICAL</b> ou <b>↔ HORIZONTAL</b>.</span>`}
     }
   }
   function stopEmulator(){const f=$('kofEmulatorFrame');if(f)f.src='about:blank'}
@@ -196,7 +197,7 @@
     show('kofScreen');
     checkServices();
     await refreshFiles(true);
-    if($('kofNetplayServer'))$('kofNetplayServer').value=netplayServer();
+    const serverField=$('kofNetplayServer');if(serverField){serverField.value='Carregando configuração…';serverField.readOnly=true;}
 
     if(!roomCode){
       roomSessionArmed=false;
@@ -217,7 +218,6 @@
     $('kofPlayBackButton')?.addEventListener('click',()=>{stopEmulator();launched=false;show('kofScreen')});
     $('kofRecheckFiles')?.addEventListener('click',()=>Promise.all([refreshFiles(true),checkServices()]).then(([ok])=>toast(ok?'KOF Web pronto':'ROM inválida',ok?'Full Non-Merged V17.8 confirmado no deploy.':'Confira /roms/v178/kf2k2mp2.zip e faça novo deploy.','error')));
     $('kofTrainingButton')?.addEventListener('click',()=>launch(true));$('kofCreateRoom')?.addEventListener('click',createRoom);$('kofJoinRoom')?.addEventListener('click',joinRoom);$('kofLeaveRoom')?.addEventListener('click',leaveRoom);$('kofLaunchButton')?.addEventListener('click',requestOnlineLaunch);
-    $('kofNetplayServer')?.addEventListener('change',e=>localStorage.setItem('gameGuessKofNetplayServer',String(e.target.value||DEFAULT_NETPLAY).trim()));
     $('kofCopyRoom')?.addEventListener('click',()=>navigator.clipboard?.writeText(roomCode).then(()=>toast('Código copiado',roomCode)));
     $('kofVoteMe')?.addEventListener('click',()=>vote(user()?.uid));$('kofVoteRival')?.addEventListener('click',()=>vote(opponent()?.uid));
     window.addEventListener('gameguess:authchange',e=>{if(!e.detail?.user&&roomCode)leaveRoom()});

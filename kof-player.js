@@ -18,7 +18,7 @@
   // Treino permanece na build já validada. O online usa 4.3.0-pre porque essa
   // é a primeira linha oficial do EmulatorJS com Netplay WebRTC novo.
   const EJS_VERSION = online ? '4.3.0-pre' : '4.2.1';
-  const PATCH_VERSION = '18.6.0';
+  const PATCH_VERSION = '19.1.0';
   const EJS_DATA = `https://cdn.emulatorjs.org/${EJS_VERSION}/data/`;
 
   const GAME_URL = '/roms/v178/kf2k2mp2.zip';
@@ -30,11 +30,24 @@
   const playerName = String(params.get('name') || (role === 'host' ? 'HOST' : role === 'guest' ? 'CONVIDADO' : 'PLAYER')).trim().slice(0, 20) || 'PLAYER';
   const rtcRoomName = `GG-${room}-${launchToken}`.slice(0, 20);
 
+  const CONTROL_LAYOUT_KEY = 'gg_kof_mobile_layout_v1';
+  const DEFAULT_CONTROL_LAYOUT = { tl: 'C', tr: 'D', bl: 'A', br: 'B' };
+  const SLOT_KEYS = ['tl', 'tr', 'bl', 'br'];
+  const SLOT_COORDS = {
+    tl: { left: 0, top: 0 },
+    tr: { left: 62, top: 0 },
+    bl: { left: 0, top: 64 },
+    br: { left: 62, top: 64 }
+  };
+  const BUTTON_INPUTS = { A: 0, B: 8, C: 1, D: 9 };
+  const BUTTON_CLASSES = { A: 'slot-a', B: 'slot-b', C: 'slot-c', D: 'slot-d' };
+
   let started = false;
   let loading = false;
   let autoNetplayBusy = false;
   let netplayWatchTimer = 0;
   let guestFindTimer = 0;
+  let currentControlLayout = loadControlLayout();
 
   function post(type, message, extra = {}) {
     try { window.parent?.postMessage({ type, message, ...extra }, location.origin); } catch {}
@@ -57,6 +70,59 @@
     }
     setText(message);
     post('kof-player-error', message);
+  }
+
+  function normalizeControlLayout(input) {
+    const result = {};
+    const values = [];
+    for (const slot of SLOT_KEYS) {
+      const value = String(input?.[slot] || '').toUpperCase();
+      if (!BUTTON_INPUTS.hasOwnProperty(value) || values.includes(value)) return { ...DEFAULT_CONTROL_LAYOUT };
+      result[slot] = value;
+      values.push(value);
+    }
+    return values.length === 4 ? result : { ...DEFAULT_CONTROL_LAYOUT };
+  }
+
+  function loadControlLayout() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(CONTROL_LAYOUT_KEY) || 'null');
+      return normalizeControlLayout(parsed || DEFAULT_CONTROL_LAYOUT);
+    } catch {
+      return { ...DEFAULT_CONTROL_LAYOUT };
+    }
+  }
+
+  function saveControlLayout(layout) {
+    const normalized = normalizeControlLayout(layout);
+    currentControlLayout = normalized;
+    try { localStorage.setItem(CONTROL_LAYOUT_KEY, JSON.stringify(normalized)); } catch {}
+    return normalized;
+  }
+
+  function buildVirtualGamepadSettings(layout) {
+    const normalized = normalizeControlLayout(layout || DEFAULT_CONTROL_LAYOUT);
+    const buttons = SLOT_KEYS.map(slot => {
+      const label = normalized[slot];
+      const pos = SLOT_COORDS[slot];
+      return {
+        type: 'button',
+        text: label,
+        id: `gg-neo-${label.toLowerCase()}-${slot}`,
+        location: 'right',
+        left: pos.left,
+        top: pos.top,
+        bold: true,
+        fontSize: 25,
+        input_value: BUTTON_INPUTS[label]
+      };
+    });
+    return [
+      { type: 'dpad', location: 'left', left: '50%', top: '50%', joystickInput: true, inputValues: [4, 5, 6, 7] },
+      ...buttons,
+      { type: 'button', text: 'COIN', id: 'gg-neo-coin', location: 'center', left: -54, top: 0, bold: true, fontSize: 12, block: true, input_value: 2 },
+      { type: 'button', text: 'START', id: 'gg-neo-start', location: 'center', left: 54, top: 0, bold: true, fontSize: 12, block: true, input_value: 3 }
+    ];
   }
 
   async function json(url) {
@@ -94,6 +160,127 @@
 
   function getNetplay() { return window.EJS_emulator?.netplay || null; }
 
+  // V19.1: não forçamos mais um transporte específico do Socket.IO.
+  // O servidor dedicado oficial negocia polling -> WebSocket sozinho, que é
+  // mais robusto em redes móveis, proxies e no cold-start do Render.
+  async function waitForSocketIo(timeout = 15000) {
+    const startedAt = Date.now();
+    while (Date.now() - startedAt < timeout) {
+      if (typeof window.io === 'function') return true;
+      await new Promise(r => setTimeout(r, 150));
+    }
+    return false;
+  }
+
+  function netplayQuery() {
+    return `domain=${encodeURIComponent(location.host)}&game_id=${encodeURIComponent(gameId)}`;
+  }
+
+  async function directRoomList(server, timeout = 10000) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeout);
+    try {
+      const url = `${String(server || '').replace(/\/+$/, '')}/list?${netplayQuery()}`;
+      const r = await fetch(url, { cache: 'no-store', mode: 'cors', signal: ctrl.signal });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const rooms = await r.json();
+      return rooms && typeof rooms === 'object' && !Array.isArray(rooms) ? rooms : {};
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async function proxyRoomList(timeout = 9000) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeout);
+    try {
+      const r = await fetch(`/api/kof-netplay-rooms?${netplayQuery()}`, { cache: 'no-store', signal: ctrl.signal });
+      if (!r.ok) throw new Error(`proxy HTTP ${r.status}`);
+      const rooms = await r.json();
+      return rooms && typeof rooms === 'object' && !Array.isArray(rooms) ? rooms : {};
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async function wakeNetplayServer(server, maxWait = 75000) {
+    const startedAt = Date.now();
+    let attempt = 0;
+    let lastReason = 'sem resposta';
+    while (Date.now() - startedAt < maxWait) {
+      attempt += 1;
+      const elapsed = Math.round((Date.now() - startedAt) / 1000);
+      setNetplayState(`⏳ Preparando servidor PVP dedicado… tentativa ${attempt} • ${elapsed}s`, 'waiting');
+      try {
+        await directRoomList(server, 10000);
+        return { ok: true, via: 'direct' };
+      } catch (e) {
+        lastReason = e?.name === 'AbortError' ? 'timeout' : (e?.message || 'network');
+        try {
+          await proxyRoomList(9000);
+          return { ok: true, via: 'proxy' };
+        } catch (proxyError) {
+          lastReason = `${lastReason} / ${proxyError?.message || 'proxy'}`;
+        }
+      }
+      await new Promise(r => setTimeout(r, 3500));
+    }
+    return { ok: false, reason: lastReason };
+  }
+
+  function patchRoomDiscovery(np, server) {
+    if (!np || np.__ggRoomDiscoveryPatched) return;
+    np.__ggRoomDiscoveryPatched = true;
+    np.getOpenRooms = async () => {
+      try {
+        const rooms = await proxyRoomList();
+        delete rooms.__upstream;
+        delete rooms.__ok;
+        delete rooms.__domain;
+        return rooms;
+      } catch (proxyError) {
+        console.warn('Game Guess: proxy da lista Netplay falhou; tentando direto.', proxyError);
+        try {
+          return await directRoomList(server);
+        } catch (directError) {
+          console.warn('Game Guess: consulta direta da lista Netplay falhou.', directError);
+          setNetplayState('⚠️ Servidor PVP temporariamente indisponível. Tentando novamente…', 'error');
+          return {};
+        }
+      }
+    };
+  }
+
+  function observeNetplaySocket(np, server) {
+    if (!np || np.__ggSocketObserved) return;
+    np.__ggSocketObserved = true;
+    const startedAt = Date.now();
+    const timer = setInterval(() => {
+      const socket = np.socket;
+      if (!socket) {
+        if (Date.now() - startedAt > 20000) clearInterval(timer);
+        return;
+      }
+      clearInterval(timer);
+      if (socket.__ggObserved) return;
+      socket.__ggObserved = true;
+      try {
+        socket.on?.('connect', () => {
+          const transport = socket.io?.engine?.transport?.name || 'Socket.IO';
+          setNetplayState(`🟢 Sinalização conectada • ${transport} • ${new URL(server).host}`, 'waiting');
+        });
+        socket.on?.('connect_error', err => {
+          const msg = String(err?.message || err || 'falha de conexão');
+          setNetplayState(`⚠️ Servidor PVP não conectou: ${msg}. Reconectando…`, 'error');
+          post('kof-netplay-connect-error', msg, { server, transport: 'auto' });
+        });
+        socket.io?.on?.('reconnect_attempt', n => {
+          setNetplayState(`🟡 Reconectando ao servidor PVP • tentativa ${n}…`, 'waiting');
+        });
+      } catch {}
+    }, 120);
+  }
+
   function prepareRoleAwareMenu(np) {
     if (!np || np.__ggRolePatched) return;
     np.__ggRolePatched = true;
@@ -120,6 +307,7 @@
       const np = getNetplay();
       if (np && typeof np.getOpenRooms === 'function' && typeof np.openRoom === 'function' && typeof np.joinRoom === 'function') {
         np.name = playerName;
+        patchRoomDiscovery(np, window.EJS_netplayServer || "");
         prepareRoleAwareMenu(np);
         return np;
       }
@@ -169,7 +357,7 @@
     if (np.emu?.isNetplay && !np.owner) { monitorNetplay(np); return; }
     np.name = playerName;
     setNetplayState(`🔎 CONVIDADO procurando a sessão ${rtcRoomName}…`, 'waiting');
-    const deadline = Date.now() + 30000;
+    const deadline = Date.now() + 90000;
     const findAndJoin = async () => {
       if (Date.now() > deadline) {
         if (guestFindTimer) clearInterval(guestFindTimer);
@@ -201,10 +389,26 @@
     autoNetplayBusy = true;
     if (force) stopNetplayTimers();
     try {
-      const np = await waitForNetplay();
-      np.name = playerName; // evita o popup "Set Player Name"
+      const cfg = await json('/api/kof-config');
+      const server = String(cfg?.netplayServer || '').trim().replace(/\/+$/, '');
+      if (!cfg?.netplayConfigured || !server) {
+        throw new Error('Servidor PVP dedicado ainda não está configurado. Defina KOF_NETPLAY_SERVER no Vercel com a URL HTTPS do seu EmulatorJS-Netplay.');
+      }
+
+      setNetplayState('🔌 Verificando servidor PVP dedicado…', 'waiting');
+      const wake = await wakeNetplayServer(server);
+      if (!wake.ok) {
+        throw new Error(`Servidor PVP dedicado não respondeu (${wake.reason}). Se estiver no plano gratuito, confira se o serviço terminou de iniciar.`);
+      }
+
+      setNetplayState(`🟢 Servidor PVP disponível • ${wake.via === 'proxy' ? 'proxy Game Guess' : 'conexão direta'}. Preparando Socket.IO…`, 'waiting');
+      await waitForSocketIo();
+      const np = await waitForNetplay(25000);
+      patchRoomDiscovery(np, server);
+      np.name = playerName;
       if (role === 'host') await hostNetplay(np);
       else await guestNetplay(np);
+      observeNetplaySocket(np, server);
     } catch (e) {
       setNetplayState(`⚠️ ${e?.message || String(e)}`, 'error');
       if (netplayRetryButton) netplayRetryButton.hidden = false;
@@ -288,7 +492,10 @@
       setText(`Romset Full Non-Merged OK: ${mb(files.game.size)}.`);
 
       const cfg = await json('/api/kof-config');
-      const server = String(params.get('server') || cfg?.netplayServer || 'https://netplay.emulatorjs.org/').trim();
+      const server = String(cfg?.netplayServer || '').trim().replace(/\/+$/, '');
+      if (online && (!cfg?.netplayConfigured || !server)) {
+        throw new Error('Online indisponível: configure KOF_NETPLAY_SERVER no Vercel com a URL HTTPS do servidor EmulatorJS-Netplay dedicado.');
+      }
       const ice = Array.isArray(cfg?.iceServers) && cfg.iceServers.length
         ? cfg.iceServers
         : [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }];
@@ -306,17 +513,8 @@
       window.EJS_backgroundColor = '#050913';
       window.EJS_controlScheme = 'arcade';
 
-      // Layout touch compacto 2x2 para evitar C/D fora da tela em celulares.
-      // Neo Geo clássico no RetroPad: A->B(0), B->A(8), C->Y(1), D->X(9).
-      window.EJS_VirtualGamepadSettings = [
-        { type: 'dpad', location: 'left', left: '50%', top: '50%', joystickInput: false, inputValues: [4, 5, 6, 7] },
-        { type: 'button', text: 'C', id: 'gg-neo-c', location: 'right', left: 0,  top: 0,  bold: true, fontSize: 25, input_value: 1 },
-        { type: 'button', text: 'D', id: 'gg-neo-d', location: 'right', left: 62, top: 0,  bold: true, fontSize: 25, input_value: 9 },
-        { type: 'button', text: 'A', id: 'gg-neo-a', location: 'right', left: 0,  top: 64, bold: true, fontSize: 25, input_value: 0 },
-        { type: 'button', text: 'B', id: 'gg-neo-b', location: 'right', left: 62, top: 64, bold: true, fontSize: 25, input_value: 8 },
-        { type: 'button', text: 'COIN', id: 'gg-neo-coin', location: 'center', left: -54, top: 0, bold: true, fontSize: 12, block: true, input_value: 2 },
-        { type: 'button', text: 'START', id: 'gg-neo-start', location: 'center', left: 54, top: 0, bold: true, fontSize: 12, block: true, input_value: 3 }
-      ];
+      // V18.8: joystick estilo fliperama + ordem A/B/C/D personalizada por aparelho.
+      window.EJS_VirtualGamepadSettings = buildVirtualGamepadSettings(currentControlLayout);
 
       window.EJS_AdTimer = -1;
       window.EJS_CacheLimit = 1024 * 1024 * 1024;
@@ -334,7 +532,7 @@
         const coreInfo = online ? 'FBNeo da linha WebRTC' : `FBNeo build ${TRAINING_FBN_BUILD}`;
         setText(`EmulatorJS ${EJS_VERSION} + ${coreInfo} carregado. Entregando o Full Non-Merged…`);
         post('kof-player-core-ready', `EmulatorJS ${EJS_VERSION} / FBNeo carregado.`, {
-          version: EJS_VERSION, gameId, online, layout: 'full-non-merged', controls: 'neo-geo-abcd'
+          version: EJS_VERSION, gameId, online, layout: 'full-non-merged', controls: 'neo-geo-abcd-custom-layout'
         });
       };
 
@@ -343,7 +541,7 @@
         loading = false;
         if (boot) boot.style.display = 'none';
         post('kof-player-ready', `KOF iniciado • EmulatorJS ${EJS_VERSION} • FBNeo • Game ID ${gameId}`, {
-          gameId, version: EJS_VERSION, online, role, room, rtcRoomName, layout: 'full-non-merged', controls: 'neo-geo-abcd'
+          gameId, version: EJS_VERSION, online, role, room, rtcRoomName, layout: 'full-non-merged', controls: 'neo-geo-abcd-custom-layout'
         });
         if (online) setTimeout(() => startAutomaticNetplay(), 600);
       };
@@ -352,13 +550,14 @@
       const script = document.createElement('script');
       script.src = `${EJS_DATA}loader.js`;
       script.onerror = () => fail(`Não consegui carregar o EmulatorJS ${EJS_VERSION}. Verifique a conexão.`);
+      script.onload = () => { if (online) waitForSocketIo().catch(() => {}); };
       document.body.appendChild(script);
 
       setTimeout(() => {
         if (!started) setText('FBNeo está preparando o romset Full Non-Merged. No primeiro carregamento isso pode demorar.');
       }, 8000);
       setTimeout(() => {
-        if (!started) post('kof-player-slow', 'O KOF ainda está preparando o romset Full Non-Merged.', { version: EJS_VERSION, online, layout: 'full-non-merged', controls: 'neo-geo-abcd' });
+        if (!started) post('kof-player-slow', 'O KOF ainda está preparando o romset Full Non-Merged.', { version: EJS_VERSION, online, layout: 'full-non-merged', controls: 'neo-geo-abcd-custom-layout' });
       }, 20000);
     } catch (e) {
       fail(e?.message || String(e));
@@ -380,6 +579,88 @@
   arcadeHelpModal?.addEventListener('click', e => { if (e.target === arcadeHelpModal) setArcadeHelp(false); });
   window.addEventListener('keydown', e => { if (e.key === 'Escape') setArcadeHelp(false); });
 
+  const layoutButton = document.getElementById('kofLayoutButton');
+  const layoutModal = document.getElementById('layoutModal');
+  const layoutClose = document.getElementById('layoutClose');
+  const layoutSave = document.getElementById('layoutSave');
+  const layoutReset = document.getElementById('layoutReset');
+  const layoutInputs = {
+    tl: document.getElementById('layoutSlotTL'),
+    tr: document.getElementById('layoutSlotTR'),
+    bl: document.getElementById('layoutSlotBL'),
+    br: document.getElementById('layoutSlotBR')
+  };
+  const layoutPreview = {
+    tl: document.querySelector('[data-layout-slot="tl"]'),
+    tr: document.querySelector('[data-layout-slot="tr"]'),
+    bl: document.querySelector('[data-layout-slot="bl"]'),
+    br: document.querySelector('[data-layout-slot="br"]')
+  };
+
+  function refreshLayoutPreview(layout) {
+    const normalized = normalizeControlLayout(layout || currentControlLayout);
+    for (const slot of SLOT_KEYS) {
+      const el = layoutPreview[slot];
+      if (!el) continue;
+      const label = normalized[slot];
+      el.textContent = label;
+      el.className = `layout-preview-slot ${BUTTON_CLASSES[label] || ''}`;
+    }
+  }
+
+  function fillLayoutForm(layout) {
+    const normalized = normalizeControlLayout(layout || currentControlLayout);
+    for (const slot of SLOT_KEYS) {
+      if (layoutInputs[slot]) layoutInputs[slot].value = normalized[slot];
+    }
+    refreshLayoutPreview(normalized);
+  }
+
+  function readLayoutForm() {
+    return normalizeControlLayout({
+      tl: layoutInputs.tl?.value,
+      tr: layoutInputs.tr?.value,
+      bl: layoutInputs.bl?.value,
+      br: layoutInputs.br?.value
+    });
+  }
+
+  function openLayoutModal() {
+    fillLayoutForm(currentControlLayout);
+    if (layoutModal) layoutModal.hidden = false;
+  }
+
+  function closeLayoutModal() {
+    if (layoutModal) layoutModal.hidden = true;
+  }
+
+  SLOT_KEYS.forEach(slot => {
+    layoutInputs[slot]?.addEventListener('change', () => refreshLayoutPreview(readLayoutForm()));
+  });
+
+  layoutButton?.addEventListener('click', openLayoutModal);
+  layoutClose?.addEventListener('click', closeLayoutModal);
+  layoutModal?.addEventListener('click', e => { if (e.target === layoutModal) closeLayoutModal(); });
+
+  layoutSave?.addEventListener('click', () => {
+    const next = saveControlLayout(readLayoutForm());
+    fillLayoutForm(next);
+    closeLayoutModal();
+    setNetplayState(`🕹 Layout salvo: ${next.tl}-${next.tr}-${next.bl}-${next.br}.`, 'info');
+    setText('Layout do celular salvo. Se o KOF já estava aberto, a página será recarregada para aplicar o novo joystick e a nova ordem.');
+    if (started || loading) {
+      setTimeout(() => location.reload(), 450);
+    }
+  });
+
+  layoutReset?.addEventListener('click', () => {
+    const next = saveControlLayout(DEFAULT_CONTROL_LAYOUT);
+    fillLayoutForm(next);
+    closeLayoutModal();
+    setNetplayState('🕹 Layout padrão restaurado.', 'info');
+    if (started || loading) setTimeout(() => location.reload(), 450);
+  });
+
   fullscreenButton?.addEventListener('click', toggleFullscreen);
   portraitButton?.addEventListener('click', () => setOrientation('portrait'));
   landscapeButton?.addEventListener('click', () => setOrientation('landscape'));
@@ -391,13 +672,15 @@
     if (!openNetplayMenu()) setNetplayState('O menu Netplay ainda não está pronto. Tente novamente em alguns segundos.', 'error');
   });
 
+  fillLayoutForm(currentControlLayout);
+
   if (online) {
     if (startButton) startButton.textContent = role === 'host' ? 'CONECTAR HOST' : 'CONECTAR CONVIDADO';
-    setText(`PVP ${role === 'host' ? 'HOST' : 'CONVIDADO'} • sessão ${rtcRoomName}. Carregando KOF e conectando o Netplay automaticamente.`);
+    setText(`PVP ${role === 'host' ? 'HOST' : 'CONVIDADO'} • sessão ${rtcRoomName}. Carregando KOF e conectando o Netplay automaticamente. Use 🕹 LAYOUT para salvar a ordem dos botões deste aparelho.`);
     if (netplayStatus) netplayStatus.hidden = false;
     setTimeout(() => bootGame(), 180);
   } else {
     if (netplayStatus) netplayStatus.hidden = true;
-    setText('Clique em INICIAR KOF. Use ⛶ CHEIA, ↕ VERTICAL ou ↔ HORIZONTAL para jogar melhor no celular.');
+    setText('Clique em INICIAR KOF. Use ⛶ CHEIA, ↕ VERTICAL, ↔ HORIZONTAL e 🕹 LAYOUT para jogar melhor no celular.');
   }
 })();
