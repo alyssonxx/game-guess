@@ -1,0 +1,16 @@
+GAME GUESS KOF V17.8 — VALIDAÇÃO
+
+[OK] EmulatorJS 4.2.1 fixado
+[OK] Commit do frontend EmulatorJS: 13362ef
+[OK] Core configurado explicitamente: fbneo
+[OK] Relatório CDN: fbneo buildStart 2025-01-07T14:55:35+00:00
+[OK] Relatório CDN: fbneo buildEnd   2025-01-07T14:59:35+00:00
+[OK] ROM principal: /roms/v178/kf2k2mp2.zip
+[OK] Tamanho: 86694745 bytes
+[OK] SHA-256: 2cb16b649819f8168701f01ddd4642dc3678283c112cd89e79103ed45f4a1a4d
+[OK] Full Non-Merged: clone + parent KOF 2002 + BIOS Neo Geo
+[OK] URL versionada para eliminar cache de ROM antiga
+[OK] kof.js não exige mais parent/BIOS separados
+[OK] api/kof-health verifica o arquivo servido no deploy
+
+OBS: O SHA-256 é validado no pacote de desenvolvimento. No navegador, o loader verifica o tamanho antes de iniciar para evitar baixar o arquivo duas vezes.

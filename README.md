@@ -1,3 +1,7 @@
+# Game Guess V19.4.5
+
+Versão consolidada do projeto com as correções mobile/KOF até a V19.4.5.
+
 # Game Guess V18.6
 
 # Game Guess V18.1
