@@ -190,6 +190,7 @@ body.gg-mobile-coarse.gg-hud-visible #kofHudHotspot{pointer-events:none}
       body.gg-mobile-coarse .gg-custom-action.gg-sdm{background:radial-gradient(circle at 35% 28%,#ffd772,#f0a71d 28%,#c96d02 68%,#5d2c00 100%)!important;border-color:#b9bec3!important;color:#241000!important}
       body.gg-mobile-coarse .gg-custom-system{opacity:1!important;height:auto!important;border:2px solid #767d84!important;border-radius:7px!important;background:linear-gradient(#a31a16,#5e0806 55%,#310403)!important;color:#fff!important;box-shadow:0 3px 0 #060708,0 0 0 2px #1a1d21,inset 0 1px 4px rgba(255,255,255,.18)!important;text-shadow:0 1px 2px #000!important}
       body.gg-mobile-coarse #ggCustomStart{background:linear-gradient(#174c9a,#09285d 55%,#061632)!important}
+      body.gg-mobile-coarse .gg-facing-toggle{background:linear-gradient(#37424f,#1d2630 55%,#111820)!important;border-color:#8a929d!important;color:#eaf8ff!important}
       body.gg-mobile-coarse.gg-layout-editing #ggPortraitArcadeDeck{opacity:.55}
     }
 
@@ -279,8 +280,9 @@ body.gg-mobile-coarse.gg-hud-visible #kofHudHotspot{pointer-events:none}
     <button id="ggCustomMax" class="gg-custom-action gg-macro gg-max" data-gg-action="max" data-gg-drag-key="max" type="button">MAX</button>
     <button id="ggCustomDodge" class="gg-custom-action gg-macro gg-dodge" data-gg-action="dodge" data-gg-drag-key="dodge" type="button">ESQUIVA</button>
     <button id="ggCustomDm" class="gg-custom-action gg-macro gg-dm" data-gg-action="dm" data-gg-drag-key="dm" type="button">DM</button>
-    <button id="ggCustomSdm" class="gg-custom-action gg-macro gg-sdm" data-gg-action="sdm" data-gg-drag-key="sdm" type="button">SDM</button>
-    <button id="ggCustomHsdm" class="gg-custom-action gg-macro gg-hsdm" data-gg-action="hsdm" data-gg-drag-key="hsdm" type="button">HSDM</button>
+    <button id="ggCustomSdm" class="gg-custom-action gg-macro gg-sdm" data-gg-action="sdm" data-gg-drag-key="sdm" type="button">SDM/MAX</button>
+    <button id="ggCustomHsdm" class="gg-custom-action gg-macro gg-hsdm" data-gg-action="hsdm" data-gg-drag-key="hsdm" type="button">HSDM/MAX2</button>
+    <button id="ggFacingToggle" class="gg-custom-system gg-facing-toggle" data-gg-drag-key="facing" type="button">LADO →</button>
     <button id="ggCustomCoin" class="gg-custom-system" data-gg-action="coin" data-gg-drag-key="coin" type="button">COIN</button>
     <button id="ggCustomStart" class="gg-custom-system" data-gg-action="start" data-gg-drag-key="start" type="button">START</button>
   </div>
@@ -316,7 +318,7 @@ body.gg-mobile-coarse.gg-hud-visible #kofHudHotspot{pointer-events:none}
       <div class="layout-quick-actions"><button class="layout-position-edit" id="layoutPositionEdit" type="button">✥ EDITAR POSIÇÃO E TAMANHO AGORA</button><button class="layout-position-reset" id="layoutPositionReset" type="button">↺ PADRÃO DESTA TELA</button></div>
       <div class="layout-size-box">
         <h3>📏 Tamanho direto dos controles</h3>
-        <div class="layout-size-grid"><select id="layoutSizeControl" aria-label="Controle para redimensionar"><option value="stick">ALAVANCA</option><option value="a">A</option><option value="b">B</option><option value="c">C</option><option value="d">D</option><option value="max">MAX</option><option value="dodge">ESQUIVA</option><option value="dm">DM</option><option value="sdm">SDM</option><option value="hsdm">HSDM</option><option value="coin">COIN</option><option value="start">START</option></select><input id="layoutSizeRange" type="range" min="42" max="190" step="2" value="118"><span id="layoutSizeValue" class="layout-size-value">118 px</span></div>
+        <div class="layout-size-grid"><select id="layoutSizeControl" aria-label="Controle para redimensionar"><option value="stick">ALAVANCA</option><option value="a">A</option><option value="b">B</option><option value="c">C</option><option value="d">D</option><option value="max">MAX</option><option value="dodge">ESQUIVA</option><option value="dm">DM</option><option value="sdm">SDM</option><option value="hsdm">HSDM/MAX2</option><option value="facing">LADO ↔</option><option value="coin">COIN</option><option value="start">START</option></select><input id="layoutSizeRange" type="range" min="42" max="190" step="2" value="118"><span id="layoutSizeValue" class="layout-size-value">118 px</span></div>
         <div class="layout-size-buttons"><button id="layoutSizeMinus" type="button">− MENOR</button><button id="layoutSizePlus" type="button">+ MAIOR</button></div>
       </div>
       <div class="layout-guide-box">
@@ -324,10 +326,11 @@ body.gg-mobile-coarse.gg-hud-visible #kofHudHotspot{pointer-events:none}
         <div class="layout-guide-row"><label class="layout-guide-toggle"><input id="quickGuideEnabled" type="checkbox"> Mostrar durante a luta</label><select id="quickGuideCharacter" aria-label="Personagem da guia azul"></select></div>
         <div class="layout-guide-row" style="display:block;margin-top:10px">
           <label class="layout-guide-toggle"><input id="dmButtonEnabled" type="checkbox"> Mostrar botão DM automático</label><br>
-          <label class="layout-guide-toggle"><input id="sdmButtonEnabled" type="checkbox"> Mostrar botão SDM automático</label><br>
+          <label class="layout-guide-toggle"><input id="sdmButtonEnabled" type="checkbox"> Mostrar botão SDM/MAX automático</label><br>
           <label class="layout-guide-toggle"><input id="hsdmButtonEnabled" type="checkbox"> Mostrar botão HSDM/MAX2 automático</label>
         </div>
-        <small>Os botões <b>DM</b>, <b>SDM</b> e <b>HSDM/MAX2</b> usam o personagem escolhido na guia azul / catálogo. O SDM ativa MAX corretamente com <b>B+C</b> antes do comando. HSDM/MAX2 ainda exige as condições normais do KOF 2002 (vida vermelha e, em alguns personagens, distância/ar/estado específico).</small>
+                <div class="layout-guide-row" style="margin-top:10px"><label><b>↔ Lado do personagem</b></label><select id="specialFacingSelect" aria-label="Lado para os comandos especiais"><option value="right">Olhando para → direita</option><option value="left">Olhando para ← esquerda</option></select></div>
+        <small>Os botões <b>DM</b>, <b>SDM/MAX</b> e <b>HSDM/MAX2</b> usam o personagem escolhido na guia azul / catálogo e os comandos específicos do <b>Magic Plus II</b>. Se o lutador cruzar o adversário, toque em <b>LADO →/←</b> para espelhar frente/trás.</small>
       </div>
       <div class="layout-grid">
         <div>
@@ -402,12 +405,12 @@ body.gg-mobile-coarse.gg-hud-visible #kofHudHotspot{pointer-events:none}
       <div class="arcade-help-head"><h2 id="arcadeHelpTitle">🕹️ CONTROLE NEO GEO • KOF 2002</h2><button class="arcade-help-close" id="arcadeHelpClose" type="button">✕ FECHAR</button></div>
       <div class="arcade-help-layout" aria-label="Botões arcade A B C D"><div class="arcade-key arcade-a">A</div><div class="arcade-key arcade-b">B</div><div class="arcade-key arcade-c">C</div><div class="arcade-key arcade-d">D</div></div>
       <div class="arcade-functions"><span><b>A</b> — Soco fraco</span><span><b>B</b> — Chute fraco</span><span><b>C</b> — Soco forte</span><span><b>D</b> — Chute forte</span><span><b>COIN</b> — Inserir crédito</span><span><b>START</b> — Iniciar/confirmar</span></div>
-      <div class="arcade-help-note">Celular: alavanca 360° + layout personalizável + atalhos <b>MAX = B+C</b> e <b>ESQUIVA = A+B</b>. PC/Android com controle: abra <b>🎮 CONTROLE</b> para detectar o gamepad, usar o padrão sugerido e salvar um mapeamento próprio.</div>
+      <div class="arcade-help-note">Celular: alavanca 360° + layout personalizável + atalhos <b>MAX = B+C</b>, <b>ESQUIVA = A+B</b> e especiais <b>DM / SDM/MAX / HSDM/MAX2</b> por personagem do Magic Plus II. PC/Android com controle: abra <b>🎮 CONTROLE</b> para detectar o gamepad, usar o padrão sugerido e salvar um mapeamento próprio.</div>
     </div>
   </div>
   <aside id="ggCharacterQuickGuide" hidden aria-live="polite"><div class="gg-guide-head"><b id="ggGuideName">GUIA RÁPIDO</b><button id="ggGuideClose" class="gg-guide-close" type="button" aria-label="Fechar guia">✕</button></div><div id="ggGuideMoves"></div><div id="ggGuideCombo" class="gg-guide-combo"></div><div id="ggGuideTip" class="gg-guide-tip"></div></aside>
   <div id="boot"><div class="panel"><b>🥊 KOF 2002 Magic Plus II</b><small id="bootText">Preparando FBNeo.</small><button id="startKofButton" type="button">INICIAR KOF</button></div></div>
-  <script src="/kof-catalog.js?v=19.9.1"></script>
-  <script src="/kof-player.js?v=19.9.1"></script>
+  <script src="/kof-catalog.js?v=19.10.0"></script>
+  <script src="/kof-player.js?v=19.10.0"></script>
 </body>
 </html>

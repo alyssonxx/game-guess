@@ -19,7 +19,7 @@
   const ONLINE_EJS_VERSION = '4.3.0-pre';
   const PUBLIC_NETPLAY_SERVER = 'https://netplay.emulatorjs.org';
   const EJS_VERSION = online ? ONLINE_EJS_VERSION : TRAINING_EJS_VERSION;
-  const PATCH_VERSION = '19.9.1';
+  const PATCH_VERSION = '19.10.0';
   const EJS_DATA = `https://cdn.emulatorjs.org/${EJS_VERSION}/data/`;
 
   const GAME_URL = '/roms/v178/kf2k2mp2.zip';
@@ -71,8 +71,9 @@
   };
   const GAMEPAD_ACTION_LABELS = { a: 'A', b: 'B', c: 'C', d: 'D', coin: 'COIN', start: 'START', max: 'MAX', dodge: 'ESQUIVA' };
   const SPECIAL_BUTTONS_STATE_KEY = 'gg_kof_special_buttons_state_v1';
-  const TOUCH_POSITION_KEY = 'gg_kof_touch_positions_v7';
-  const TOUCH_SIZE_KEY = 'gg_kof_touch_sizes_v7';
+  const SPECIAL_FACING_KEY = 'gg_kof_special_facing_v1';
+  const TOUCH_POSITION_KEY = 'gg_kof_touch_positions_v8';
+  const TOUCH_SIZE_KEY = 'gg_kof_touch_sizes_v8';
   const QUICK_GUIDE_ENABLED_KEY = 'gg_kof_quick_guide_enabled_v1';
   const QUICK_GUIDE_CHARACTER_KEY = 'gg_kof_quick_guide_character_v1';
   const DEFAULT_TOUCH_POSITIONS = {
@@ -80,7 +81,7 @@
       stick: { x: .14, y: .70 },
       c: { x: .84, y: .65 }, d: { x: .93, y: .65 },
       a: { x: .82, y: .82 }, b: { x: .91, y: .82 },
-      max: { x: .82, y: .49 }, dodge: { x: .91, y: .49 }, dm: { x: .77, y: .34 }, sdm: { x: .86, y: .34 }, hsdm: { x: .95, y: .34 },
+      max: { x: .82, y: .49 }, dodge: { x: .91, y: .49 }, dm: { x: .77, y: .34 }, sdm: { x: .86, y: .34 }, hsdm: { x: .95, y: .34 }, facing: { x: .55, y: .10 },
       coin: { x: .42, y: .89 }, start: { x: .53, y: .89 }
     },
     // Portrait coordinates are normalized INSIDE the lower arcade deck (not the full viewport).
@@ -89,12 +90,12 @@
       stick: { x: .23, y: .60 },
       c: { x: .67, y: .43 }, d: { x: .84, y: .43 },
       a: { x: .64, y: .68 }, b: { x: .82, y: .68 },
-      max: { x: .65, y: .88 }, dodge: { x: .83, y: .88 }, dm: { x: .66, y: .24 }, sdm: { x: .79, y: .24 }, hsdm: { x: .91, y: .24 }
+      max: { x: .65, y: .88 }, dodge: { x: .83, y: .88 }, dm: { x: .66, y: .24 }, sdm: { x: .79, y: .24 }, hsdm: { x: .91, y: .24 }, facing: { x: .51, y: .11 }
     }
   };
   const DEFAULT_TOUCH_SIZES = {
-    landscape: { stick: 104, a: 54, b: 54, c: 54, d: 54, max: 48, dodge: 48, dm: 44, sdm: 46, hsdm: 50, coin: 42, start: 42 },
-    portrait: { stick: 118, a: 58, b: 58, c: 58, d: 58, max: 46, dodge: 46, dm: 44, sdm: 48, hsdm: 50, coin: 42, start: 42 }
+    landscape: { stick: 104, a: 54, b: 54, c: 54, d: 54, max: 48, dodge: 48, dm: 44, sdm: 46, hsdm: 50, facing: 42, coin: 42, start: 42 },
+    portrait: { stick: 118, a: 58, b: 58, c: 58, d: 58, max: 46, dodge: 46, dm: 44, sdm: 48, hsdm: 50, facing: 42, coin: 42, start: 42 }
   };
 
   let started = false;
@@ -124,6 +125,7 @@
   let touchPositions = loadTouchPositions();
   let touchSizes = loadTouchSizes();
   let specialButtonsState = loadSpecialButtonsState();
+  let specialFacing = loadSpecialFacing();
   let sdmMacroRunning = false;
   let touchLayoutEditing = false;
   let touchLayoutDraft = null;
@@ -255,6 +257,16 @@
     syncSpecialButtonVisibility();
     return specialButtonsState;
   }
+  function loadSpecialFacing() {
+    const fallback = role === 'guest' ? 'left' : 'right';
+    try { const v = localStorage.getItem(SPECIAL_FACING_KEY); return v === 'left' || v === 'right' ? v : fallback; } catch { return fallback; }
+  }
+  function saveSpecialFacing(value) {
+    specialFacing = value === 'left' ? 'left' : 'right';
+    try { localStorage.setItem(SPECIAL_FACING_KEY, specialFacing); } catch {}
+    syncSpecialFacingUi();
+    return specialFacing;
+  }
   function getPortraitGameHeightPx() {
     const raw = getComputedStyle(document.documentElement).getPropertyValue('--gg-portrait-game-h').trim();
     const px = Number.parseFloat(raw);
@@ -278,7 +290,7 @@
   function controlForTouchKey(key) {
     const custom = {
       stick: 'ggCustomStick', a: 'ggCustomA', b: 'ggCustomB', c: 'ggCustomC', d: 'ggCustomD',
-      max: 'ggCustomMax', dodge: 'ggCustomDodge', dm: 'ggCustomDm', sdm: 'ggCustomSdm', hsdm: 'ggCustomHsdm', coin: 'ggCustomCoin', start: 'ggCustomStart'
+      max: 'ggCustomMax', dodge: 'ggCustomDodge', dm: 'ggCustomDm', sdm: 'ggCustomSdm', hsdm: 'ggCustomHsdm', facing: 'ggFacingToggle', coin: 'ggCustomCoin', start: 'ggCustomStart'
     };
     const own = document.getElementById(custom[key]);
     if (own) return own;
@@ -290,7 +302,7 @@
     return findArcadeButton(String(key).toUpperCase());
   }
   function touchControlEntries() {
-    return ['stick','a','b','c','d','max','dodge','dm','sdm','hsdm','coin','start']
+    return ['stick','a','b','c','d','max','dodge','dm','sdm','hsdm','facing','coin','start']
       .map(key => [key, controlForTouchKey(key)])
       .filter(([,el]) => !!el);
   }
@@ -328,7 +340,7 @@
     if (key === 'stick') {
       el.style.setProperty('width', `${size}px`, 'important');
       el.style.setProperty('height', `${size}px`, 'important');
-    } else if (key === 'coin' || key === 'start') {
+    } else if (key === 'coin' || key === 'start' || key === 'facing') {
       el.style.setProperty('width', `${Math.round(size * 1.28)}px`, 'important');
       el.style.setProperty('min-width', `${Math.round(size * 1.28)}px`, 'important');
       el.style.setProperty('height', `${Math.round(size * .72)}px`, 'important');
@@ -443,6 +455,13 @@
   }
   function syncSpecialButtonVisibility() {
     [['dm','dm'],['sdm','sdm'],['hsdm','hsdm']].forEach(([key,stateKey]) => { const el = controlForTouchKey(key); if (el) el.hidden = !specialButtonsState?.[stateKey]; });
+  }
+  function syncSpecialFacingUi() {
+    if (specialFacingSelect) specialFacingSelect.value = specialFacing;
+    if (facingToggleButton) {
+      facingToggleButton.textContent = specialFacing === 'left' ? 'LADO ←' : 'LADO →';
+      facingToggleButton.setAttribute('aria-label', `Direção dos especiais: personagem olhando para ${specialFacing === 'left' ? 'esquerda' : 'direita'}`);
+    }
   }
 
   function forceGameFill() {
@@ -1022,6 +1041,8 @@
   const dmButtonEnabledToggle = document.getElementById('dmButtonEnabled');
   const sdmButtonEnabledToggle = document.getElementById('sdmButtonEnabled');
   const hsdmButtonEnabledToggle = document.getElementById('hsdmButtonEnabled');
+  const specialFacingSelect = document.getElementById('specialFacingSelect');
+  const facingToggleButton = document.getElementById('ggFacingToggle');
 
   function getButtonElementByLabel(label) {
     const slot = SLOT_KEYS.find(key => currentControlLayout[key] === label);
@@ -1108,7 +1129,6 @@
   }
   function releaseComboShortcut(button) { button?.__ggRelease?.(); }
   const SPECIAL_BUTTON_GROUPS = { ac:['a','c'], bd:['b','d'], abc:['a','b','c'], abcd:['a','b','c','d'], ab:['a','b'], bc:['b','c'], ad:['a','d'], bcd:['b','c','d'], a:['a'], b:['b'], c:['c'], d:['d'] };
-  const SPECIAL_DIRECTION_VECTORS = { '↓':[0,1], '↘':[1,1], '→':[1,0], '↗':[1,-1], '↑':[0,-1], '↖':[-1,-1], '←':[-1,0], '↙':[-1,1] };
   function activeSdmFighter() {
     const roster = quickGuideRoster();
     const settings = loadQuickGuideSettings();
@@ -1116,33 +1136,47 @@
   }
   const nextFrame = () => new Promise(resolve => requestAnimationFrame(() => resolve()));
   async function waitFrames(count = 1) { for (let i = 0; i < count; i++) await nextFrame(); }
+  function relativeDirectionVector(token) {
+    const forward = specialFacing === 'left' ? -1 : 1;
+    const backward = -forward;
+    const map = {
+      f:[forward,0], b:[backward,0], d:[0,1], u:[0,-1],
+      df:[forward,1], db:[backward,1], uf:[forward,-1], ub:[backward,-1]
+    };
+    return map[String(token || '').toLowerCase()] || null;
+  }
   function setMacroButtons(group, source, pressed) {
-    for (const action of (SPECIAL_BUTTON_GROUPS[group] || [])) {
+    for (const action of (SPECIAL_BUTTON_GROUPS[String(group || '').toLowerCase()] || [])) {
       if (pressed) pressAction(action, `${source}:${action}`);
       else releaseAction(action, `${source}:${action}`);
     }
   }
-  async function pulseMacroButtons(group, source, holdFrames = 3, gapFrames = 2) {
+  async function pulseMacroButtons(group, source, holdFrames = 3, gapFrames = 1) {
     if (!group) return;
     setMacroButtons(group, source, true);
     await waitFrames(holdFrames);
     setMacroButtons(group, source, false);
-    await waitFrames(gapFrames);
+    if (gapFrames) await waitFrames(gapFrames);
+  }
+  function releaseManualDirectionsForMacro() {
+    for (const src of ['touch-stick','keyboard','gamepad']) setVectorSource(src, 0, 0);
   }
   async function activateMaxForMacro(source) {
-    setVectorSource(`${source}:maxdir`, 0, 0);
-    await pulseMacroButtons('bc', `${source}:max`, 3, 0);
+    releaseManualDirectionsForMacro();
+    await pulseMacroButtons('bc', `${source}:max`, 3, 0); // Magic Plus II / KOF 2002: MAX = B+C
     await waitFrames(12);
+  }
+  async function setRelativeDirection(token, source, frames=2) {
+    const vector = relativeDirectionVector(token);
+    if (!vector) return;
+    setVectorSource(source, vector[0], vector[1]);
+    await waitFrames(frames);
   }
   async function runDirectionalCommand(steps, button, source) {
     const dirSource = `${source}:dir`;
     const sequence = Array.isArray(steps) ? steps : [];
-    for (const symbol of sequence) {
-      const vector = SPECIAL_DIRECTION_VECTORS[symbol];
-      if (!vector) continue;
-      setVectorSource(dirSource, vector[0], vector[1]);
-      await waitFrames(2);
-    }
+    for (const token of sequence) await setRelativeDirection(token, dirSource, 2);
+    // O botão final entra enquanto a última direção ainda está ativa; isso é crítico no FBNeo.
     if (button) await pulseMacroButtons(button, `${source}:finish`, 3, 0);
     setVectorSource(dirSource, 0, 0);
     await waitFrames(2);
@@ -1152,27 +1186,61 @@
     let directionHeld = false;
     for (let i = 0; i < (script || []).length; i++) {
       const token = script[i];
-      const vector = SPECIAL_DIRECTION_VECTORS[token];
-      if (vector) {
-        setVectorSource(dirSource, vector[0], vector[1]);
-        directionHeld = true;
-        await waitFrames(2);
-        continue;
+      if (token && typeof token === 'object') {
+        if (token.dir) {
+          const vector = relativeDirectionVector(token.dir);
+          if (vector) {
+            setVectorSource(dirSource, vector[0], vector[1]);
+            directionHeld = true;
+            await waitFrames(Math.max(1, Number(token.frames) || 2));
+          }
+          continue;
+        }
+        if (token.btn) {
+          // Se uma sequência direcional terminou imediatamente antes deste botão,
+          // mantenha a última direção DURANTE o botão (como no arcade), depois solte-a.
+          await pulseMacroButtons(token.btn, `${source}:script:${i}`, Math.max(1, Number(token.frames) || 3), Number.isFinite(token.gap) ? token.gap : 1);
+          if (directionHeld) {
+            setVectorSource(dirSource, 0, 0);
+            directionHeld = false;
+            await waitFrames(1);
+          }
+          continue;
+        }
+        if (token.holdBtn) {
+          setMacroButtons(token.holdBtn, `${source}:hold:${i}`, true);
+          await waitFrames(Math.max(1, Number(token.frames) || 12));
+          setMacroButtons(token.holdBtn, `${source}:hold:${i}`, false);
+          if (directionHeld) {
+            setVectorSource(dirSource, 0, 0);
+            directionHeld = false;
+          }
+          await waitFrames(1);
+          continue;
+        }
+        if (token.wait) { await waitFrames(Math.max(1, Number(token.wait) || 1)); continue; }
       }
-      if (SPECIAL_BUTTON_GROUPS[token]) {
-        await pulseMacroButtons(token, `${source}:script:${i}`, 3, 2);
-        continue;
-      }
-      if (String(token).startsWith('wait:')) await waitFrames(Math.max(1, Number(String(token).split(':')[1]) || 1));
     }
     if (directionHeld) setVectorSource(dirSource, 0, 0);
     await waitFrames(2);
+  }
+  async function runMacroPayload(macro, source) {
+    if (Array.isArray(macro?.preScript)) await runScriptCommand(macro.preScript, `${source}:pre`);
+    if (macro?.air) {
+      setVectorSource(`${source}:jump`, 0, -1);
+      await waitFrames(4);
+      setVectorSource(`${source}:jump`, 0, 0);
+      await waitFrames(5);
+    }
+    if (Array.isArray(macro?.script)) await runScriptCommand(macro.script, source);
+    else await runDirectionalCommand(macro?.steps || [], macro?.button || null, source);
+    if (Array.isArray(macro?.postScript)) await runScriptCommand(macro.postScript, `${source}:post`);
   }
   function specialProfileFor(fighter, kind) {
     if (!fighter) return null;
     return kind === 'dm' ? fighter.dm : kind === 'hsdm' ? fighter.hsdm : fighter.sdm;
   }
-  function specialLabel(kind) { return kind === 'dm' ? 'DM' : kind === 'hsdm' ? 'HSDM' : 'SDM'; }
+  function specialLabel(kind) { return kind === 'dm' ? 'DM' : kind === 'hsdm' ? 'HSDM/MAX2' : 'SDM/MAX'; }
   function specialButtonEnabled(kind) { return !!specialButtonsState?.[kind]; }
   function specialButtonEl(kind) { return kind === 'dm' ? dmButton : kind === 'hsdm' ? hsdmButton : sdmButton; }
   async function triggerSpecialMacro(kind) {
@@ -1180,29 +1248,25 @@
     const fighter = activeSdmFighter();
     const profile = specialProfileFor(fighter, kind);
     const label = specialLabel(kind);
-    if (!fighter || !profile) { setNetplayState(`Escolha um personagem na guia azul para usar o botão ${label}.`, 'error'); return false; }
-    if (!specialButtonEnabled(kind)) { setNetplayState(`Ative o botão ${label} em LAYOUT para usar este atalho.`, 'error'); return false; }
-    if (!profile.macro) { setNetplayState(`${label} de ${fighter.name} exige rota manual. Veja o catálogo.`, 'error'); return false; }
+    if (!fighter || !profile) { setNetplayState(`Escolha um personagem na guia azul para usar ${label}.`, 'error'); return false; }
+    if (!specialButtonEnabled(kind)) { setNetplayState(`Ative ${label} em LAYOUT para usar este atalho.`, 'error'); return false; }
+    if (!profile.macro) { setNetplayState(`${label} de ${fighter.name} não tem macro disponível.`, 'error'); return false; }
     sdmMacroRunning = true;
     specialButtonEl(kind)?.classList.add('gg-pressed');
-    const source = `${kind}:${fighter.id}:${Date.now()}`;
+    releaseManualDirectionsForMacro();
+    const source = `special:${kind}:${fighter.id}:${Date.now()}`;
     try {
       if (profile.macro.activateMax) await activateMaxForMacro(source);
-      if (profile.macro.jump) {
-        setVectorSource(`${source}:jump`, 1, -1);
-        await waitFrames(3);
-        setVectorSource(`${source}:jump`, 0, 0);
-        await waitFrames(5);
-      }
-      if (Array.isArray(profile.macro.script)) await runScriptCommand(profile.macro.script, source);
-      else await runDirectionalCommand(profile.macro.steps || [], profile.macro.button || null, source);
-      const warning = profile.macro.conditional ? ' • exige condição do personagem' : profile.macro.close ? ' • use perto do rival' : '';
-      setNetplayState(`${label} • ${fighter.name}: ${profile.name}${warning}`, 'connected');
+      await runMacroPayload(profile.macro, source);
+      const warnings = [];
+      if (profile.macro.close) warnings.push('use perto');
+      if (profile.macro.air) warnings.push('execução aérea');
+      if (profile.macro.conditional) warnings.push(profile.macro.conditional);
+      const suffix = warnings.length ? ` • ${warnings.join(' • ')}` : '';
+      setNetplayState(`${label} • ${fighter.name}: ${profile.name}${suffix}`, 'connected');
       return true;
     } finally {
-      setVectorSource(`${source}:dir`, 0, 0);
-      setVectorSource(`${source}:scriptdir`, 0, 0);
-      setVectorSource(`${source}:jump`, 0, 0);
+      for (const suffix of ['dir','scriptdir','jump','pre:scriptdir','post:scriptdir']) setVectorSource(`${source}:${suffix}`, 0, 0);
       specialButtonEl(kind)?.classList.remove('gg-pressed');
       sdmMacroRunning = false;
     }
@@ -1211,7 +1275,7 @@
     document.querySelectorAll('#ggMobileArcadeControls .gg-editor-selected').forEach(el => el.classList.remove('gg-editor-selected'));
     const el = controlForTouchKey(selectedTouchControl);
     el?.classList.add('gg-editor-selected');
-    const label = { stick:'ALAVANCA',a:'A',b:'B',c:'C',d:'D',max:'MAX',dodge:'ESQUIVA',dm:'DM',sdm:'SDM',hsdm:'HSDM',coin:'COIN',start:'START' }[selectedTouchControl] || selectedTouchControl.toUpperCase();
+    const label = { stick:'ALAVANCA',a:'A',b:'B',c:'C',d:'D',max:'MAX',dodge:'ESQUIVA',dm:'DM',sdm:'SDM',hsdm:'HSDM',facing:'LADO',coin:'COIN',start:'START' }[selectedTouchControl] || selectedTouchControl.toUpperCase();
     const size = touchSizeDraft?.[selectedTouchControl] || sizeForTouchKey(selectedTouchControl);
     if (hudEditorSelected) hudEditorSelected.textContent = `${label} • ${Math.round(size)}px`;
   }
@@ -1409,10 +1473,10 @@
     if (quickGuideName) quickGuideName.textContent = `🔵 ${fighter.name}`;
     if (quickGuideMoves) quickGuideMoves.innerHTML = (fighter.moves || []).slice(0,4).map(m => `<div class="gg-guide-move"><span><b>${escapeHtml(m.name)}</b>${m.note ? `<small> • ${escapeHtml(m.note)}</small>` : ''}</span><code>${escapeHtml(m.command)}</code></div>`).join('');
     const dmLine = fighter.dm ? `<div style="margin-top:6px"><b>DM:</b> ${escapeHtml(fighter.dm.name)} <code style="margin-left:6px">${escapeHtml(fighter.dm.command || '—')}</code></div>` : '';
-    const sdmLine = fighter.sdm ? `<div style="margin-top:6px"><b>SDM:</b> ${escapeHtml(fighter.sdm.name)} <code style="margin-left:6px">${escapeHtml(fighter.sdm.command || '—')}</code></div>` : '';
-    const hsdmLine = fighter.hsdm ? `<div style="margin-top:6px"><b>HSDM:</b> ${escapeHtml(fighter.hsdm.name)} <code style="margin-left:6px">${escapeHtml(fighter.hsdm.command || '—')}</code></div>` : '';
+    const sdmLine = fighter.sdm ? `<div style="margin-top:6px"><b>SDM/MAX:</b> ${escapeHtml(fighter.sdm.name)} <code style="margin-left:6px">${escapeHtml(fighter.sdm.command || '—')}</code></div>` : '';
+    const hsdmLine = fighter.hsdm ? `<div style="margin-top:6px"><b>HSDM/MAX2:</b> ${escapeHtml(fighter.hsdm.name)} <code style="margin-left:6px">${escapeHtml(fighter.hsdm.command || '—')}</code></div>` : '';
     if (quickGuideCombo) quickGuideCombo.innerHTML = `<b>COMBO:</b> ${escapeHtml(fighter.combo || '—')}${dmLine}${sdmLine}${hsdmLine}`;
-    if (quickGuideTip) quickGuideTip.textContent = fighter.tip || '';
+    if (quickGuideTip) quickGuideTip.textContent = `${fighter.tip || ''}${fighter.magicPlusPage ? ` • Magic Plus II: pág. ${fighter.magicPlusPage}/51` : ''}`;
   }
   function escapeHtml(value) { return String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
   function setupQuickGuideControls() {
@@ -1429,6 +1493,7 @@
     if (sdmButtonEnabledToggle) sdmButtonEnabledToggle.checked = !!specialButtonsState.sdm;
     if (hsdmButtonEnabledToggle) hsdmButtonEnabledToggle.checked = !!specialButtonsState.hsdm;
     syncSpecialButtonVisibility();
+    syncSpecialFacingUi();
     renderQuickGuide();
   }
   function layoutSizeBounds(key) { return key === 'stick' ? {min:82,max:190} : {min:42,max:112}; }
@@ -1659,6 +1724,13 @@
   dmButtonEnabledToggle?.addEventListener('change', () => { saveSpecialButtonsState({ dm: dmButtonEnabledToggle.checked }); });
   sdmButtonEnabledToggle?.addEventListener('change', () => { saveSpecialButtonsState({ sdm: sdmButtonEnabledToggle.checked }); });
   hsdmButtonEnabledToggle?.addEventListener('change', () => { saveSpecialButtonsState({ hsdm: hsdmButtonEnabledToggle.checked }); });
+  specialFacingSelect?.addEventListener('change', () => saveSpecialFacing(specialFacingSelect.value));
+  facingToggleButton?.addEventListener('pointerdown', event => {
+    if (touchLayoutEditing) return;
+    event.preventDefault(); event.stopImmediatePropagation();
+    saveSpecialFacing(specialFacing === 'left' ? 'right' : 'left');
+    setNetplayState(`↔ Especiais espelhados: personagem olhando para ${specialFacing === 'left' ? '← esquerda' : '→ direita'}.`, 'info');
+  }, {passive:false});
   layoutPositionEdit?.addEventListener('click', startTouchLayoutEditor);
   layoutPositionReset?.addEventListener('click', resetTouchLayoutEditor);
   hudEditorSave?.addEventListener('click', () => finishTouchLayoutEditor(true));
@@ -1739,7 +1811,7 @@
   landscapeButton?.addEventListener('click', () => setOrientation('landscape'));
   document.addEventListener('fullscreenchange', () => { updateFullscreenUi(); setTimeout(() => { showOwnMobileControls(); applyTouchPositions(); }, 180); });
   document.addEventListener('webkitfullscreenchange', updateFullscreenUi);
-  window.addEventListener('orientationchange', () => { syncPortraitLayoutVars(); scheduleEmulatorResize(360); setTimeout(() => { showOwnMobileControls(); applyTouchPositions(); syncLayoutSizeUi(); renderQuickGuide(); syncSpecialButtonVisibility(); }, 520); }, { passive: true });
+  window.addEventListener('orientationchange', () => { syncPortraitLayoutVars(); scheduleEmulatorResize(360); setTimeout(() => { showOwnMobileControls(); applyTouchPositions(); syncLayoutSizeUi(); renderQuickGuide(); syncSpecialButtonVisibility(); syncSpecialFacingUi(); }, 520); }, { passive: true });
   window.addEventListener('gamepadconnected', e => { activeGamepadIndex = e.gamepad?.index ?? activeGamepadIndex; lastGamepadIdentity = ''; if (gameplayStarted || (padModal && !padModal.hidden)) startGamepadLoop(); });
   window.addEventListener('gamepaddisconnected', () => { lastGamepadIdentity = ''; if (firstConnectedGamepad()) startGamepadLoop(); else stopGamepadLoop(); });
   window.addEventListener('keydown', onKeyboardDown, { passive:false, capture:true });
@@ -1762,6 +1834,7 @@
   syncPortraitLayoutVars();
   setupQuickGuideControls();
   syncSpecialButtonVisibility();
+  syncSpecialFacingUi();
   bindOwnMobileControls();
   installVirtualControlObserver();
   if (coarsePointer) { setHudVisible(true, 0); setTimeout(() => { syncPortraitLayoutVars(); applyTouchPositions(); syncSpecialButtonVisibility(); }, 500); }
@@ -1773,7 +1846,7 @@
     setTimeout(() => bootGame(), 180);
   } else {
     if (netplayStatus) netplayStatus.hidden = true;
-    setText('Clique em INICIAR KOF. No celular, toque no topo para mostrar o HUD. Em 🕹 LAYOUT você pode trocar a ordem A/B/C/D e também arrastar individualmente alavanca, A/B/C/D, MAX, ESQUIVA, DM, SDM, HSDM, COIN e START; a posição é salva separadamente para vertical e horizontal. Os botões especiais seguem o personagem da guia azul.');
+    setText('Clique em INICIAR KOF. No celular, toque no topo para mostrar o HUD. Em 🕹 LAYOUT você pode trocar a ordem A/B/C/D e também arrastar individualmente alavanca, A/B/C/D, MAX, ESQUIVA, DM, SDM/MAX, HSDM/MAX2, LADO, COIN e START; a posição é salva separadamente para vertical e horizontal. Os botões especiais seguem o personagem da guia azul e o botão LADO espelha os comandos quando o personagem troca de lado.');
   }
 
   window.addEventListener('resize', () => { syncPortraitLayoutVars(); scheduleEmulatorResize(180); }, { passive:true });

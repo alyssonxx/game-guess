@@ -4,13 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#090b18">
-  <title>Game Guess V19.9.1 — GeoGuess + KOF + Quiz</title>
+  <title>Game Guess V19.10.0 — GeoGuess + KOF + Quiz</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="/styles.css?v=19.9.1">
+  <link rel="stylesheet" href="/styles.css?v=19.10.0">
 
   <style id="portrait-fix-style">
     .result-body img,#resultImage,#universeResultImage,#duelQuestionImage,.duel-image-shell img,.assist-result img,.portrait-focus{object-fit:cover!important;object-position:center 14%!important;background:#fff}
@@ -28,7 +28,7 @@
     <header class="topbar">
       <button class="brand" id="brandButton" aria-label="Voltar ao menu principal">
         <span class="brand-icon">🎮</span>
-        <span><b>GAME GUESS</b><small>GEOGUESS + KOF + QUIZ V19.9.1</small></span>
+        <span><b>GAME GUESS</b><small>GEOGUESS + KOF + QUIZ V19.10.0</small></span>
       </button>
       <div class="top-actions">
         <span class="status-pill" id="apiStatus"><i></i> Pronto</span>
@@ -133,14 +133,14 @@
     </section>
 
     <section class="screen kof-screen" id="kofScreen">
-      <div class="section-heading kof-heading"><button class="back-link" id="kofBackButton">← Voltar</button><div><p class="eyebrow">🥊 ARCADE ONLINE • V19.9.1</p><h2>KOF 2002 MAGIC PLUS II</h2><p>Loader V19.9.1 usando <b>FBNeo explícito + kf2k2mp2.zip Full Non-Merged</b>: Magic Plus II, KOF 2002 parent e BIOS Neo Geo em um único arquivo para evitar a falha de montagem do EmulatorJS.</p></div></div>
+      <div class="section-heading kof-heading"><button class="back-link" id="kofBackButton">← Voltar</button><div><p class="eyebrow">🥊 ARCADE ONLINE • V19.10.0</p><h2>KOF 2002 MAGIC PLUS II</h2><p>Loader V19.10.0 usando <b>FBNeo explícito + kf2k2mp2.zip Full Non-Merged</b>: Magic Plus II, KOF 2002 parent e BIOS Neo Geo em um único arquivo para evitar a falha de montagem do EmulatorJS.</p></div></div>
       <div class="kof-layout">
         <div class="kof-main">
           <section class="kof-card kof-web-card"><div class="kof-web-title"><h3>🌐 Arcade Web integrado</h3><span class="kof-web-badge">SEM IMPORTAR ROM</span></div><div class="kof-file-grid"><div id="kofCloneState" class="kof-file-state"></div><div id="kofParentState" class="kof-file-state"></div><div id="kofBiosState" class="kof-file-state"></div></div><p id="kofFilesReady" class="kof-note"></p><div class="kof-web-actions"><button id="kofTrainingButton" class="primary-btn huge">🎮 INICIAR TREINO LOCAL</button><button id="kofRecheckFiles" class="secondary-btn">🔎 REVALIDAR ARQUIVOS</button><button id="kofCatalogButton" class="secondary-btn">📚 CATÁLOGO DE LUTADORES</button></div></section>
           <section class="kof-card"><h3>⚔️ Duelo 1x1 sincronizado</h3><p>O Firebase cria a sala, verifica os dois aparelhos e o HOST dispara o carregamento simultâneo. O EmulatorJS recebe o mesmo Game ID e servidor Netplay nos dois lados.</p><div class="kof-room-actions"><button class="primary-btn" id="kofCreateRoom">CRIAR SALA</button><div class="kof-join"><input id="kofJoinCode" maxlength="6" placeholder="ABC123" autocomplete="off"><button class="secondary-btn" id="kofJoinRoom">ENTRAR</button></div></div><label class="kof-server-field">Servidor Netplay (automático)<input id="kofNetplayServer" value="Carregando configuração…" autocomplete="off" readonly></label></section>
           <section class="kof-card hidden" id="kofRoomPanel"><div class="kof-room-code"><span>SALA</span><b id="kofRoomCode">------</b><button class="icon-btn" id="kofCopyRoom">📋</button></div><div id="kofRoomRole" class="kof-note"></div><div id="kofRoomPlayers" class="kof-players"></div><div id="kofRoomStatus" class="kof-room-status">Aguardando...</div><div class="kof-room-buttons"><button class="primary-btn" id="kofLaunchButton">🚀 INICIAR KOF ONLINE</button><button class="secondary-btn" id="kofLeaveRoom">SAIR DA SALA</button></div><div id="kofResultControls" class="kof-result-controls hidden"><p id="kofVoteStatus">Depois da luta, os dois jogadores confirmam o vencedor.</p><button class="primary-btn" id="kofVoteMe">🏆 EU VENCI</button><button class="secondary-btn" id="kofVoteRival">🥊 O RIVAL VENCEU</button></div></section>
         </div>
-        <aside class="kof-card kof-info"><h3>🛡️ Diagnóstico V19.9.1</h3><div class="kof-diagnostics"><span>✅ Treino: EmulatorJS 4.2.3 • Online/WebRTC: EmulatorJS 4.3.0-pre</span><span>✅ Driver: kf2k2mp2.zip</span><span>✅ Parent KOF 2002 incorporado ao Full Non-Merged</span><span>✅ BIOS Neo Geo incorporada ao Full Non-Merged</span><span>✅ Parent/BIOS incorporados ao arquivo principal</span><span>✅ URL nova /roms/v178/ para eliminar cache antigo</span><span>✅ Ready-check dos 2 jogadores</span><span>✅ Matchmaking Firebase + reconexão</span><span>✅ Resultado confirmado pelos 2 jogadores</span><span>✅ Alavanca virtual 360° no celular</span><span>✅ Entrada direta única: touch + teclado + gamepad, com agregação por fonte e sem dupla emissão</span><span>✅ Vertical: controles confinados ao painel inferior • Horizontal: overlay transparente isolado + MAX/ESQUIVA</span><span>✅ Netplay híbrido: KOF_NETPLAY_SERVER dedicado quando existir + fallback público automático</span><span>✅ Lista de salas usa domain + game_id como exige o servidor oficial</span><span>✅ Socket.IO com negociação automática (polling/WebSocket)</span><span>✅ Catálogo dos lutadores com especiais, combo rápido e dicas</span><span>✅ Guia azul opcional de 1 personagem dentro da tela de controles</span><span>✅ Botão SDM opcional no mobile, vinculado ao personagem da guia azul</span><span>✅ Layout retrato sem faixa escura excedente entre jogo e painel arcade</span><span id="kofServiceState">🔎 Verificando EmulatorJS + arquivos do romset…</span><span>🏆 Vitória/derrota entra no Ranked</span></div><small>O loader valida um único arquivo antes do core. Consulte <b>KOF-SETUP.md</b> para a estratégia V17 e os CRCs preservados.</small></aside>
+        <aside class="kof-card kof-info"><h3>🛡️ Diagnóstico V19.10.0</h3><div class="kof-diagnostics"><span>✅ Treino: EmulatorJS 4.2.3 • Online/WebRTC: EmulatorJS 4.3.0-pre</span><span>✅ Driver: kf2k2mp2.zip</span><span>✅ Parent KOF 2002 incorporado ao Full Non-Merged</span><span>✅ BIOS Neo Geo incorporada ao Full Non-Merged</span><span>✅ Parent/BIOS incorporados ao arquivo principal</span><span>✅ URL nova /roms/v178/ para eliminar cache antigo</span><span>✅ Ready-check dos 2 jogadores</span><span>✅ Matchmaking Firebase + reconexão</span><span>✅ Resultado confirmado pelos 2 jogadores</span><span>✅ Alavanca virtual 360° no celular</span><span>✅ Entrada direta única: touch + teclado + gamepad, com agregação por fonte e sem dupla emissão</span><span>✅ Vertical: controles confinados ao painel inferior • Horizontal: overlay transparente isolado + MAX/ESQUIVA</span><span>✅ Netplay híbrido: KOF_NETPLAY_SERVER dedicado quando existir + fallback público automático</span><span>✅ Lista de salas usa domain + game_id como exige o servidor oficial</span><span>✅ Socket.IO com negociação automática (polling/WebSocket)</span><span>✅ Catálogo dos lutadores com DM / SDM/MAX / HSDM/MAX2 nativos do Magic Plus II</span><span>✅ Guia azul opcional de 1 personagem dentro da tela de controles</span><span>✅ Três botões automáticos DM / SDM/MAX / HSDM/MAX2 vinculados ao personagem da guia azul</span><span>✅ Espelhamento de frente/trás com botão LADO →/← para macros direcionais</span><span>✅ Layout retrato sem faixa escura excedente entre jogo e painel arcade</span><span id="kofServiceState">🔎 Verificando EmulatorJS + arquivos do romset…</span><span>🏆 Vitória/derrota entra no Ranked</span></div><small>O loader valida um único arquivo antes do core. Consulte <b>KOF-SETUP.md</b> para a estratégia V17 e os CRCs preservados.</small></aside>
       </div>
     </section>
 
@@ -616,16 +616,16 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
   <script src="/firebase-config.js?v=12.0.0" defer></script>
-  <script src="/app.js?v=19.9.1" defer></script>
+  <script src="/app.js?v=19.10.0" defer></script>
   <script src="/multiverse.js?v=17.0.0" defer></script>
   <script src="/termo.js?v=17.0.0" defer></script>
   <script src="/quiz-bank.js?v=17.0.0" defer></script>
   <script src="/quiz.js?v=17.0.0" defer></script>
   <script type="module" src="/firebase.js?v=17.9.0"></script>
   <script src="/duel.js?v=17.0.0" defer></script>
-  <script src="/kof-catalog.js?v=19.9.1" defer></script>
-  <script src="/kof-catalog-ui.js?v=19.9.1" defer></script>
-  <script src="/kof.js?v=19.9.1" defer></script>
+  <script src="/kof-catalog.js?v=19.10.0" defer></script>
+  <script src="/kof-catalog-ui.js?v=19.10.0" defer></script>
+  <script src="/kof.js?v=19.10.0" defer></script>
     <script src="/friends.js?v=17.0.0" defer></script>
   <script src="/geoguess.js?v=18.5.0" defer></script>
 

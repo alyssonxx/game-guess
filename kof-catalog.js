@@ -3,24 +3,6 @@
   const C = (id,name,team,style,moves,combo,tip='') => ({id,name,team,style,moves,combo,tip});
   const M = (name,command,note='') => ({name,command,note});
   const S = (name,command,macro=null,note='') => ({name,command,macro,note});
-  const Seq = (steps,button,extra={}) => Object.assign({ activateMax:true, steps: String(steps).trim().split(/\s+/).filter(Boolean), button }, extra);
-  const QCF2 = button => Seq('↓ ↘ → ↓ ↘ →', button);
-  const QCB2 = button => Seq('↓ ↙ ← ↓ ↙ ←', button);
-  const QCF_HCB = button => Seq('↓ ↘ → ↘ ↓ ↙ ←', button);
-  const QCB_HCF = button => Seq('↓ ↙ ← ↙ ↓ ↘ →', button);
-  const HCF_HCB = button => Seq('→ ↘ ↓ ↙ ← → ↘ ↓ ↙ ←', button);
-  const HCB_HCF = button => Seq('← ↙ ↓ ↘ → ← ↙ ↓ ↘ →', button);
-  const AIR = macro => Object.assign({}, macro || {}, { air:true, jump:true });
-  const pickAutoButton = command => /B\/D/.test(command) ? 'd' : /A\/C/.test(command) ? 'c' : /\+\s*B/.test(command) ? 'b' : /\+\s*A/.test(command) ? 'a' : /\+\s*D/.test(command) ? 'd' : 'c';
-  const buildMacroFromCommand = (command, button = null, activateMax = false) => {
-    const cmd = String(command || '');
-    if (!cmd || /rota|stance|transforma|Unchain|BC|MAX/i.test(cmd)) return null;
-    const steps = (cmd.match(/[↓↘→↗↑↖←↙]/g) || []).filter(Boolean);
-    const finalButton = button || pickAutoButton(cmd);
-    if (!steps.length && !finalButton) return null;
-    return { activateMax, steps, button: finalButton, jump: /no ar/i.test(cmd) };
-  };
-  const genericHsdm = fighter => S(`${fighter.name} HSDM / MAX2`, 'A+B+C+D (atalho Magic Plus II)', { activateMax:false, steps:[], button:'abcd' }, 'Atalho geral do Magic Plus II. O golpe resultante depende do personagem e do estado de jogo.');
   const roster = [
     C('kyo','Kyo Kusanagi','Japan Team','Pressão / rushdown',[M('Oniyaki','→ ↓ ↘ + A/C','anti-aéreo'),M('Aragami','↓ ↘ → + A','inicia rekka'),M('75 Shiki Kai','↓ ↘ → + B/D, B/D','lança para combo'),M('Orochi Nagi','↓ ↙ ← ↙ ↓ ↘ → + A/C','super')],'pulo C → C perto → →+B → Aragami → continuação','Use 75 Shiki Kai para manter o rival no ar.'),
     C('benimaru','Benimaru Nikaido','Japan Team','Mobilidade / eletricidade',[M('Raijin Ken','↓ ↘ → + A/C'),M('Shinkuu Katategoma','↓ ↙ ← + A/C'),M('Iai Geri','↓ ↘ → + B/D'),M('Raikou Ken','↓ ↘ → ↓ ↘ → + A','super')],'pulo D → C perto → Iai Geri → continuação','Excelente alcance no ar e boa pressão curta.'),
@@ -82,126 +64,229 @@
     C('rugal','Omega Rugal','Boss','Boss / zoning / dano',[M('Reppuken','↓ ↘ → + A/C'),M('Genocide Cutter','→ ↓ ↘ + B/D','anti-aéreo'),M('God Press','← ↙ ↓ ↘ → + A/C'),M('Gigantic Pressure','↓ ↘ → ↘ ↓ ↙ ← + A/C','super')],'C perto → God Press / Genocide Cutter','Alcance, dano e anti-aéreo muito fortes.')
   ];
 
-  const Macro = (name, command, steps, button, opts={}) => S(name, command, Object.assign({ steps: String(steps || '').trim().split(/\s+/).filter(Boolean), button, activateMax:false }, opts));
-  const Script = (name, command, script, opts={}) => S(name, command, Object.assign({ script, activateMax:false }, opts));
 
-  const sdmById = {
-    kyo: [Macro('Orochi Nagi MAX','↓ ↙ ← ↙ ↓ ↘ → + A+C','↓ ↙ ← ↙ ↓ ↘ →','ac',{activateMax:true})],
-    benimaru: [Macro('Raikou Ken MAX','↓ ↘ → ↓ ↘ → + A+C','↓ ↘ → ↓ ↘ →','ac',{activateMax:true})],
-    daimon: [Macro('Jigoku Gokuraku Otoshi MAX','→ ↘ ↓ ↙ ← → ↘ ↓ ↙ ← + A+C','→ ↘ ↓ ↙ ← → ↘ ↓ ↙ ←','ac',{activateMax:true,close:true})],
-    terry: [Macro('Triple Power Geyser','↓ ↙ ← ↙ → + A+C','↓ ↙ ← ↙ →','ac',{activateMax:true})],
-    andy: [Macro('Chou Reppa Dan MAX','↓ ↙ ← ↙ ↓ ↘ → + B+D','↓ ↙ ← ↙ ↓ ↘ →','bd',{activateMax:true})],
-    joe: [Macro('Screw Upper MAX','↓ ↘ → ↓ ↘ → + A+C','↓ ↘ → ↓ ↘ →','ac',{activateMax:true})],
-    ryo: [Script('Ryuuko Ranbu MAX','↓ ↘ → + C, A',['↓','↘','→','c','a'],{activateMax:true})],
-    robert: [Macro('Ryuuko Ranbu MAX','↓ ↘ → ↘ ↓ ↙ ← + A+C','↓ ↘ → ↘ ↓ ↙ ←','ac',{activateMax:true})],
-    takuma: [Macro('Ryuuko Ranbu MAX','↓ ↘ → ↘ ↓ ↙ ← + A+C','↓ ↘ → ↘ ↓ ↙ ←','ac',{activateMax:true})],
-    athena: [Macro('Shining Crystal Bit MAX','→ ↘ ↓ ↙ ← → ↘ ↓ ↙ ← + A+C','→ ↘ ↓ ↙ ← → ↘ ↓ ↙ ←','ac',{activateMax:true})],
-    kensou: [Macro('Senki Hakkei','↓ ↘ → ↓ ↘ → + A+C','↓ ↘ → ↓ ↘ →','ac',{activateMax:true,close:true})],
-    chin: [Macro('Gouran Enpou MAX','↓ ↘ → ↓ ↘ → + A+C','↓ ↘ → ↓ ↘ →','ac',{activateMax:true})],
-    leona: [Macro('V-Slasher MAX','no ar ↓ ↘ → ↘ ↓ ↙ ← + A+C','↓ ↘ → ↘ ↓ ↙ ←','ac',{activateMax:true,jump:true})],
-    ralf: [Macro('Bari Bari Vulcan Punch MAX','↓ ↘ → ↘ ↓ ↙ ← + A+C','↓ ↘ → ↘ ↓ ↙ ←','ac',{activateMax:true})],
-    clark: [Macro('Ultra Argentine Backbreaker MAX','→ ↘ ↓ ↙ ← → ↘ ↓ ↙ ← + A+C','→ ↘ ↓ ↙ ← → ↘ ↓ ↙ ←','ac',{activateMax:true,close:true})],
-    mai: [Macro('Chou Hissatsu Shinobi Bachi MAX','↓ ↙ ← ↙ ↓ ↘ → + B+D','↓ ↙ ← ↙ ↓ ↘ →','bd',{activateMax:true})],
-    yuri: [Macro('Metsu Oni Zan Kouga','↓ ↘ → ↓ ↘ → + B+D','↓ ↘ → ↓ ↘ →','bd',{activateMax:true})],
-    maylee: [Script('Disposition Frog','A+C, B+D, A+B+C',['ac','bd','abc'],{activateMax:true})],
-    kim: [Macro('Houou Kyaku MAX','no ar ↓ ↙ ← ↙ → + B+D','↓ ↙ ← ↙ →','bd',{activateMax:true,jump:true})],
-    chang: [Macro('Tekkyuu Dai Assatsu MAX','↓ ↘ → ↓ ↘ → + A+C','↓ ↘ → ↓ ↘ →','ac',{activateMax:true})],
-    choi: [Macro('Houou Kyaku MAX','↓ ↘ → ↘ ↓ ↙ ← + B+D','↓ ↘ → ↘ ↓ ↙ ←','bd',{activateMax:true})],
-    iori: [Macro('Ya Otome MAX','↓ ↘ → ↘ ↓ ↙ ← + A+C','↓ ↘ → ↘ ↓ ↙ ←','ac',{activateMax:true})],
-    mature: [Macro('Nocturnal Lights MAX','↓ ↘ → ↓ ↘ → + A+C','↓ ↘ → ↓ ↘ →','ac',{activateMax:true})],
-    vice: [Macro('Withering Surface MAX','↓ ↘ → ↓ ↘ → + A+C','↓ ↘ → ↓ ↘ →','ac',{activateMax:true})],
-    yamazaki: [Macro('Guillotine MAX','↓ ↘ → ↓ ↘ → + A+C','↓ ↘ → ↓ ↘ →','ac',{activateMax:true})],
-    mary: [Script('M. Dynamite Swing MAX','A, A, ←, B, C',['a','a','←','b','c'],{activateMax:true})],
-    billy: [Macro('Dai Senpuu MAX','↓ ↘ → ↓ ↘ → + A+C','↓ ↘ → ↓ ↘ →','ac',{activateMax:true})],
-    yashiro: [Macro('Final Impact MAX','↓ ↘ → ↓ ↘ → + A+C','↓ ↘ → ↓ ↘ →','ac',{activateMax:true})],
-    shermie: [Macro('Shermie Flash MAX','→ ↘ ↓ ↙ ← → ↘ ↓ ↙ ← + A+C','→ ↘ ↓ ↙ ← → ↘ ↓ ↙ ←','ac',{activateMax:true,close:true})],
-    chris: [Macro('Chain Slide Touch MAX','↓ ↘ → ↓ ↘ → + A+C','↓ ↘ → ↓ ↘ →','ac',{activateMax:true})],
-    "k": [Macro('Chain Drive MAX','↓ ↘ → ↘ ↓ ↙ ← + A+C','↓ ↘ → ↘ ↓ ↙ ←','ac',{activateMax:true})],
-    maxima: [Macro('Maxima Revenger MAX','→ ↘ ↓ ↙ ← → ↘ ↓ ↙ ← + B+D','→ ↘ ↓ ↙ ← → ↘ ↓ ↙ ←','bd',{activateMax:true,close:true})],
-    whip: [Macro('Sonic Slaughter MAX','↓ ↙ ← ↙ ↓ ↘ → + C','↓ ↙ ← ↙ ↓ ↘ →','c',{activateMax:true})],
-    vanessa: [Macro('Crazy Puncher MAX','↓ ↙ ← ↙ ↓ ↘ → + A+C','↓ ↙ ← ↙ ↓ ↘ →','ac',{activateMax:true})],
-    seth: [Macro('Shichimin Koroshi MAX','↓ ↘ → ↘ ↓ ↙ ← + A+C','↓ ↘ → ↘ ↓ ↙ ←','ac',{activateMax:true})],
-    ramon: [Macro('Tiger Spin MAX','→ ↘ ↓ ↙ ← → ↘ ↓ ↙ ← + A+C','→ ↘ ↓ ↙ ← → ↘ ↓ ↙ ←','ac',{activateMax:true,close:true})],
-    kula: [Macro('Freeze Execution','→ ↘ ↓ ↙ ← → ↘ ↓ ↙ ← + A+C','→ ↘ ↓ ↙ ← → ↘ ↓ ↙ ←','ac',{activateMax:true})],
-    k9999: [Macro('Power... Goes Wild!','↓ → ↘ + A+B+C+D','↓ → ↘','abcd',{activateMax:true})],
-    angel: [Macro('Winds Fairground / Blue Monday Parade','← → ↓ ↘ + B+D','← → ↓ ↘','bd',{activateMax:true,conditional:true})],
-    'orochi-yashiro': [Macro('Ankoku Jigoku Gokuraku Otoshi MAX','→ ↘ ↓ ↙ ← → ↘ ↓ ↙ ← + A+C','→ ↘ ↓ ↙ ← → ↘ ↓ ↙ ←','ac',{activateMax:true,close:true})],
-    'orochi-shermie': [Macro('Ankoku Raikouken MAX','↓ ↘ → ↓ ↘ → + A+C','↓ ↘ → ↓ ↘ →','ac',{activateMax:true})],
-    'orochi-chris': [Macro('Daichi o Harau Gouka MAX','↓ ↙ ← ↙ ↓ ↘ → + A+C','↓ ↙ ← ↙ ↓ ↘ →','ac',{activateMax:true})],
-    kusanagi: [Macro('Orochi Nagi MAX','↓ ↙ ← ↙ ↓ ↘ → + A+C','↓ ↙ ← ↙ ↓ ↘ →','ac',{activateMax:true})],
-    rugal: [Macro('Gigantic Pressure MAX','↓ ↘ → ↘ ↓ ↙ ← + A+C','↓ ↘ → ↘ ↓ ↙ ←','ac',{activateMax:true})]
-  };
+  // V19.10.0 — perfis refeitos a partir da command list dedicada ao
+  // The King of Fighters 2002 Magic Plus II (Bootleg), páginas 5–49.
+  // As direções são RELATIVAS (f = frente; b = trás) para que o macro possa ser espelhado.
+  const QCF = ['d','df','f'];
+  const QCB = ['d','db','b'];
+  const HCF = ['b','db','d','df','f'];
+  const HCB = ['f','df','d','db','b'];
+  const CAT = (...parts) => parts.flat().filter((token,index,all) => index === 0 || token !== all[index-1]);
+  const DIR = dir => ({dir});
+  const BTN = btn => ({btn});
+  const WAIT = frames => ({wait:frames});
+  const HOLD = (btn,frames=12) => ({holdBtn:btn,frames});
+  const Rel = (name,command,steps,button,page,opts={}) => S(
+    name,
+    command,
+    Object.assign({type:'relative',steps:[...(steps||[])],button,activateMax:false,source:'KOF 2002 Magic Plus II',sourcePage:page},opts),
+    opts.note || ''
+  );
+  const Script = (name,command,script,page,opts={}) => S(
+    name,
+    command,
+    Object.assign({type:'script',script:[...(script||[])],activateMax:false,source:'KOF 2002 Magic Plus II',sourcePage:page},opts),
+    opts.note || ''
+  );
 
-  const hsdmById = {
-    kyo: [Macro('Shinjin','perto → ↘ ↓ ↙ ← → ↘ ↓ ↙ ← + A+C','→ ↘ ↓ ↙ ← → ↘ ↓ ↙ ←','ac',{activateMax:true,close:true})],
-    kusanagi: [Macro('Saishuu Kessen Ougi "Mu Shiki"','↓ ↘ → ↓ ↘ → + A+C','↓ ↘ → ↓ ↘ →','ac',{activateMax:true})],
-    benimaru: [Macro('Raijinkuu','→ ↙ ↘ ← → + A+C','→ ↙ ↘ ← →','ac',{activateMax:true})],
-    daimon: [Macro('Earthquake','→ ↓ ↘ ← ↓ ↙ + B+C','→ ↓ ↘ ← ↓ ↙','bc',{activateMax:true})],
-    terry: [Macro('Rising Force','↓ ↘ → ↓ ↘ → + A+C','↓ ↘ → ↓ ↘ →','ac',{activateMax:true})],
-    andy: [Script('Zan-ei Shitou Reppadan','↓ ↘ → ↓ ↘ → + A+C, depois B+C+D',['↓','↘','→','↓','↘','→','ac','bcd'],{activateMax:true})],
-    joe: [Macro('Double Cyclone Upper','↓ ↘ → ↓ ↘ → + B+D','↓ ↘ → ↓ ↘ →','bd',{activateMax:true})],
-    kim: [Macro('Zero-Distance Houou Kyaku','perto ↓ ↙ ← ↙ → + A+B+C+D','↓ ↙ ← ↙ →','abcd',{activateMax:true,close:true})],
-    chang: [Script('Time Machine','B, A, ↘, C, A',['b','a','↘','c','a'],{activateMax:true})],
-    choi: [Macro('Shin! Engetsuzan Kai','no ar ↓ ↘ → ↓ ↘ → + A+C','↓ ↘ → ↓ ↘ →','ac',{activateMax:true,jump:true})],
-    athena: [Script('Psycho Medley','↓ ↘ → + ABCD, D,C,B,D,C,B,A, ↓ ↘ → + A+B',['↓','↘','→','abcd','d','c','b','d','c','b','a','↓','↘','→','ab'],{activateMax:true})],
-    kensou: [Macro('Geki Choukyuudan','↓ ↘ → ↓ ↘ → + B+D','↓ ↘ → ↓ ↘ →','bd',{activateMax:true})],
-    chin: [Macro('Remote Control Gouran Enpou','↓ ↘ → ↓ ↘ → + B+D','↓ ↘ → ↓ ↘ →','bd',{activateMax:true})],
-    leona: [Macro('Rebel Spark MAX2','desperta ↓ ↙ ← ↙ ↓ ↘ → + B+D','↓ ↙ ← ↙ ↓ ↘ →','bd',{activateMax:true,conditional:true})],
-    ralf: [Macro('Become a Star in the Sky','↓ ↙ ← ↙ ↓ ↘ → ↓ ↘ → + A+D','↓ ↙ ← ↙ ↓ ↘ → ↓ ↘ →','ad',{activateMax:true})],
-    clark: [Macro('Running Three MAX2','perto ← ↙ ↓ ↘ → ← ↙ ↓ ↘ → + B+D','← ↙ ↓ ↘ → ← ↙ ↓ ↘ →','bd',{activateMax:true,close:true})],
-    ryo: [Macro('Tenchi Haoh Ken','↓ ↘ → ↓ ↘ → + A+C','↓ ↘ → ↓ ↘ →','ac',{activateMax:true})],
-    robert: [Macro('Original Ryuuko Ranbu','↓ ↘ → ↘ ↓ ↙ ← + B+D','↓ ↘ → ↘ ↓ ↙ ←','bd',{activateMax:true})],
-    takuma: [Macro('MAX2','← → ↓ ↘ + A+C','← → ↓ ↘','ac',{activateMax:true})],
-    mai: [Script('Shiranui-ryuu Kyuubi','D, B, C, C, ↑',['d','b','c','c','↑'],{activateMax:true})],
-    yuri: [Macro('Old Hien Houou Kyaku','→ ← → ↘ ↓ ↙ ← + B+D','→ ← → ↘ ↓ ↙ ←','bd',{activateMax:true})],
-    maylee: [Script('Double Kick MAX2','→, B, C, →, C',['→','b','c','→','c'],{activateMax:true})],
-    iori: [Macro('Homurabotogi','↓ ↙ ← ↙ ↓ ↘ → ← → + A+C','↓ ↙ ← ↙ ↓ ↘ → ← →','ac',{activateMax:true})],
-    mature: [Script('Eternal Illusion','→, D, C, B, →',['→','d','c','b','→'],{activateMax:true})],
-    vice: [Macro('Withering Art Race','no ar/perto ← ↙ ↓ ↘ → ← ↙ ↓ ↘ → + A+C','← ↙ ↓ ↘ → ← ↙ ↓ ↘ →','ac',{activateMax:true,jump:true,close:true})],
-    yamazaki: [Macro('...!!','perto → ↘ ↓ ↙ ← → ↘ ↓ ↙ ← + B+D','→ ↘ ↓ ↙ ← → ↘ ↓ ↙ ←','bd',{activateMax:true,close:true})],
-    mary: [Macro('M. Typhoon','↙ ↓ ↘ → ↗ ↑ ↓ + B+D','↙ ↓ ↘ → ↗ ↑ ↓','bd',{activateMax:true})],
-    billy: [Macro('Ifrit Crisis','↓ ↙ ← ↙ ↓ ↘ → + B+D','↓ ↙ ← ↙ ↓ ↘ →','bd',{activateMax:true})],
-    yashiro: [Macro('ERROR code 2002','↓ ↙ ← ↙ ↓ ↘ → + B+D','↓ ↙ ← ↙ ↓ ↘ →','bd',{activateMax:true})],
-    shermie: [Macro('Lightning Wizard','perto ↓ ↘ → ↓ ↘ → + B+D','↓ ↘ → ↓ ↘ →','bd',{activateMax:true,close:true})],
-    chris: [Macro('Awakening MAX2','→ ↘ ↓ ↙ ← → ↘ ↓ ↙ ← + A+C','→ ↘ ↓ ↙ ← → ↘ ↓ ↙ ←','ac',{activateMax:true})],
-    "k": [Script('Crimson Star Road','↓ ↙ ← + C, A',['↓','↙','←','c','a'],{activateMax:true})],
-    maxima: [Script('Maxima Scratcher','→, B, C, →, C',['→','b','c','→','c'],{activateMax:true})],
-    whip: [Script('Yamato Gun','←, B, C, ←, C',['←','b','c','←','c'],{activateMax:true})],
-    vanessa: [Macro('Gaia Gear','→ ← ↙ ↓ ↘ → + A+C','→ ← ↙ ↓ ↘ →','ac',{activateMax:true})],
-    seth: [Macro('MAX2','perto → ← ↙ ↓ ↘ → + A+C','→ ← ↙ ↓ ↘ →','ac',{activateMax:true,close:true})],
-    ramon: [Macro('That Is My Tiger','↓ ↙ ← ↙ ↓ ↘ → + A+C','↓ ↙ ← ↙ ↓ ↘ →','ac',{activateMax:true})],
-    kula: [Script('Freeze Completion','A+C, B+D, A+B+C',['ac','bd','abc'],{activateMax:true})],
-    k9999: [Macro('Return to Nothing','← → ← → ← → ← →','← → ← → ← → ← →',null,{activateMax:true})],
-    angel: [Script('People’s Elbow','após Blue Monday Parade: B+C+D',['bcd'],{activateMax:true,conditional:true})],
-    'orochi-yashiro': [Script('Armageddon','B, D, A, A+B+C',['b','d','a','abc'],{activateMax:true})],
-    'orochi-shermie': [Script('Russian Roulette','B, A, ←, A, A',['b','a','←','a','a'],{activateMax:true})],
-    'orochi-chris': [Script('Return to Nothing','D, C, ↓, C, D',['d','c','↓','c','d'],{activateMax:true})],
-    rugal: [Macro('Kaiser Nova','← ↙ ↓ ↘ → ← ↙ ↓ ↘ → + A+C','← ↙ ↓ ↘ → ← ↙ ↓ ↘ →','ac',{activateMax:true})]
-  };
-
-  const dmOverrides = {
-    kula: [Macro('Diamond Edge','↓ ↘ → ↓ ↘ → + C','↓ ↘ → ↓ ↘ →','c')],
-    k9999: [Macro('Moon...','↙ → ↘ ↓ ↙ ← ↘ + C','↙ → ↘ ↓ ↙ ← ↘','c')],
-    angel: [Macro('Loyalty Test for the Liberalists','durante Unchain: ← → ↓ ↘ + C','← → ↓ ↘','c',{conditional:true})]
+  const magicPlusSpecials = {
+    kyo: { page:5,
+      dm: Rel('Ura 108 Shiki: Orochi Nagi','↓ ↙ ← ↙ ↓ ↘ → + C',CAT(QCB,HCF),'c',5),
+      sdm: Rel('Ura 108 Shiki: Orochi Nagi MAX','↓ ↙ ← ↙ ↓ ↘ → + A+C',CAT(QCB,HCF),'ac',5,{activateMax:true}),
+      hsdm: Rel('524 Shiki: Kamukura','perto → ↘ ↓ ↙ ← → ↘ ↓ ↙ ← + A+C',CAT(HCB,HCB),'ac',5,{activateMax:true,close:true}) },
+    benimaru: { page:6,
+      dm: Rel('Raikou Ken','↓ ↘ → ↓ ↘ → + C',CAT(QCF,QCF),'c',6),
+      sdm: Rel('Raikou Ken MAX','↓ ↘ → ↓ ↘ → + A+C',CAT(QCF,QCF),'ac',6,{activateMax:true}),
+      hsdm: Rel('Raijin Ten','→ ↙ ↘ ← → + A', ['f','db','df','b','f'],'a',6,{activateMax:true}) },
+    daimon: { page:7,
+      dm: Rel('Jigoku Gokuraku Otoshi','perto → ↘ ↓ ↙ ← → ↘ ↓ ↙ ← + C',CAT(HCB,HCB),'c',7,{close:true}),
+      sdm: Rel('Jigoku Gokuraku Otoshi MAX','perto → ↘ ↓ ↙ ← → ↘ ↓ ↙ ← + A+C',CAT(HCB,HCB),'ac',7,{activateMax:true,close:true}),
+      hsdm: Rel('Fuurinkazan','→ ↓ ↘ ← ↓ ↙ + B+C',['f','d','df','b','d','db'],'bc',7,{activateMax:true}) },
+    terry: { page:8,
+      dm: Rel('Power Geyser','↓ ↙ ← ↙ → + C',['d','db','b','db','f'],'c',8),
+      sdm: Rel('Power Geyser MAX','↓ ↙ ← ↙ → + A+C',['d','db','b','db','f'],'ac',8,{activateMax:true}),
+      hsdm: Rel('Rising Force','↓ ↘ → ↓ ↘ → + A+C',CAT(QCF,QCF),'ac',8,{activateMax:true}) },
+    andy: { page:9,
+      dm: Rel('Chou Reppa Dan','↓ ↙ ← ↙ ↓ ↘ → + D',CAT(QCB,HCF),'d',9),
+      sdm: Rel('Chou Reppa Dan MAX','↓ ↙ ← ↙ ↓ ↘ → + B+D',CAT(QCB,HCF),'bd',9,{activateMax:true}),
+      hsdm: Script('Zan-ei Shitou Reppadan','↓ ↘ → ↓ ↘ → + A+C, depois B+C+D',[...QCF.map(DIR),...QCF.map(DIR),BTN('ac'),WAIT(2),BTN('bcd')],9,{activateMax:true}) },
+    joe: { page:10,
+      dm: Rel('Screw Upper','↓ ↘ → ↓ ↘ → + C',CAT(QCF,QCF),'c',10),
+      sdm: Rel('Screw Upper MAX','↓ ↘ → ↓ ↘ → + A+C',CAT(QCF,QCF),'ac',10,{activateMax:true}),
+      hsdm: Rel('Cross Gigantes','↓ ↘ → ↓ ↘ → + B+D',CAT(QCF,QCF),'bd',10,{activateMax:true}) },
+    ryo: { page:11,
+      dm: Rel('Haoh Shokou Ken','→ ← ↙ ↓ ↘ → + C',CAT(['f'],HCF),'c',11),
+      sdm: Script('Ryuuko Ranbu MAX','↓ ↘ → + C, A',[...QCF.map(DIR),BTN('c'),WAIT(1),BTN('a')],11,{activateMax:true}),
+      hsdm: Rel('Tenchi Haoh Ken','↓ ↘ → ↓ ↘ → + A+C',CAT(QCF,QCF),'ac',11,{activateMax:true}) },
+    robert: { page:12,
+      dm: Rel('Haoh Shokou Ken','→ ← ↙ ↓ ↘ → + C',CAT(['f'],HCF),'c',12),
+      sdm: Rel('Ryuuko Ranbu MAX','↓ ↘ → ↘ ↓ ↙ ← + A+C',CAT(QCF,HCB),'ac',12,{activateMax:true}),
+      hsdm: Rel('Gansou Ryuuko Ranbu','↓ ↘ → ↘ ↓ ↙ ← + B+D',CAT(QCF,HCB),'bd',12,{activateMax:true}) },
+    takuma: { page:13,
+      dm: Rel('Ryuuko Ranbu','↓ ↘ → ↘ ↓ ↙ ← + C',CAT(QCF,HCB),'c',13),
+      sdm: Rel('Ryuuko Ranbu MAX','↓ ↘ → ↘ ↓ ↙ ← + A+C',CAT(QCF,HCB),'ac',13,{activateMax:true}),
+      hsdm: Rel('Mouko Shin Kishin Geki','← → ↓ ↘ + A+C',['b','f','d','df'],'ac',13,{activateMax:true}) },
+    leona: { page:14,
+      dm: Rel('V-Slasher','no ar ↓ ↘ → ↘ ↓ ↙ ← + C',CAT(QCF,HCB),'c',14,{air:true}),
+      sdm: Rel('V-Slasher MAX','no ar ↓ ↘ → ↘ ↓ ↙ ← + A+C',CAT(QCF,HCB),'ac',14,{activateMax:true,air:true}),
+      hsdm: Rel('Rebel Spark','modo Orochi: ↓ ↙ ← ↙ ↓ ↘ → + B+D',CAT(QCB,HCF),'bd',14,{activateMax:true,conditional:'Requer Leona em Orochi Mode.',preScript:[DIR('u'),DIR('d'),DIR('u'),DIR('d'),DIR('u'),DIR('d'),BTN('bd'),WAIT(10)]}) },
+    ralf: { page:15,
+      dm: Rel('Bari Bari Vulcan Punch','↓ ↘ → ↘ ↓ ↙ ← + C',CAT(QCF,HCB),'c',15),
+      sdm: Rel('Bari Bari Vulcan Punch MAX','↓ ↘ → ↘ ↓ ↙ ← + A+C',CAT(QCF,HCB),'ac',15,{activateMax:true}),
+      hsdm: Rel('Umanori Galactica Phantom','↓ ↙ ← ↙ ↓ ↘ → ↓ ↘ → + A+D',CAT(QCB,HCF,QCF),'ad',15,{activateMax:true}) },
+    clark: { page:16,
+      dm: Rel('Ultra Argentine Backbreaker','perto → ↘ ↓ ↙ ← → ↘ ↓ ↙ ← + C',CAT(HCB,HCB),'c',16,{close:true}),
+      sdm: Rel('Ultra Argentine Backbreaker MAX','perto → ↘ ↓ ↙ ← → ↘ ↓ ↙ ← + A+C',CAT(HCB,HCB),'ac',16,{activateMax:true,close:true}),
+      hsdm: Rel('Running Pirate','← ↙ ↓ ↘ → ← ↙ ↓ ↘ → + B+D',CAT(HCF,HCF),'bd',16,{activateMax:true}) },
+    athena: { page:17,
+      dm: Rel('Shining Crystal Bit','→ ↘ ↓ ↙ ← → ↘ ↓ ↙ ← + C',CAT(HCB,HCB),'c',17),
+      sdm: Rel('Shining Crystal Bit MAX','→ ↘ ↓ ↙ ← → ↘ ↓ ↙ ← + A+C',CAT(HCB,HCB),'ac',17,{activateMax:true}),
+      hsdm: Script('Psycho Medley','↓ ↘ → + A+B+C+D · D,C,B,D,C,B,A · ↓ ↘ → + B+C',[...QCF.map(DIR),BTN('abcd'),WAIT(2),BTN('d'),BTN('c'),BTN('b'),BTN('d'),BTN('c'),BTN('b'),BTN('a'),...QCF.map(DIR),BTN('bc')],17,{activateMax:true}) },
+    kensou: { page:18,
+      dm: Rel('Shinryuu Seioh Rekkyaku','↓ ↘ → ↘ ↓ ↙ ← + B',CAT(QCF,HCB),'b',18),
+      sdm: Rel('Senki Hakkei','perto ↓ ↘ → ↓ ↘ → + A+C',CAT(QCF,QCF),'ac',18,{activateMax:true,close:true}),
+      hsdm: Rel('Seigan Rai Ryuu','↓ ↘ → ↓ ↘ → + B+D',CAT(QCF,QCF),'bd',18,{activateMax:true}) },
+    chin: { page:19,
+      dm: Rel('Gouran Enpou','↓ ↘ → ↓ ↘ → + C',CAT(QCF,QCF),'c',19),
+      sdm: Rel('Gouran Enpou MAX','↓ ↘ → ↓ ↘ → + A+C',CAT(QCF,QCF),'ac',19,{activateMax:true}),
+      hsdm: Rel('Suisou Enbu','↓ ↘ → ↓ ↘ → + B+D',CAT(QCF,QCF),'bd',19,{activateMax:true}) },
+    mai: { page:20,
+      dm: Rel('Chou Hissatsu Shinobi Bachi','↓ ↙ ← ↙ ↓ ↘ → + D',CAT(QCB,HCF),'d',20),
+      sdm: Rel('Chou Hissatsu Shinobi Bachi MAX','↓ ↙ ← ↙ ↓ ↘ → + B+D',CAT(QCB,HCF),'bd',20,{activateMax:true}),
+      hsdm: Script('Shiranui-ryuu: Kubi no Kitsune','D, B, C, C, ↑',[BTN('d'),BTN('b'),BTN('c'),BTN('c'),DIR('u')],20,{activateMax:true}) },
+    yuri: { page:21,
+      dm: Rel('Hien Houou Kyaku','↓ ↘ → ↘ ↓ ↙ ← + D',CAT(QCF,HCB),'d',21),
+      sdm: Rel('Shin! Chou Upper','↓ ↘ → ↓ ↘ → + B+D',CAT(QCF,QCF),'bd',21,{activateMax:true}),
+      hsdm: Rel('"Ei!" Hien Houou Kyaku','→ ← → ↘ ↓ ↙ ← + B+D',['f','b',...HCB],'bd',21,{activateMax:true}) },
+    maylee: { page:22,
+      dm: Rel('Beast God Kick','↓ ↙ ← ↓ ↙ ← + D',CAT(QCB,QCB),'d',22),
+      sdm: Script('Disposition Frog','A+C · B+D · A+B+C',[BTN('ac'),WAIT(1),BTN('bd'),WAIT(1),BTN('abc')],22,{activateMax:true}),
+      hsdm: Script('Key of Victory','Hero Mode: →, B, C, →, C',[DIR('f'),BTN('b'),BTN('c'),DIR('f'),BTN('c')],22,{activateMax:true,conditional:'Requer Hero Mode.',preScript:[BTN('abc'),WAIT(8)]}) },
+    kim: { page:23,
+      dm: Rel('Houou Kyaku','↓ ↙ ← ↙ → + D',['d','db','b','db','f'],'d',23),
+      sdm: Rel('Kuuchuu Houou Kyaku','no ar ↓ ↙ ← ↙ → + B+D',['d','db','b','db','f'],'bd',23,{activateMax:true,air:true}),
+      hsdm: Rel('Zero Kyori Houou Kyaku','perto ↓ ↙ ← ↙ → + A+B+C+D',['d','db','b','db','f'],'abcd',23,{activateMax:true,close:true}) },
+    chang: { page:24,
+      dm: Rel('Tekkyuu Dai Bousou','↓ ↘ → ↘ ↓ ↙ ← + C',CAT(QCF,HCB),'c',24),
+      sdm: Rel('Tekkyuu Dai Assatsu','↓ ↘ → ↓ ↘ → + A+C',CAT(QCF,QCF),'ac',24,{activateMax:true}),
+      hsdm: Script('Tekkyuu Dai Sekai','B, A, ↘, C, A',[BTN('b'),BTN('a'),DIR('df'),BTN('c'),BTN('a')],24,{activateMax:true}) },
+    choi: { page:25,
+      dm: Rel('Shin! Chouzetsu Tatsumaki Shinkuu Zan','→ ↘ ↓ ↙ ← → ↘ ↓ ↙ ← + C',CAT(HCB,HCB),'c',25),
+      sdm: Rel('Houou Kyaku MAX','↓ ↘ → ↘ ↓ ↙ ← + B+D',CAT(QCF,HCB),'bd',25,{activateMax:true}),
+      hsdm: Rel('Shakushi','no ar ← ↙ ↓ ↘ → ← ↙ ↓ ↘ → + A+C',CAT(HCF,HCF),'ac',25,{activateMax:true,air:true}) },
+    iori: { page:26,
+      dm: Rel('Kin 1211 Shiki: Ya Otome','↓ ↘ → ↘ ↓ ↙ ← + C',CAT(QCF,HCB),'c',26),
+      sdm: Rel('Kin 1211 Shiki: Ya Otome MAX','↓ ↘ → ↘ ↓ ↙ ← + A+C',CAT(QCF,HCB),'ac',26,{activateMax:true}),
+      hsdm: Rel('Ura 1219 Shiki: En’ou','↓ ↙ ← ↙ ↓ ↘ → ← → + A+C',CAT(QCB,HCF,['b','f']),'ac',26,{activateMax:true}) },
+    mature: { page:27,
+      dm: Rel('Heaven’s Gate','↓ ↙ ← ↙ ↓ ↘ → + D',CAT(QCB,HCF),'d',27),
+      sdm: Rel('Heaven’s Gate MAX','↓ ↙ ← ↙ ↓ ↘ → + B+D',CAT(QCB,HCF),'bd',27,{activateMax:true}),
+      hsdm: Script('Ecstasy 816','→, D, C, B, →',[DIR('f'),BTN('d'),BTN('c'),BTN('b'),DIR('f')],27,{activateMax:true}) },
+    vice: { page:28,
+      dm: Rel('Negative Gain','perto → ↘ ↓ ↙ ← → ↘ ↓ ↙ ← + D',CAT(HCB,HCB),'d',28,{close:true}),
+      sdm: Rel('Negative Gain MAX','perto → ↘ ↓ ↙ ← → ↘ ↓ ↙ ← + B+D',CAT(HCB,HCB),'bd',28,{activateMax:true,close:true}),
+      hsdm: Rel('Overkill','no ar/perto ↙ ↓ ↘ → ↗ ↑ ↓ + A+C',['db','d','df','f','uf','u','d'],'ac',28,{activateMax:true,air:true,close:true}) },
+    yamazaki: { page:29,
+      dm: Rel('Guillotine','↓ ↘ → ↓ ↘ → + C',CAT(QCF,QCF),'c',29),
+      sdm: Rel('Guillotine MAX','↓ ↘ → ↓ ↘ → + A+C',CAT(QCF,QCF),'ac',29,{activateMax:true}),
+      hsdm: Rel('….!!','perto → ↘ ↓ ↙ ← → ↘ ↓ ↙ ← + B+D',CAT(HCB,HCB),'bd',29,{activateMax:true,close:true}) },
+    mary: { page:30,
+      dm: Rel('M. Splash Rose','↓ ↘ → ↘ ↓ ↙ ← + C',CAT(QCF,HCB),'c',30),
+      sdm: Script('M. Dynamite Swing','A, A, ←, B, C',[BTN('a'),BTN('a'),DIR('b'),BTN('b'),BTN('c')],30,{activateMax:true}),
+      hsdm: Rel('M. Typhoon','↙ ↓ ↘ → ↗ ↑ ↓ + B+D',['db','d','df','f','uf','u','d'],'bd',30,{activateMax:true,close:true}) },
+    billy: { page:31,
+      dm: Rel('Chou Kaen Senpuu Kon','↓ ↘ → ↘ ↓ ↙ ← + C',CAT(QCF,HCB),'c',31),
+      sdm: Rel('Dai Senpuu MAX','↓ ↘ → ↓ ↘ → + A+C',CAT(QCF,QCF),'ac',31,{activateMax:true}),
+      hsdm: Rel('Liar Elemental / Ifrit Crisis','↓ ↙ ← ↙ ↓ ↘ → + B+D',CAT(QCB,HCF),'bd',31,{activateMax:true}) },
+    yashiro: { page:32,
+      dm: Rel('Final Impact','↓ ↘ → ↓ ↘ → + C',CAT(QCF,QCF),'c',32),
+      sdm: Rel('Final Impact MAX','↓ ↘ → ↓ ↘ → + A+C',CAT(QCF,QCF),'ac',32,{activateMax:true}),
+      hsdm: Rel('[ERROR] CODE 2002','↓ ↙ ← ↙ ↓ ↘ → + B+D',CAT(QCB,HCF),'bd',32,{activateMax:true}) },
+    shermie: { page:33,
+      dm: Rel('Shermie Flash','perto → ↘ ↓ ↙ ← → ↘ ↓ ↙ ← + C',CAT(HCB,HCB),'c',33,{close:true}),
+      sdm: Rel('Shermie Flash MAX','perto → ↘ ↓ ↙ ← → ↘ ↓ ↙ ← + A+C',CAT(HCB,HCB),'ac',33,{activateMax:true,close:true}),
+      hsdm: Rel('Inazuma Leg Lariat','perto ↓ ↘ → → ↓ ↘ + B+D',['d','df','f','f','d','df'],'bd',33,{activateMax:true,close:true}) },
+    chris: { page:34,
+      dm: Rel('Chain Slide Touch','↓ ↘ → ↓ ↘ → + C',CAT(QCF,QCF),'c',34),
+      sdm: Rel('Chain Slide Touch MAX','↓ ↘ → ↓ ↘ → + A+C',CAT(QCF,QCF),'ac',34,{activateMax:true}),
+      hsdm: Rel('Honoo no Sadame no Chris','→ ↘ ↓ ↙ ← → ↘ ↓ ↙ ← + A+C',CAT(HCB,HCB),'ac',34,{activateMax:true,conditional:'Transforma Chris em Orochi Chris.'}) },
+    "k": { page:35,
+      dm: Rel('Heat Drive','↓ ↘ → ↓ ↘ → + C',CAT(QCF,QCF),'c',35),
+      sdm: Rel('Chain Drive MAX','↓ ↘ → ↘ ↓ ↙ ← + A+C',CAT(QCF,HCB),'ac',35,{activateMax:true}),
+      hsdm: Script('Crimson Star Road','↓ ↙ ← + C~A',[...QCB.map(DIR),BTN('c'),WAIT(1),BTN('a')],35,{activateMax:true}) },
+    maxima: { page:36,
+      dm: Rel('Bunker Buster','↓ ↘ → ↘ ↓ ↙ ← + C',CAT(QCF,HCB),'c',36),
+      sdm: Rel('Maxima Revenger','perto → ↘ ↓ ↙ ← → ↘ ↓ ↙ ← + B+D',CAT(HCB,HCB),'bd',36,{activateMax:true,close:true}),
+      hsdm: Script('Arc Enemy','→, B, C, →, C',[DIR('f'),BTN('b'),BTN('c'),DIR('f'),BTN('c')],36,{activateMax:true}) },
+    whip: { page:37,
+      dm: Rel('Sonic Slaughter','↓ ↙ ← ↙ ↓ ↘ → + C',CAT(QCB,HCF),'c',37),
+      sdm: Rel('Sonic Slaughter MAX','↓ ↙ ← ↙ ↓ ↘ → + A+C',CAT(QCB,HCF),'ac',37,{activateMax:true}),
+      hsdm: Script('Super Black Hawk','←, B, C, ←, C',[DIR('b'),BTN('b'),BTN('c'),DIR('b'),BTN('c')],37,{activateMax:true}) },
+    vanessa: { page:38,
+      dm: Rel('Crazy Puncher','↓ ↙ ← ↙ ↓ ↘ → + C',CAT(QCB,HCF),'c',38),
+      sdm: Rel('Crazy Puncher MAX','↓ ↙ ← ↙ ↓ ↘ → + A+C',CAT(QCB,HCF),'ac',38,{activateMax:true}),
+      hsdm: Rel('Gaia Gear','→ ← ↙ ↓ ↘ → + A+C',CAT(['f'],HCF),'ac',38,{activateMax:true}) },
+    seth: { page:39,
+      dm: Rel('Morote Sho-Yoh','↓ ↘ → ↓ ↘ → + C',CAT(QCF,QCF),'c',39),
+      sdm: Rel('Doh-Tori-Shichimonsatsu','↓ ↘ → ↘ ↓ ↙ ← + A+C',CAT(QCF,HCB),'ac',39,{activateMax:true}),
+      hsdm: Rel('Sigure-Rangiku','perto → ← ↙ ↓ ↘ → + A+C',CAT(['f'],HCF),'ac',39,{activateMax:true,close:true}) },
+    ramon: { page:40,
+      dm: Rel('Savage Fire Cat','↓ ↘ → ↘ ↓ ↙ ← + D',CAT(QCF,HCB),'d',40),
+      sdm: Rel('Tiger Spin','perto → ↘ ↓ ↙ ← → ↘ ↓ ↙ ← + A+C',CAT(HCB,HCB),'ac',40,{activateMax:true,close:true}),
+      hsdm: Rel('Hypnotic Tiger','↓ ↙ ← ↙ ↓ ↘ → + A+C',CAT(QCB,HCF),'ac',40,{activateMax:true}) },
+    kula: { page:41,
+      dm: Rel('Diamond Edge','↓ ↘ → ↓ ↘ → + C',CAT(QCF,QCF),'c',41),
+      sdm: Rel('Freeze Execution','→ ↘ ↓ ↙ ← → ↘ ↓ ↙ ← + A+C',CAT(HCB,HCB),'ac',41,{activateMax:true}),
+      hsdm: Script('Freeze Completion','A+C · B+D · A+B+C',[BTN('ac'),WAIT(1),BTN('bd'),WAIT(1),BTN('abc')],41,{activateMax:true}) },
+    k9999: { page:42,
+      dm: Rel('Moon…','↙ → ↘ ↓ ↙ ← ↘ + C',['db','f','df','d','db','b','df'],'c',42),
+      sdm: Rel('Power… Goes Wild!','↓ → ↘ + A+B+C+D',['d','f','df'],'abcd',42,{activateMax:true}),
+      hsdm: Rel('Kore wa, maru de…!!','→ ← → ← → ← → ←',['f','b','f','b','f','b','f','b'],null,42,{activateMax:true}) },
+    angel: { page:43,
+      dm: Rel('Loyalty Test for the Liberalists','UC Circle: ← → ↓ ↘ + C',['b','f','d','df'],'c',43,{conditional:'Requer estar no Unchain Circle (UC Circle).'}),
+      sdm: Rel('Wind’s Fairground','contra ataque terrestre: ← → ↓ ↘ + B+D',['b','f','d','df'],'bd',43,{activateMax:true,conditional:'É um contra-ataque: precisa receber ataque terrestre na janela.'}),
+      hsdm: Script('Survivor’s Banquet','Blue Monday Parade contra ataque aéreo (← → ↓ ↘ + B+D), depois B+C+D',[DIR('b'),DIR('f'),DIR('d'),DIR('df'),BTN('bd'),WAIT(3),HOLD('bcd',12)],43,{activateMax:true,conditional:'Precisa disparar Blue Monday Parade contra um ataque aéreo e então pressionar B+C+D.'}) },
+    'orochi-yashiro': { page:45,
+      dm: Rel('Ankoku Jigoku Gokuraku Otoshi','perto → ↘ ↓ ↙ ← → ↘ ↓ ↙ ← + C',CAT(HCB,HCB),'c',45,{close:true}),
+      sdm: Rel('Ankoku Jigoku Gokuraku Otoshi MAX','perto → ↘ ↓ ↙ ← → ↘ ↓ ↙ ← + A+C',CAT(HCB,HCB),'ac',45,{activateMax:true,close:true}),
+      hsdm: Script('Armageddon / Final Battle','B · D · A · A+B+C',[BTN('b'),BTN('d'),BTN('a'),BTN('abc')],45,{activateMax:true}) },
+    'orochi-shermie': { page:46,
+      dm: Rel('Ankoku Raikou Ken','↓ ↘ → ↓ ↘ → + C',CAT(QCF,QCF),'c',46),
+      sdm: Rel('Ankoku Raikou Ken MAX','↓ ↘ → ↓ ↘ → + A+C',CAT(QCF,QCF),'ac',46,{activateMax:true}),
+      hsdm: Script('Raikou / Unmei no Ya','B · A · ← · A · A/B/C/D',[BTN('b'),BTN('a'),DIR('b'),BTN('a'),BTN('c')],46,{activateMax:true}) },
+    'orochi-chris': { page:47,
+      dm: Rel('Ankoku Orochi Nagi','↓ ↙ ← ↙ ↓ ↘ → + C',CAT(QCB,HCF),'c',47),
+      sdm: Rel('Ankoku Orochi Nagi MAX','↓ ↙ ← ↙ ↓ ↘ → + A+C',CAT(QCB,HCF),'ac',47,{activateMax:true}),
+      hsdm: Script('Sanagi wo Yaburi Chou wa Mau','D · C · ↓ · C · D',[BTN('d'),BTN('c'),DIR('d'),BTN('c'),BTN('d')],47,{activateMax:true}) },
+    kusanagi: { page:48,
+      dm: Rel('Ura 108 Shiki: Orochi Nagi','↓ ↙ ← ↙ ↓ ↘ → + C',CAT(QCB,HCF),'c',48),
+      sdm: Rel('Ura 108 Shiki: Orochi Nagi MAX','↓ ↙ ← ↙ ↓ ↘ → + A+C',CAT(QCB,HCF),'ac',48,{activateMax:true}),
+      hsdm: Rel('Saishuu Kessen Ougi: Mu Shiki','↓ ↘ → ↓ ↘ → + A+C',CAT(QCF,QCF),'ac',48,{activateMax:true}) },
+    rugal: { page:49,
+      dm: Rel('Gigantic Pressure','↓ ↘ → ↘ ↓ ↙ ← + C',CAT(QCF,HCB),'c',49),
+      sdm: Rel('Gigantic Pressure MAX','↓ ↘ → ↘ ↓ ↙ ← + A+C',CAT(QCF,HCB),'ac',49,{activateMax:true}),
+      hsdm: Rel('Kaiser Phoenix','← ↙ ↓ ↘ → ← ↙ ↓ ↘ → + A+C',CAT(HCF,HCF),'ac',49,{activateMax:true}) }
   };
 
   for (const fighter of roster) {
-    const dmCandidates = dmOverrides[fighter.id] || (fighter.moves || []).filter(m => /super/i.test(String(m.note || ''))).map(m => S(m.name, m.command, buildMacroFromCommand(m.command, null, false), 'DM / super comum do personagem'));
-    fighter.dmMoves = dmCandidates;
-    fighter.dm = dmCandidates[0] || null;
-    fighter.sdmMoves = sdmById[fighter.id] || [];
-    fighter.sdm = fighter.sdmMoves[0] || null;
-    fighter.hsdmMoves = hsdmById[fighter.id] || [];
-    fighter.hsdm = fighter.hsdmMoves[0] || null;
+    const profile = magicPlusSpecials[fighter.id];
+    fighter.magicPlusPage = profile?.page || null;
+    fighter.specialSource = 'The King of Fighters 2002 Magic Plus II - Arcade - Commands/Moves (GamesDatabase)';
+    fighter.dm = profile?.dm || null;
+    fighter.sdm = profile?.sdm || null;
+    fighter.hsdm = profile?.hsdm || null;
+    fighter.dmMoves = fighter.dm ? [fighter.dm] : [];
+    fighter.sdmMoves = fighter.sdm ? [fighter.sdm] : [];
+    fighter.hsdmMoves = fighter.hsdm ? [fighter.hsdm] : [];
   }
 
-
   window.GG_KOF_CATALOG = Object.freeze({
-    version: '19.9.1',
+    version: '19.10.0',
     notation: {
       A:'soco fraco', B:'chute fraco', C:'soco forte', D:'chute forte',
-      MAX:'B + C', ESQUIVA:'A + B', DM:'Super comum do personagem', SDM:'Super Desperation Move do personagem', HSDM:'Hidden SDM / MAX2 do personagem',
-      note:'Perfis ajustados para KOF 2002 Magic Plus II. DM executa o super comum; SDM ativa MAX com B+C e executa o MAX super; HSDM/MAX2 ativa MAX e executa o comando oculto, mas ainda respeita condições do jogo como vida vermelha, distância, ar, transformação ou contra-ataque.'
+      MAX:'B + C', ESQUIVA:'A + B', DM:'Super comum do personagem', SDM:'Super Desperation Move / MAX do personagem', HSDM:'Hidden SDM / MAX2 do personagem',
+      note:'V19.10.0: DM, SDM/MAX e HSDM/MAX2 refeitos personagem por personagem pela command list dedicada ao KOF 2002 Magic Plus II (Bootleg). Os macros usam direções relativas ao lado para espelhar automaticamente os comandos.'
     },
     roster
   });

@@ -3,7 +3,7 @@
   const $=id=>document.getElementById(id),CORE=()=>window.GameGuessCore,FB=()=>window.GameGuessFirebase;
   const WEB_GAME='/roms/v178/kf2k2mp2.zip';
   const EXPECTED_GAME_BYTES=86694745;
-  const KOF_WEB_VERSION='19.9.1';
+  const KOF_WEB_VERSION='19.10.0';
   const KOF_TRAINING_EMULATOR_VERSION='4.2.3';
   const KOF_ONLINE_EMULATOR_VERSION='4.3.0-pre';
   const FBN_BUILD='FBNeo • treino 4.2.3 • online 4.3.0-pre';

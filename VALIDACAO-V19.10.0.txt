@@ -1,0 +1,25 @@
+GAME GUESS V19.10.0 — VALIDAÇÃO ESTÁTICA
+
+VERSÃO: 19.10.0
+ALVO: The King of Fighters 2002 Magic Plus II (kf2k2mp2)
+
+OK — 44 personagens no catálogo.
+OK — 44 páginas-fonte únicas mapeadas (págs. 5–49, com a paginação correspondente ao roster).
+OK — cada personagem possui DM, SDM/MAX e HSDM/MAX2.
+OK — perfis marcados com source="KOF 2002 Magic Plus II" e sourcePage.
+OK — DM não ativa MAX automaticamente.
+OK — SDM/MAX e HSDM/MAX2 ativam MAX com B+C antes da macro.
+OK — macros direcionais usam frente/trás relativos e podem ser espelhados pelo botão LADO →/←.
+OK — em scripts, a última direção permanece ativa durante o botão final e é solta logo após o botão.
+OK — Kula: Diamond Edge / Freeze Execution / Freeze Completion.
+OK — Ryo SDM: qcf+C, A.
+OK — Shermie HSDM: qcf,DP + BD (236623+BD).
+OK — Yamazaki HSDM: HCB,HCB + BD.
+OK — K9999 HSDM não força salto no perfil Magic Plus II.
+OK — Ángel diferencia contra-ataque terrestre (Wind's Fairground) e aéreo (Blue Monday Parade → Survivor's Banquet).
+OK — sintaxe JavaScript validada em app.js, kof.js, kof-player.js, kof-catalog.js, kof-catalog-ui.js, APIs, firebase.js e duel.js.
+OK — ROM preservada: 86.694.745 bytes.
+SHA-256 ROM: 2cb16b649819f8168701f01ddd4642dc3678283c112cd89e79103ed45f4a1a4d
+
+LIMITAÇÃO DE VALIDAÇÃO:
+O ambiente de geração não executa uma luta real do FBNeo em um navegador/dispositivo externo. A validação feita aqui cobre catálogo, estrutura das macros, sintaxe, integridade da ROM e empacotamento. O teste final de timing precisa ser feito no deploy/celular conforme TESTE-V19.10.0.md.
