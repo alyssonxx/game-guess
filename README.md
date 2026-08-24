@@ -1,4 +1,4 @@
-# Game Guess V19.10.3
+# Game Guess V19.10.4
 
 Versão atual: auditoria completa dos especiais do **KOF 2002 Magic Plus II** — DM, SDM/MAX e HSDM/MAX2 dos 44 personagens, com atalhos simplificados do hack somente quando confirmados.
 

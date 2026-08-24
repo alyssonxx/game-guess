@@ -1,0 +1,17 @@
+GAME GUESS V19.10.4 — VALIDAÇÃO ESTÁTICA
+Roster: 44
+DM macros: 44
+SDM macros: 44
+HSDM macros: 44
+DM com variantes P/K: 43
+HSDM com atalho MP2: 40
+iori: DM=↓ ↘ → ↘ ↓ ↙ ← + A/C | SDM=↓ ↘ → ↘ ↓ ↙ ← + A+C | HSDM=U frente ×2 + A+C
+yashiro: DM=↓ ↙ ← ↓ ↙ ← + A/C | SDM=↓ ↙ ← ↓ ↙ ← + A+C | HSDM=U trás → U frente + B+D
+mary: DM=↓ ↘ → ↘ ↓ ↙ ← + C | SDM=A, A, →, B, C | HSDM=U frente ×2 + B+D
+ralf: DM=↓ ↘ → ↘ ↓ ↙ ← + C | SDM=↓ ↘ → ↘ ↓ ↙ ← + A+C | HSDM=U trás → U frente + A+D
+kim: DM=↓ ↙ ← ↙ → + D | SDM=no ar ↓ ↙ ← ↙ → + B+D | HSDM=U trás → U frente + A+B+C+D
+vice: DM=perto → ↘ ↓ ↙ ← → ↘ ↓ ↙ ← + D | SDM=perto → ↘ ↓ ↙ ← → ↘ ↓ ↙ ← + B+D | HSDM=no ar: U trás ×2 + A+C
+billy: DM=↓ ↘ → ↘ ↓ ↙ ← + C | SDM=↓ ↘ → ↓ ↘ → + A+C | HSDM=U trás → U frente + B+D
+whip: DM=↓ ↙ ← ↙ ↓ ↘ → + C | SDM=↓ ↙ ← ↙ ↓ ↘ → + A+C | HSDM=trás + C
+vanessa: DM=↓ ↙ ← ↙ ↓ ↘ → + C | SDM=↓ ↙ ← ↙ ↓ ↘ → + A+C | HSDM=frente → trás → U frente + A+C
+ramon: DM=↓ ↘ → ↘ ↓ ↙ ← + D | SDM=perto → ↘ ↓ ↙ ← → ↘ ↓ ↙ ← + A+C | HSDM=U trás → U frente + A+C

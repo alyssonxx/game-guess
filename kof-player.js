@@ -19,7 +19,7 @@
   const ONLINE_EJS_VERSION = '4.3.0-pre';
   const PUBLIC_NETPLAY_SERVER = 'https://netplay.emulatorjs.org';
   const EJS_VERSION = online ? ONLINE_EJS_VERSION : TRAINING_EJS_VERSION;
-  const PATCH_VERSION = '19.10.3';
+  const PATCH_VERSION = '19.10.4';
   const EJS_DATA = `https://cdn.emulatorjs.org/${EJS_VERSION}/data/`;
 
   const GAME_URL = '/roms/v178/kf2k2mp2.zip';
@@ -1172,12 +1172,12 @@
     setVectorSource(source, vector[0], vector[1]);
     await waitFrames(frames);
   }
-  async function runDirectionalCommand(steps, button, source) {
+  async function runDirectionalCommand(steps, button, source, stepFrames = 2, buttonFrames = 3) {
     const dirSource = `${source}:dir`;
     const sequence = Array.isArray(steps) ? steps : [];
-    for (const token of sequence) await setRelativeDirection(token, dirSource, 2);
+    for (const token of sequence) await setRelativeDirection(token, dirSource, Math.max(1, Number(stepFrames) || 2));
     // O botão final entra enquanto a última direção ainda está ativa; isso é crítico no FBNeo.
-    if (button) await pulseMacroButtons(button, `${source}:finish`, 3, 0);
+    if (button) await pulseMacroButtons(button, `${source}:finish`, Math.max(1, Number(buttonFrames) || 3), 0);
     setVectorSource(dirSource, 0, 0);
     await waitFrames(2);
   }
@@ -1233,7 +1233,21 @@
       await waitFrames(5);
     }
     if (Array.isArray(macro?.script)) await runScriptCommand(macro.script, source);
-    else await runDirectionalCommand(macro?.steps || [], macro?.button || null, source);
+    else {
+      const variants = Array.isArray(macro?.buttonVariants) && macro.buttonVariants.length
+        ? macro.buttonVariants.filter(Boolean)
+        : [macro?.button || null];
+      for (let i = 0; i < variants.length; i++) {
+        await runDirectionalCommand(
+          macro?.steps || [],
+          variants[i],
+          `${source}:v${i}`,
+          macro?.stepFrames || 2,
+          macro?.buttonFrames || 3
+        );
+        if (i < variants.length - 1) await waitFrames(Math.max(1, Number(macro?.variantGapFrames) || 4));
+      }
+    }
     if (Array.isArray(macro?.postScript)) await runScriptCommand(macro.postScript, `${source}:post`);
   }
   function specialProfileFor(fighter, kind) {

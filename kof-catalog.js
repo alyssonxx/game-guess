@@ -40,7 +40,7 @@
     C('mary','Blue Mary','97 Team','Grappler / mobilidade',[M('Spin Fall','↓ ↙ ← + B/D'),M('Straight Slicer','segure ←, → + B/D'),M('Vertical Arrow','→ ↓ ↘ + B/D'),M('M. Typhoon','→ ↘ ↓ ↙ ← → ↘ ↓ ↙ ← + B/D','super')],'B baixo → A baixo → Vertical Arrow','Use mobilidade para entrar e alternar agarrões.'),
     C('billy','Billy Kane','97 Team','Alcance / zoning',[M('Sansetsukon Chuudan Uchi','← ↙ ↓ ↘ → + A/C'),M('Senpuu Kon','↓ ↙ ← + A/C'),M('Suzume Otoshi','↓ ↙ ← + A/C','anti-aéreo'),M('Dai Senpuu','↓ ↘ → ↓ ↘ → + A/C','super')],'C longe → especial de bastão','Mantenha o oponente na ponta do bastão.'),
 
-    C('yashiro','Yashiro Nanakase','98 Team','Brawler / pressão',[M('Jet Counter','← ↙ ↓ ↘ → + A/C'),M('Upper Duel','→ ↓ ↘ + A/C'),M('Missile Might Bash','↓ ↙ ← + A/C'),M('Final Impact','↓ ↘ → ↓ ↘ → + A/C','super')],'C perto → →+A → Jet Counter','Normals fortes e ótimo dano de confirmação.'),
+    C('yashiro','Yashiro Nanakase','98 Team','Brawler / pressão',[M('Jet Counter','← ↙ ↓ ↘ → + A/C'),M('Upper Duel','→ ↓ ↘ + A/C'),M('Missile Might Bash','↓ ↙ ← + A/C'),M('Final Impact','↓ ↙ ← ↓ ↙ ← + A/C','super')],'C perto → →+A → Jet Counter','Normals fortes e ótimo dano de confirmação.'),
     C('shermie','Shermie','98 Team','Grappler / mix',[M('Shermie Spiral','→ ↘ ↓ ↙ ← + A/C'),M('Shermie Clutch','→ ↓ ↘ + B/D'),M('Shermie Whip','↓ ↙ ← + A/C'),M('Shermie Flash','→ ↘ ↓ ↙ ← → ↘ ↓ ↙ ← + A/C','super')],'B baixo → corrida → Shermie Spiral','Ameace agarrão depois de qualquer aproximação.'),
     C('chris','Chris','98 Team','Velocidade / mix',[M('Slide Touch','↓ ↘ → + A/C'),M('Hunting Air','→ ↓ ↘ + B/D'),M('Shooting Dancer','→ ↘ ↓ ↙ ← + A/C ou B/D'),M('Chain Slide Touch','↓ ↘ → ↓ ↘ → + A/C','super')],'B baixo → A baixo → Slide Touch','Muito rápido; abuse de saltos curtos e mudança de lado.'),
 
@@ -176,7 +176,7 @@
       sdm: Rel('Houou Kyaku MAX','↓ ↘ → ↘ ↓ ↙ ← + B+D',CAT(QCF,HCB),'bd',25,{activateMax:true}),
       hsdm: Rel('Shakushi','no ar ← ↙ ↓ ↘ → ← ↙ ↓ ↘ → + A+C',CAT(HCF,HCF),'ac',25,{activateMax:false,air:true}) },
     iori: { page:26,
-      dm: Rel('Kin 1211 Shiki: Ya Otome','↓ ↘ → ↘ ↓ ↙ ← + C',CAT(QCF,HCB),'c',26),
+      dm: Rel('Kin 1211 Shiki: Ya Otome','↓ ↘ → ↘ ↓ ↙ ← + A/C',CAT(QCF,HCB),'c',26),
       sdm: Rel('Kin 1211 Shiki: Ya Otome MAX','↓ ↘ → ↘ ↓ ↙ ← + A+C',CAT(QCF,HCB),'ac',26,{activateMax:true}),
       hsdm: Rel('Ura 1219 Shiki: En’ou','↓ ↙ ← ↙ ↓ ↘ → ← → + A+C',CAT(QCB,HCF,['b','f']),'ac',26,{activateMax:false}) },
     mature: { page:27,
@@ -193,15 +193,15 @@
       hsdm: Rel('….!!','perto → ↘ ↓ ↙ ← → ↘ ↓ ↙ ← + B+D',CAT(HCB,HCB),'bd',29,{activateMax:false,close:true}) },
     mary: { page:30,
       dm: Rel('M. Splash Rose','↓ ↘ → ↘ ↓ ↙ ← + C',CAT(QCF,HCB),'c',30),
-      sdm: Script('M. Dynamite Swing','A, A, ←, B, C',[BTN('a'),BTN('a'),DIR('b'),BTN('b'),BTN('c')],30,{activateMax:true}),
+      sdm: Script('M. Dynamite Swing','A, A, →, B, C',[BTN('a'),BTN('a'),DIR('f'),BTN('b'),BTN('c')],30,{activateMax:true}),
       hsdm: Rel('M. Typhoon','↙ ↓ ↘ → ↗ ↑ ↓ + B+D',['db','d','df','f','uf','u','d'],'bd',30,{activateMax:false,close:true}) },
     billy: { page:31,
       dm: Rel('Chou Kaen Senpuu Kon','↓ ↘ → ↘ ↓ ↙ ← + C',CAT(QCF,HCB),'c',31),
       sdm: Rel('Dai Senpuu MAX','↓ ↘ → ↓ ↘ → + A+C',CAT(QCF,QCF),'ac',31,{activateMax:true}),
       hsdm: Rel('Liar Elemental / Ifrit Crisis','↓ ↙ ← ↙ ↓ ↘ → + B+D',CAT(QCB,HCF),'bd',31,{activateMax:false}) },
     yashiro: { page:32,
-      dm: Rel('Final Impact','↓ ↘ → ↓ ↘ → + C',CAT(QCF,QCF),'c',32),
-      sdm: Rel('Final Impact MAX','↓ ↘ → ↓ ↘ → + A+C',CAT(QCF,QCF),'ac',32,{activateMax:true}),
+      dm: Rel('Final Impact','↓ ↙ ← ↓ ↙ ← + A/C',CAT(QCB,QCB),'c',32),
+      sdm: Rel('Final Impact MAX','↓ ↙ ← ↓ ↙ ← + A+C',CAT(QCB,QCB),'ac',32,{activateMax:true}),
       hsdm: Rel('[ERROR] CODE 2002','↓ ↙ ← ↙ ↓ ↘ → + B+D',CAT(QCB,HCF),'bd',32,{activateMax:false}) },
     shermie: { page:33,
       dm: Rel('Shermie Flash','perto → ↘ ↓ ↙ ← → ↘ ↓ ↙ ← + C',CAT(HCB,HCB),'c',33,{close:true}),
@@ -270,7 +270,7 @@
   };
 
 
-  // V19.10.3 — auditoria completa DM + SDM/MAX + HSDM/MAX2 do hack Magic Plus II.
+  // V19.10.4 — auditoria de execução + correções DM/SDM/HSDM do Magic Plus II.
   // HSDM/MAX2 continua usando a auditoria de atalhos da V19.10.2; abaixo, DM e SDM/MAX
   // também recebem marcação de fonte/página e os atalhos simplificados confirmados do MP2.
   // A nomenclatura comunitária "U para frente/trás" é convertida para eixos cardinais,
@@ -293,7 +293,9 @@
       shortcut:true,
       inputMode:'magic-plus-ii-shortcut',
       nativeCommand,
-      source:'KOF 2002 Magic Plus II — HSDM shortcut audit'
+      source:'KOF 2002 Magic Plus II — HSDM shortcut audit',
+      stepFrames: Math.max(3, Number(macro.stepFrames) || 0),
+      buttonFrames: Math.max(4, Number(macro.buttonFrames) || 0)
     });
     profile.hsdm.note = `${auditNote || 'Atalho simplificado do Magic Plus II.'} Comando nativo preservado como alternativa: ${nativeCommand}`;
   }
@@ -305,7 +307,9 @@
       activateMax:false,
       shortcut:false,
       inputMode:'native-reviewed',
-      source:'KOF 2002 Magic Plus II — HSDM shortcut audit'
+      source:'KOF 2002 Magic Plus II — HSDM shortcut audit',
+      stepFrames: Math.max(3, Number(profile.hsdm.macro?.stepFrames) || 0),
+      buttonFrames: Math.max(4, Number(profile.hsdm.macro?.buttonFrames) || 0)
     });
     profile.hsdm.note = reason;
   }
@@ -338,8 +342,8 @@
   applyMagicPlusHsdmShortcut('leona','↑ ↓ ↑ ↓ ↑ ↓ + B+D → U trás → U frente + B+D',
     Rel('x','x',[...U_BACK,...U_FORWARD],'bd',14,{preScript:[DIR('u'),DIR('d'),DIR('u'),DIR('d'),DIR('u'),DIR('d'),BTN('bd'),WAIT(10)]}).macro,
     'Atalho MP2: transforma em Orochi Leona e usa U trás → U frente + B+D.');
-  applyMagicPlusHsdmShortcut('ralf','↓ ← ↓ → ↓ → + A+D', Rel('x','x',['d','b','d','f','d','f'],'ad',15).macro,
-    'Sequência curta usada nos tutoriais Magic Plus para o especial oculto de Ralf.');
+  applyMagicPlusHsdmShortcut('ralf','U trás → U frente + A+D', Rel('x','x',[...U_BACK,...U_FORWARD],'ad',15).macro,
+    'Atalho MP2 auditado na seção de ocultos: U para trás, U para frente + A+D.');
   applyMagicPlusHsdmShortcut('clark','U trás → U frente + B+D', Rel('x','x',[...U_BACK,...U_FORWARD],'bd',16).macro);
 
   // Women Fighters
@@ -352,46 +356,47 @@
     'Atalho MP2: entra em Hero Mode com A+B+C e executa frente + B+D.');
 
   // Korea
-  applyMagicPlusHsdmShortcut('kim','↓ ← ↓ → + A+B+C+D', Rel('x','x',['d','b','d','f'],'abcd',23).macro,
-    'Sequência curta demonstrada para Magic Plus.');
+  applyMagicPlusHsdmShortcut('kim','U trás → U frente + A+B+C+D', Rel('x','x',[...U_BACK,...U_FORWARD],'abcd',23).macro,
+    'Atalho MP2 auditado na seção de ocultos: U para trás, U para frente + A+B+C+D.');
   applyMagicPlusHsdmShortcut('chang','U frente + A+C', Rel('x','x',U_FORWARD,'ac',24).macro);
   applyMagicPlusHsdmShortcut('choi','no ar U frente ×2 + A+C', Rel('x','x',TWICE(U_FORWARD),'ac',25,{air:true}).macro,
     'O atalho continua exigindo Choi no ar; o macro faz um pulo curto antes da sequência.');
 
   // Iori / Mature / Vice
-  applyMagicPlusHsdmShortcut('iori','↓ → ← → + A+C', Rel('x','x',['d','f','b','f'],'ac',26).macro,
-    'Sequência curta demonstrada especificamente para Iori em Magic Plus.');
+  applyMagicPlusHsdmShortcut('iori','U frente ×2 + A+C', Rel('x','x',TWICE(U_FORWARD),'ac',26).macro,
+    'Atalho MP2 da seção de ocultos: duas U para frente + A+C. O comando nativo En’Ou continua preservado.');
   applyMagicPlusHsdmShortcut('mature','C → B → frente + B+C', Script('x','x',[BTN('c'),BTN('b'),DIR('f'),BTN('bc')],27).macro);
-  applyMagicPlusHsdmShortcut('vice','trás → ↓ → frente → ↑ → ↓ + A+C',
-    Script('x','x',[DIR('b'),DIR('d'),DIR('f'),DIR('u'),DIR('d'),BTN('ac')],28,{conditional:'Começa no chão e termina a entrada no ar; exige proximidade.'}).macro,
-    'Sequência prática Magic Plus; não força salto automático antes, pois a própria entrada leva Vice ao trecho aéreo.');
+  applyMagicPlusHsdmShortcut('vice','no ar: U trás ×2 + A+C',
+    Rel('x','x',TWICE(U_BACK),'ac',28,{air:true,close:true}).macro,
+    'Atalho MP2 auditado na seção de ocultos: no ar, duas U para trás + A+C.');
 
   // 97 Team
   applyMagicPlusHsdmShortcut('yamazaki','U trás ×2 + B+D', Rel('x','x',TWICE(U_BACK),'bd',29,{close:true}).macro);
   applyMagicPlusHsdmShortcut('mary','U frente ×2 + B+D', Rel('x','x',TWICE(U_FORWARD),'bd',30,{close:true}).macro);
-  applyMagicPlusHsdmShortcut('billy','↓ ← ↓ → + B+D', Rel('x','x',['d','b','d','f'],'bd',31).macro,
-    'Sequência curta demonstrada especificamente para Billy em Magic Plus.');
+  applyMagicPlusHsdmShortcut('billy','U trás → U frente + B+D', Rel('x','x',[...U_BACK,...U_FORWARD],'bd',31).macro,
+    'Atalho MP2 auditado na seção de ocultos: U para trás, U para frente + B+D.');
 
   // 98 Team
-  applyMagicPlusHsdmShortcut('yashiro','↓ ← ↓ → + B+D', Rel('x','x',['d','b','d','f'],'bd',32).macro,
-    'Sequência curta demonstrada para Yashiro normal em Magic Plus.');
+  applyMagicPlusHsdmShortcut('yashiro','U trás → U frente + B+D', Rel('x','x',[...U_BACK,...U_FORWARD],'bd',32).macro,
+    'Atalho MP2 auditado na seção de ocultos: U para trás, U para frente + B+D.');
   applyMagicPlusHsdmShortcut('shermie','U frente ×2 + B+D', Rel('x','x',TWICE(U_FORWARD),'bd',33,{close:true}).macro);
-  applyMagicPlusHsdmShortcut('chris','U trás ×2 + A+B', Rel('x','x',TWICE(U_BACK),'ab',34).macro,
-    'Atalho MP2 do Chris normal: transforma em Orochi Chris. O ataque oculto do Orochi Chris tem perfil próprio.');
+  applyMagicPlusHsdmShortcut('chris','U trás ×2 + A+B → ↓ + D',
+    Script('x','x',[...TWICE(U_BACK).map(DIR),BTN('ab'),WAIT(12),DIR('d'),BTN('d')],34).macro,
+    'Atalho MP2 auditado: transforma Chris com duas U para trás + A+B e, já possuído, envia ↓ + D.');
 
   // NESTS / 99 / 2000
   applyMagicPlusHsdmShortcut('k','U trás + A+C', Rel('x','x',U_BACK,'ac',35).macro);
   applyMagicPlusHsdmShortcut('maxima','frente + B+C', Rel('x','x',['f'],'bc',36).macro,
     'Atalho extremamente curto documentado para Maxima no Magic Plus.');
-  applyMagicPlusHsdmShortcut('whip','B → C → trás + C',
-    Script('x','x',[BTN('b'),BTN('c'),DIR('b'),BTN('c')],37).macro,
-    'Usa a sequência curta de Magic Plus; o final trás+C também cobre a variante ainda mais abreviada do hack.');
-  applyMagicPlusHsdmShortcut('vanessa','frente → trás → ↓ → frente + A+C', Rel('x','x',['f','b','d','f'],'ac',38).macro,
-    'Sequência curta demonstrada especificamente para Vanessa em Magic Plus.');
+  applyMagicPlusHsdmShortcut('whip','trás + C',
+    Rel('x','x',['b'],'c',37).macro,
+    'Atalho MP2 auditado na seção de ocultos: trás + C.');
+  applyMagicPlusHsdmShortcut('vanessa','frente → trás → U frente + A+C', Rel('x','x',['f','b',...U_FORWARD],'ac',38).macro,
+    'Atalho MP2 auditado na seção de ocultos: frente, trás, U para frente + A+C.');
   applyMagicPlusHsdmShortcut('seth','frente → U frente + A+B', Rel('x','x',['f',...U_FORWARD],'ab',39,{close:true}).macro,
     'Atalho Magic Plus listado para Seth; exige estar perto.');
-  applyMagicPlusHsdmShortcut('ramon','↓ ← ↓ → + A+C', Rel('x','x',['d','b','d','f'],'ac',40).macro,
-    'Sequência curta demonstrada para Ramón em Magic Plus.');
+  applyMagicPlusHsdmShortcut('ramon','U trás → U frente + A+C', Rel('x','x',[...U_BACK,...U_FORWARD],'ac',40).macro,
+    'Atalho MP2 auditado na seção de ocultos: U para trás, U para frente + A+C.');
 
   // 2001
   applyMagicPlusHsdmShortcut('kula','D → A+B+C', Script('x','x',[BTN('d'),BTN('abc')],41).macro,
@@ -423,7 +428,7 @@
       const key = `${id}:${tier}`;
       const shortcut = DM_SDM_SHORTCUTS.has(key);
       move.macro = Object.assign({}, move.macro, {
-        audit:'v19.10.3',
+        audit:'v19.10.4',
         audited:true,
         shortcut: shortcut || !!move.macro.shortcut,
         inputMode: shortcut ? 'magic-plus-ii-shortcut' : 'magic-plus-ii-audited',
@@ -433,8 +438,19 @@
       });
       // DM nunca deve entrar em MAX; SDM/MAX deve fazer B+C antes da entrada, exceto se um perfil
       // futuro declarar explicitamente activateMax:false por exigência do hack.
-      if (tier === 'dm') move.macro.activateMax = false;
-      else if (typeof move.macro.activateMax !== 'boolean') move.macro.activateMax = true;
+      if (tier === 'dm') {
+        move.macro.activateMax = false;
+        // A command list do MP2 usa P/K em muitos DMs: P = A ou C, K = B ou D.
+        // Em vez de fixar sempre o botão forte, a macro tenta primeiro o botão fraco e
+        // repete a mesma entrada com o forte. Se o primeiro DM sair, o segundo input cai
+        // durante o super-freeze e é ignorado pelo jogo; se não sair, a segunda variante
+        // cobre ROMs/revisões mais sensíveis ao botão final.
+        if (move.macro.type === 'relative' && move.macro.button === 'c') move.macro.buttonVariants = ['a','c'];
+        if (move.macro.type === 'relative' && move.macro.button === 'd') move.macro.buttonVariants = ['b','d'];
+        move.macro.stepFrames = Math.max(3, Number(move.macro.stepFrames) || 0);
+        move.macro.buttonFrames = Math.max(4, Number(move.macro.buttonFrames) || 0);
+        move.macro.variantGapFrames = 4;
+      } else if (typeof move.macro.activateMax !== 'boolean') move.macro.activateMax = true;
     }
   }
 
@@ -457,11 +473,11 @@
   }
 
   window.GG_KOF_CATALOG = Object.freeze({
-    version: '19.10.3',
+    version: '19.10.4',
     notation: {
       A:'soco fraco', B:'chute fraco', C:'soco forte', D:'chute forte',
       MAX:'B + C', ESQUIVA:'A + B', DM:'Super comum do personagem', SDM:'Super Desperation Move / MAX do personagem', HSDM:'Hidden SDM / MAX2 do personagem',
-      note:'V19.10.3: auditoria completa dos 44 personagens nos três níveis DM, SDM/MAX e HSDM/MAX2. DM/SDM usam a command list específica do Magic Plus II e os atalhos MP2 confirmados; HSDM mantém a auditoria de atalhos simplificados. SDM aciona MAX com B+C antes do comando; HSDM não injeta MAX automaticamente.'
+      note:'V19.10.4: além da auditoria dos 44 personagens, corrige atalhos HSDM lidos da seção errada, corrige Final Impact do Yashiro e M. Dynamite Swing da Mary, e prepara DM com variante A/C ou B/D para maior compatibilidade com a ROM Magic Plus II. SDM aciona MAX com B+C; HSDM não injeta MAX.'
     },
     roster
   });
