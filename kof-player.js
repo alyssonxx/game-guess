@@ -19,7 +19,7 @@
   const ONLINE_EJS_VERSION = '4.3.0-pre';
   const PUBLIC_NETPLAY_SERVER = 'https://netplay.emulatorjs.org';
   const EJS_VERSION = online ? ONLINE_EJS_VERSION : TRAINING_EJS_VERSION;
-  const PATCH_VERSION = '19.10.0';
+  const PATCH_VERSION = '19.10.3';
   const EJS_DATA = `https://cdn.emulatorjs.org/${EJS_VERSION}/data/`;
 
   const GAME_URL = '/roms/v178/kf2k2mp2.zip';
@@ -1256,7 +1256,9 @@
     releaseManualDirectionsForMacro();
     const source = `special:${kind}:${fighter.id}:${Date.now()}`;
     try {
-      if (profile.macro.activateMax) await activateMaxForMacro(source);
+      // Magic Plus II libera HSDM/MAX2 sem a preparação de MAX do KOF 2002 original.
+      // Para DM/SDM preservamos o perfil; para HSDM nunca injetamos B+C antes do comando.
+      if (kind !== 'hsdm' && profile.macro.activateMax) await activateMaxForMacro(source);
       await runMacroPayload(profile.macro, source);
       const warnings = [];
       if (profile.macro.close) warnings.push('use perto');
@@ -1472,9 +1474,12 @@
     if (!fighter) return;
     if (quickGuideName) quickGuideName.textContent = `🔵 ${fighter.name}`;
     if (quickGuideMoves) quickGuideMoves.innerHTML = (fighter.moves || []).slice(0,4).map(m => `<div class="gg-guide-move"><span><b>${escapeHtml(m.name)}</b>${m.note ? `<small> • ${escapeHtml(m.note)}</small>` : ''}</span><code>${escapeHtml(m.command)}</code></div>`).join('');
-    const dmLine = fighter.dm ? `<div style="margin-top:6px"><b>DM:</b> ${escapeHtml(fighter.dm.name)} <code style="margin-left:6px">${escapeHtml(fighter.dm.command || '—')}</code></div>` : '';
-    const sdmLine = fighter.sdm ? `<div style="margin-top:6px"><b>SDM/MAX:</b> ${escapeHtml(fighter.sdm.name)} <code style="margin-left:6px">${escapeHtml(fighter.sdm.command || '—')}</code></div>` : '';
-    const hsdmLine = fighter.hsdm ? `<div style="margin-top:6px"><b>HSDM/MAX2:</b> ${escapeHtml(fighter.hsdm.name)} <code style="margin-left:6px">${escapeHtml(fighter.hsdm.command || '—')}</code></div>` : '';
+    const dmMode = fighter.dm?.macro?.inputMode === 'magic-plus-ii-shortcut' ? 'ATALHO MP2' : 'MP2 OK';
+    const sdmMode = fighter.sdm?.macro?.inputMode === 'magic-plus-ii-shortcut' ? 'ATALHO MP2' : 'MP2 OK';
+    const dmLine = fighter.dm ? `<div style="margin-top:6px"><b>DM • ${dmMode}:</b> ${escapeHtml(fighter.dm.name)} <code style="margin-left:6px">${escapeHtml(fighter.dm.command || '—')}</code></div>` : '';
+    const sdmLine = fighter.sdm ? `<div style="margin-top:6px"><b>SDM/MAX • ${sdmMode}:</b> ${escapeHtml(fighter.sdm.name)} <code style="margin-left:6px">${escapeHtml(fighter.sdm.command || '—')}</code></div>` : '';
+    const hsdmMode = fighter.hsdm?.macro?.inputMode === 'native-reviewed' ? 'NATIVO' : 'ATALHO MP2';
+    const hsdmLine = fighter.hsdm ? `<div style="margin-top:6px"><b>HSDM/MAX2 • ${hsdmMode}:</b> ${escapeHtml(fighter.hsdm.name)} <code style="margin-left:6px">${escapeHtml(fighter.hsdm.command || '—')}</code></div>` : '';
     if (quickGuideCombo) quickGuideCombo.innerHTML = `<b>COMBO:</b> ${escapeHtml(fighter.combo || '—')}${dmLine}${sdmLine}${hsdmLine}`;
     if (quickGuideTip) quickGuideTip.textContent = `${fighter.tip || ''}${fighter.magicPlusPage ? ` • Magic Plus II: pág. ${fighter.magicPlusPage}/51` : ''}`;
   }

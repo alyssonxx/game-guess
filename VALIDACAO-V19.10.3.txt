@@ -1,0 +1,23 @@
+GAME GUESS V19.10.3 — VALIDAÇÃO ESTÁTICA
+
+JavaScript syntax: OK
+Roster Magic Plus II: 44 personagens
+DM com macro: 44/44
+DM auditado V19.10.3: 44/44
+DM activateMax=false: 44/44
+SDM/MAX com macro: 44/44
+SDM/MAX auditado V19.10.3: 44/44
+SDM/MAX activateMax=true: 44/44
+HSDM/MAX2 com macro: 44/44
+HSDM/MAX2 activateMax=false: 44/44
+HSDM/MAX2 atalho MP2: 40
+HSDM/MAX2 nativo revisado por conflito de fontes: 4 (Benimaru, Athena, Orochi Shermie, Rugal)
+SDM/MAX com atalho MP2 explicitamente marcado: Ryo, May Lee
+May Lee SDM principal: D -> ABC (alternativa completa AC -> BD -> ABC preservada)
+Kula HSDM principal: D -> ABC
+
+ROM kf2k2mp2.zip
+bytes: 86694745
+sha256: 2cb16b649819f8168701f01ddd4642dc3678283c112cd89e79103ed45f4a1a4d
+
+Observação: esta validação é estrutural/sintática. Não equivale a executar os 132 golpes (44 x 3) dentro do FBNeo.
