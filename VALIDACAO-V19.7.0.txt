@@ -1,0 +1,24 @@
+GAME GUESS V19.7.0 — VALIDAÇÃO
+
+VERSÃO: 19.7.0
+TREINO: EmulatorJS 4.2.3 + FBNeo
+ONLINE: EmulatorJS 4.3.0-pre + Netplay WebRTC
+NETPLAY: dedicado opcional + fallback https://netplay.emulatorjs.org
+ROM: /roms/v178/kf2k2mp2.zip
+TAMANHO ESPERADO: 86694745 bytes
+SHA-256 ESPERADO: 2cb16b649819f8168701f01ddd4642dc3678283c112cd89e79103ed45f4a1a4d
+
+CONTROLES:
+- editor posição/tamanho no topo do modal
+- slider direto de tamanho por controle
+- perfis separados vertical/horizontal
+- input direto único mantido da V19.6
+
+NOVO:
+- catálogo 44 lutadores
+- especiais / combo / estilo / dica
+- guia azul opcional de 1 personagem
+
+SINTAXE JS/API: OK
+IDS HTML: OK
+CATÁLOGO: 44/44 IDs únicos
