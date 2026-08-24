@@ -4,13 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#090b18">
-  <title>Game Guess V19.11.0 — Home Redesign + GeoGuess + KOF + Quiz</title>
+  <title>Game Guess V19.11.1 — Responsivo + KOF + Quiz + Termo</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="/styles.css?v=19.10.4">
+    <link rel="stylesheet" href="/styles.css?v=19.11.1">
 
   <style id="portrait-fix-style">
     .result-body img,#resultImage,#universeResultImage,#duelQuestionImage,.duel-image-shell img,.assist-result img,.portrait-focus{object-fit:cover!important;object-position:center 14%!important;background:#fff}
@@ -59,14 +58,17 @@
     .topbar .top-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:10px}
     .topbar #apiStatus,.topbar #duelButton{display:none!important}
     .topbar .brand small{display:block;opacity:.72;letter-spacing:.06em}
-    .home-focus-note{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;background:rgba(136,232,255,.08);border:1px solid rgba(136,232,255,.16);font-size:.9rem;width:max-content}
+    .home-focus-note{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;background:rgba(136,232,255,.08);border:1px solid rgba(136,232,255,.16);font-size:.9rem;width:fit-content;max-width:100%;white-space:normal}
     @media (max-width: 1100px){
       #homeScreen .home-feature-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
       #homeScreen .hero{grid-template-columns:1fr}
       #homeScreen .mini-glance-row{grid-template-columns:1fr}
     }
     @media (max-width: 720px){
-      #homeScreen{gap:18px;padding-bottom:112px}
+      #homeScreen{gap:16px;padding-bottom:112px}
+      #homeScreen .hero{margin-top:4px}
+      #homeScreen .hero h1{font-size:clamp(1.85rem,10vw,2.65rem);overflow-wrap:anywhere}
+      #homeScreen .hero-copy>p,#homeScreen .section-copy p,#homeScreen .feature-card p{font-size:1rem;line-height:1.45}
       #homeScreen .hero,#homeScreen .home-section{padding:16px;border-radius:22px}
       #homeScreen .hero-stats,#homeScreen .home-feature-grid{grid-template-columns:1fr}
       #homeScreen .hero-quick-actions .primary-btn,#homeScreen .hero-quick-actions .secondary-btn,#homeScreen .arena-actions .primary-btn,#homeScreen .arena-actions .secondary-btn{width:100%}
@@ -87,7 +89,7 @@
     <header class="topbar">
       <button class="brand" id="brandButton" aria-label="Voltar ao menu principal">
         <span class="brand-icon">🎮</span>
-        <span><b>GAME GUESS</b><small>HOME REDESIGN • GEOGUESS + KOF + QUIZ V19.11.0</small></span>
+        <span><b>GAME GUESS</b><small>RESPONSIVO • KOF + QUIZ + TERMO V19.11.1</small></span>
       </button>
       <div class="top-actions">
         <span class="status-pill" id="apiStatus"><i></i> Pronto</span>
@@ -728,20 +730,18 @@
     </div>
   </div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
   <script src="/firebase-config.js?v=12.0.0" defer></script>
   <script src="/app.js?v=19.10.4" defer></script>
   <script src="/multiverse.js?v=17.0.0" defer></script>
   <script src="/termo.js?v=17.0.0" defer></script>
   <script src="/quiz-bank.js?v=17.0.0" defer></script>
   <script src="/quiz.js?v=17.0.0" defer></script>
-  <script type="module" src="/firebase.js?v=17.9.0"></script>
+  <script type="module" src="/firebase.js?v=19.11.1"></script>
   <script src="/duel.js?v=17.0.0" defer></script>
   <script src="/kof-catalog.js?v=19.10.4" defer></script>
   <script src="/kof-catalog-ui.js?v=19.10.4" defer></script>
   <script src="/kof.js?v=19.10.4" defer></script>
-    <script src="/friends.js?v=17.0.0" defer></script>
-  <script src="/geoguess.js?v=18.5.0" defer></script>
+    <script src="/friends.js?v=19.11.1" defer></script>
 
   <script data-portrait-fix-v19>
     (function(){

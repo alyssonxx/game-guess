@@ -1,4 +1,4 @@
-# Game Guess V19.10.4
+# Game Guess V19.11.1
 
 Versão atual: auditoria completa dos especiais do **KOF 2002 Magic Plus II** — DM, SDM/MAX e HSDM/MAX2 dos 44 personagens, com atalhos simplificados do hack somente quando confirmados.
 
@@ -10,7 +10,7 @@ Versão consolidada do projeto com as correções mobile/KOF até a V19.4.5.
 
 # Game Guess V18.1
 
-GeoGuess com Mapillary + Leaflet/OpenStreetMap, Avatar, KOF, Quiz e multiplayer.
+Avatar, KOF 2002 Magic Plus II, Quiz, Termo, Multiverso e multiplayer.
 
 # Game Guess V17 — Avatar 3D Bean + Social + KOF Full Non-Merged
 
@@ -26,7 +26,7 @@ A loja possui 700 peças (70 x 10 categorias) e os cards exibem o mascote usando
 
 ## Amigos
 
-A V17 adiciona busca por nickname, pedidos de amizade, presença online e convites para KOF, Arena e GeoGuess. Para ativar o sistema, publique o `database.rules.json` desta versão no Firebase Realtime Database.
+O sistema social mantém busca por nickname, pedidos de amizade, presença online e convites para KOF e Arena. Para ativá-lo, publique o `database.rules.json` desta versão no Firebase Realtime Database.
 
 ## KOF
 

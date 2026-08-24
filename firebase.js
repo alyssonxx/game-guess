@@ -32,7 +32,6 @@ let connectedUnsub = null;
 let seasonUnsub = null;
 const duelPresence = new Map();
 const fightPresence = new Map();
-const geoPresence = new Map();
 let authMode = 'login';
 let socialPresenceHandle = null;
 let rankingUnsub = null;
@@ -533,9 +532,6 @@ if(configured){
         for(const h of fightPresence.values()){
           try{await h.dp.remove();await h.dl.set(serverTimestamp());await set(h.pr,{sessionId:CLIENT_SESSION_ID,connectedAt:serverTimestamp(),heartbeatAt:serverTimestamp()});}catch{}
         }
-        for(const h of geoPresence.values()){
-          try{await h.dp.remove();await h.dl.set(serverTimestamp());await set(h.pr,{sessionId:CLIENT_SESSION_ID,connectedAt:serverTimestamp(),heartbeatAt:serverTimestamp()});}catch{}
-        }
         if(socialPresenceHandle){try{await socialPresenceHandle.d.remove();await set(socialPresenceHandle.pr,{sessionId:CLIENT_SESSION_ID,online:true,at:serverTimestamp()});}catch{}}
       }
     });
@@ -592,53 +588,6 @@ function watchSocialInbox(cb){
 }
 
 
-const GEO_PROTOCOL_VERSION=1;
-function geoRoomCode(){const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let out='';for(let i=0;i<6;i++)out+=chars[Math.floor(Math.random()*chars.length)];return out;}
-async function attachGeoPresence(code){
-  if(!currentUser||!db||!code)return;code=String(code).toUpperCase();const key=`${code}:${currentUser.uid}`;if(geoPresence.has(key))return;
-  const pr=ref(db,`geoRooms/${code}/presence/${currentUser.uid}/${CLIENT_SESSION_ID}`),lr=ref(db,`geoRooms/${code}/players/${currentUser.uid}/lastSeen`);
-  const dp=onDisconnect(pr),dl=onDisconnect(lr);await dp.remove();await dl.set(serverTimestamp());await set(pr,{sessionId:CLIENT_SESSION_ID,connectedAt:serverTimestamp(),heartbeatAt:serverTimestamp()});await update(ref(db,`geoRooms/${code}/players/${currentUser.uid}`),{lastSeen:serverNow(),connectionState:'online'}).catch(()=>{});
-  const timer=setInterval(()=>{update(pr,{heartbeatAt:serverTimestamp()}).catch(()=>{});set(lr,serverNow()).catch(()=>{});},8000);geoPresence.set(key,{pr,lr,dp,dl,timer});
-}
-async function detachGeoPresence(code){
-  if(!currentUser||!db||!code)return;code=String(code).toUpperCase();const key=`${code}:${currentUser.uid}`,h=geoPresence.get(key);if(h){clearInterval(h.timer);await h.dp.cancel().catch(()=>{});await h.dl.cancel().catch(()=>{});await remove(h.pr).catch(()=>{});geoPresence.delete(key);}else await remove(ref(db,`geoRooms/${code}/presence/${currentUser.uid}/${CLIENT_SESSION_ID}`)).catch(()=>{});
-}
-async function createGeoRoom(payload={}){
-  if(!currentUser)throw new Error('Faça login antes de criar a sala GeoGuess.');if(!db)throw new Error('Firebase indisponível.');await waitFirebaseOnline(6500);
-  const maxPlayers=Math.max(2,Math.min(8,Number(payload?.maxPlayers||2))),questions=Array.isArray(payload?.questions)?payload.questions.slice(0,8):[];if(!questions.length)throw new Error('Não há rodadas GeoGuess para criar a sala.');
-  for(let attempt=0;attempt<8;attempt++){
-    const code=geoRoomCode(),rr=ref(db,`geoRooms/${code}`),exists=await get(rr);if(exists.exists())continue;const now=serverNow(),name=cleanName(localProfile()?.nickname||currentUser.displayName||currentUser.email?.split('@')[0]);
-    const room={code,protocolVersion:GEO_PROTOCOL_VERSION,appVersion:APP_VERSION,hostUid:currentUser.uid,status:'waiting',roundState:'waiting',createdAt:now,updatedAt:now,expiresAt:now+WAITING_TTL_MS,roundIndex:0,roundDeadline:0,config:{maxPlayers,region:String(payload?.region||'world'),rounds:questions.length},questions,slots:{1:currentUser.uid},players:{[currentUser.uid]:{uid:currentUser.uid,name,slot:1,joinedAt:now,lastSeen:now,connectionState:'online',score:0,roundScore:0,distanceKm:0,submittedRound:-1,guessLat:null,guessLng:null,left:false}}};
-    try{await set(rr,room);await attachGeoPresence(code).catch(()=>{});return code}catch(e){if(String(e?.code||'').includes('PERMISSION'))throw new Error('O Firebase recusou a criação do GeoGuess. Publique o database.rules.json da V15.');}
-  }
-  throw new Error('Não consegui gerar um código de sala agora.');
-}
-async function claimGeoSlot(code,maxPlayers){
-  for(let slot=1;slot<=maxPlayers;slot++){
-    const sr=ref(db,`geoRooms/${code}/slots/${slot}`),result=await runTransaction(sr,current=>{if(current===currentUser.uid)return current;if(current===null||current===undefined)return currentUser.uid;return;},{applyLocally:false});
-    if(result.committed&&result.snapshot?.val()===currentUser.uid){const d=onDisconnect(sr);await d.remove();return {slot,disconnectSlot:d};}
-  }return null;
-}
-async function joinGeoRoom(code){
-  if(!currentUser)throw new Error('Faça login antes de entrar no GeoGuess.');code=String(code||'').trim().toUpperCase();if(!/^[A-Z2-9]{6}$/.test(code))throw new Error('Código inválido.');await waitFirebaseOnline(6500);
-  const rr=ref(db,`geoRooms/${code}`),snap=await get(rr),room=snap.val();if(!room)throw new Error('Sala não encontrada.');if(Number(room.protocolVersion)!==GEO_PROTOCOL_VERSION)throw new Error('Sala incompatível. Atualize o Game Guess.');if(room.players?.[currentUser.uid]){await attachGeoPresence(code).catch(()=>{});return code;}if(room.status!=='waiting')throw new Error('Esta partida já começou.');
-  const maxPlayers=Math.max(2,Math.min(8,Number(room.config?.maxPlayers||2)));if(Object.values(room.players||{}).filter(p=>!p.left).length>=maxPlayers)throw new Error('A sala está lotada.');const claim=await claimGeoSlot(code,maxPlayers);if(!claim)throw new Error('A sala está lotada.');const slot=claim.slot,name=cleanName(localProfile()?.nickname||currentUser.displayName||currentUser.email?.split('@')[0]),now=serverNow(),player={uid:currentUser.uid,name,slot,joinedAt:now,lastSeen:now,connectionState:'online',score:0,roundScore:0,distanceKm:0,submittedRound:-1,guessLat:null,guessLng:null,left:false};
-  try{await set(ref(db,`geoRooms/${code}/players/${currentUser.uid}`),player);await attachGeoPresence(code).catch(()=>{});return code}catch(e){await runTransaction(ref(db,`geoRooms/${code}/slots/${slot}`),v=>v===currentUser.uid?null:v,{applyLocally:false}).catch(()=>{});if(String(e?.code||'').includes('PERMISSION'))throw new Error('O Firebase recusou a entrada. Publique o database.rules.json da V15.');throw e;}
-}
-function watchGeoRoom(code,cb){if(!db||!code)return()=>{};return onValue(ref(db,`geoRooms/${String(code).toUpperCase()}`),s=>cb?.(s.val()||null,null),e=>cb?.(null,e));}
-async function startGeoRoom(code){
-  if(!currentUser)throw new Error('Sessão expirada.');const result=await runTransaction(ref(db,`geoRooms/${String(code).toUpperCase()}`),room=>{if(!room||room.hostUid!==currentUser.uid||room.status!=='waiting')return;const players=Object.values(room.players||{}).filter(p=>!p.left);if(players.length<2)return;const now=serverNow();room.status='playing';room.roundState='playing';room.roundIndex=0;room.roundDeadline=now+60000;room.updatedAt=now;room.expiresAt=now+PLAYING_TTL_MS;for(const p of players){p.submittedRound=-1;p.roundScore=0;p.distanceKm=0;p.guessLat=null;p.guessLng=null;}return room;},{applyLocally:false});if(!result.committed)throw new Error('Não consegui iniciar. Verifique se há pelo menos 2 jogadores.');return result.snapshot.val();
-}
-async function mutateGeoRoom(code,fn){
-  if(!currentUser)throw new Error('Sessão expirada.');const result=await runTransaction(ref(db,`geoRooms/${String(code).toUpperCase()}`),room=>{if(!room||!room.players?.[currentUser.uid])return;const before=JSON.stringify(room),next=fn(room,currentUser.uid);if(!next||JSON.stringify(next)===before)return;next.updatedAt=serverNow();return next;},{applyLocally:false});return {committed:result.committed,value:result.snapshot?.val()||null};
-}
-async function ensureGeoHost(code){
-  if(!currentUser||!code)return;await runTransaction(ref(db,`geoRooms/${String(code).toUpperCase()}`),room=>{if(!room||!room.players?.[currentUser.uid])return;const host=room.players?.[room.hostUid],present=Object.keys(room.presence?.[room.hostUid]||{}).length>0,stale=!host||host.left||(!present&&(serverNow()-Number(host?.lastSeen||0)>HOST_GRACE_MS));if(!stale)return;const replacement=Object.values(room.players||{}).filter(p=>!p.left).sort((a,b)=>Number(a.slot||99)-Number(b.slot||99))[0];if(replacement)room.hostUid=replacement.uid;return room;},{applyLocally:false}).catch(()=>{});
-}
-async function leaveGeoRoom(code){
-  if(!currentUser||!code)return;code=String(code).toUpperCase();await detachGeoPresence(code).catch(()=>{});await runTransaction(ref(db,`geoRooms/${code}`),room=>{if(!room)return;const p=room.players?.[currentUser.uid];if(!p)return;const slot=p.slot;delete room.players[currentUser.uid];if(slot&&room.slots?.[slot]===currentUser.uid)delete room.slots[slot];if(room.hostUid===currentUser.uid){const rep=Object.values(room.players||{}).sort((a,b)=>Number(a.slot||99)-Number(b.slot||99))[0];if(rep)room.hostUid=rep.uid;}if(!Object.keys(room.players||{}).length)return null;room.updatedAt=serverNow();return room;},{applyLocally:false}).catch(()=>{});
-}
-
 window.GameGuessRanked={record:recordRankedResult};
 window.GameGuessFirebase={
   configured, appVersion:APP_VERSION, protocolVersion:PROTOCOL_VERSION, sessionId:CLIENT_SESSION_ID,
@@ -647,7 +596,6 @@ window.GameGuessFirebase={
   createDuelRoom, joinDuelRoom, startDuelRoom, leaveDuelRoom, ensureDuelHost, attachDuelPresence, detachDuelPresence, cleanupExpiredDuel,
   watchDuel, mutateDuel, deleteDuel,getRoom:async code=>configured?(await get(ref(db,`duels/${String(code||'').toUpperCase()}`))).val():null,
   fightProtocolVersion:FIGHT_PROTOCOL_VERSION, createFightRoom, joinFightRoom, watchFightRoom, markFightReady, requestFightLaunch, submitFightResult, claimFightRankedRecord, leaveFightRoom, attachFightPresence, detachFightPresence, getFightRoom:async code=>configured?(await get(ref(db,`fightRooms/${String(code||'').toUpperCase()}`))).val():null,
-  geoProtocolVersion:GEO_PROTOCOL_VERSION, createGeoRoom, joinGeoRoom, watchGeoRoom, startGeoRoom, mutateGeoRoom, ensureGeoHost, leaveGeoRoom, attachGeoPresence, detachGeoPresence, getGeoRoom:async code=>configured?(await get(ref(db,`geoRooms/${String(code||'').toUpperCase()}`))).val():null,
   syncPublicProfile, searchPlayers, sendFriendRequest, respondFriendRequest, removeFriend, getSocialData, sendGameInvite, dismissGameInvite, watchSocialInbox
 };
 
