@@ -243,7 +243,10 @@
 
   function showScreen(id) {
     qsa('.screen').forEach(el => el.classList.toggle('active', el.id === id));
-    window.scrollTo({top:0,behavior:'smooth'});
+    const kofPerformance = id === 'kofPlayScreen';
+    document.body.classList.toggle('kof-performance-active', kofPerformance);
+    document.documentElement.style.scrollBehavior = kofPerformance ? 'auto' : '';
+    window.scrollTo({top:0,behavior:kofPerformance?'auto':'smooth'});
   }
 
   function setApiStatus(type,text) {

@@ -7,6 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <style>
     *{box-sizing:border-box}
+    :root{--gg-portrait-game-h:54dvh;--gg-portrait-deck-h:46dvh}
     html,body{width:100%;height:100%;margin:0;overflow:hidden;background:#050913;color:#fff;font-family:Arial,sans-serif;overscroll-behavior:none;touch-action:manipulation}
     body.gg-mobile-coarse{user-select:none;-webkit-user-select:none}
     #game{position:fixed;inset:0;width:100%;height:100%;margin:0;background:#050913;overflow:hidden}
@@ -35,6 +36,16 @@ body.gg-mobile-coarse.gg-hud-visible #kofHudHotspot{pointer-events:none}
     body.gg-mobile-coarse #kofNetplayMenuButton{display:none!important}
     body.gg-mobile-coarse:not(.gg-hud-visible) #kofNetplayRetry{display:none!important}
     #arcadeHelpModal,#layoutModal,#padModal{position:fixed;inset:0;z-index:90;display:grid;place-items:center;padding:18px;background:rgba(2,5,12,.78);backdrop-filter:blur(8px)}#arcadeHelpModal[hidden],#layoutModal[hidden],#padModal[hidden]{display:none}
+    #layoutModal{overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+    .layout-card{max-height:calc(100dvh - 24px);overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+    .layout-head{position:sticky;top:-20px;z-index:4;margin:-20px -20px 12px;padding:18px 20px 12px;background:linear-gradient(180deg,#111b30 80%,rgba(17,27,48,.94));border-bottom:1px solid rgba(66,232,255,.16)}
+    .layout-quick-actions{position:sticky;top:55px;z-index:3;display:grid;grid-template-columns:1fr auto;gap:8px;margin:0 0 14px;padding:10px;border:1px solid rgba(66,232,255,.32);border-radius:13px;background:rgba(7,16,32,.96);box-shadow:0 8px 22px rgba(0,0,0,.2)}
+    .layout-position-edit{border:1px solid #42e8ff;border-radius:10px;padding:12px 14px;background:linear-gradient(135deg,#26d8f2,#518bff);color:#04111c;font-weight:1000;cursor:pointer}.layout-position-reset{border:1px solid #3a5378;border-radius:10px;padding:10px 12px;background:#121d31;color:#fff;font-weight:900;cursor:pointer}
+    .layout-size-box,.layout-guide-box{margin-top:14px;padding:13px;border:1px solid #2f4161;border-radius:13px;background:#0b1425}.layout-size-box h3,.layout-guide-box h3{margin:0 0 10px;font-size:.95rem}.layout-size-grid{display:grid;grid-template-columns:1fr 1.5fr auto;gap:8px;align-items:center}.layout-size-grid select,.layout-guide-box select{width:100%;padding:10px 11px;border-radius:10px;border:1px solid #35507d;background:#0d1728;color:#fff;font-weight:800}.layout-size-grid input[type=range]{width:100%}.layout-size-value{min-width:56px;text-align:center;font-weight:900;color:#67eaff}.layout-size-buttons{display:flex;gap:8px;margin-top:9px}.layout-size-buttons button{flex:1;border:1px solid #35507d;background:#121d31;color:#fff;border-radius:10px;padding:9px;font-weight:900}.layout-guide-row{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:center}.layout-guide-toggle{display:flex;align-items:center;gap:8px;font-weight:800}.layout-guide-toggle input{width:20px;height:20px}.layout-guide-box small{display:block;color:#9bb2cf;line-height:1.4;margin-top:8px}
+    #ggCharacterQuickGuide{position:fixed;z-index:69;right:max(10px,env(safe-area-inset-right));top:max(62px,env(safe-area-inset-top));width:min(330px,46vw);max-height:min(58dvh,420px);overflow:auto;padding:10px;border:1px solid rgba(93,194,255,.72);border-radius:14px;background:linear-gradient(145deg,rgba(3,42,91,.92),rgba(4,19,48,.94));box-shadow:0 14px 38px rgba(0,0,0,.32);backdrop-filter:blur(6px);pointer-events:auto;font-size:12px;line-height:1.3}#ggCharacterQuickGuide[hidden]{display:none!important}.gg-guide-head{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:7px}.gg-guide-head b{font-size:13px;color:#dff8ff}.gg-guide-close{border:0;background:rgba(255,255,255,.1);color:#fff;border-radius:7px;width:28px;height:28px}.gg-guide-move{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;padding:6px 0;border-top:1px solid rgba(150,220,255,.14)}.gg-guide-move code{color:#fff;font-weight:900;white-space:nowrap}.gg-guide-combo{margin-top:7px;padding:7px;border-radius:8px;background:rgba(38,155,255,.14);color:#dff5ff}.gg-guide-tip{margin-top:6px;color:#b9d5f1}
+    @media(max-width:620px){#layoutModal{place-items:start center;padding:6px}.layout-card{width:100%;max-height:calc(100dvh - 12px);border-radius:14px;padding:14px}.layout-head{top:-14px;margin:-14px -14px 8px;padding:14px}.layout-head h2{font-size:1rem}.layout-head .layout-close{min-height:44px}.layout-quick-actions{top:52px;grid-template-columns:1fr;padding:8px}.layout-position-edit{min-height:48px}.layout-position-reset{min-height:42px}.layout-grid{grid-template-columns:1fr}.layout-preview{grid-template-columns:repeat(4,1fr);gap:7px;padding:9px}.layout-preview-slot{min-height:54px;max-width:58px;font-size:1.45rem}.layout-preview small{grid-column:1/-1}.layout-stick{display:none}.layout-size-grid{grid-template-columns:1fr}.layout-size-value{text-align:left}.layout-guide-row{grid-template-columns:1fr}.layout-form{grid-template-columns:1fr 1fr}.layout-field label{font-size:.76rem}.layout-field select{padding:9px}.layout-note{font-size:.8rem}.layout-actions{display:grid;grid-template-columns:1fr}.layout-actions button{min-height:44px}.layout-position-actions{display:none!important}#ggCharacterQuickGuide{right:8px;left:auto;top:54px;width:min(320px,72vw);max-height:42dvh;font-size:11px}}
+    @media(orientation:portrait) and (max-width:620px){body.gg-mobile-coarse.gameplay-active #ggCharacterQuickGuide{top:8px;right:8px;width:min(310px,68vw);max-height:44dvh}}
+
     .arcade-help-card,.layout-card,.pad-card{width:min(760px,96vw);border:1px solid #354a70;border-radius:18px;background:linear-gradient(145deg,#111b30,#080e1b);box-shadow:0 28px 90px rgba(0,0,0,.55);padding:20px}
     .arcade-help-head,.layout-head,.pad-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:15px}.arcade-help-head h2,.layout-head h2,.pad-head h2{margin:0;font-size:1.15rem}.arcade-help-close,.layout-close,.pad-close{border:1px solid #405476;background:#131e32;color:#fff;border-radius:9px;padding:7px 10px;cursor:pointer}
     .arcade-help-layout{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0}.arcade-key,.layout-preview-slot{display:grid;place-items:center;min-height:72px;border-radius:50%;aspect-ratio:1;max-width:86px;justify-self:center;font-size:2rem;font-weight:1000;border:3px solid rgba(255,255,255,.72);box-shadow:inset 0 -8px 18px rgba(0,0,0,.22),0 8px 22px rgba(0,0,0,.22)}
@@ -114,10 +125,165 @@ body.gg-mobile-coarse.gg-hud-visible #kofHudHotspot{pointer-events:none}
     body.gg-mobile-coarse #game [class*="virtualGamepad"]{background:transparent!important;box-shadow:none!important;border:none!important}
     body.gg-mobile-coarse #game [id^="gg-neo-"]{pointer-events:auto!important;touch-action:none!important}
     body.gg-mobile-coarse .gg-kof-combo{pointer-events:auto!important;touch-action:none!important;opacity:.52}
+
+    /* V19.4.6 — overlay mobile próprio: não depende do controle visual do EmulatorJS */
+    #ggMobileArcadeControls{position:fixed;inset:0;z-index:72;pointer-events:none;overflow:hidden}
+    #ggMobileArcadeControls[hidden]{display:none!important}
+    #ggMobileArcadeControls>*{position:absolute;pointer-events:auto;-webkit-tap-highlight-color:transparent;touch-action:none;user-select:none;-webkit-user-select:none}
+    .gg-custom-stick{width:118px;height:118px;border-radius:50%;border:2px solid rgba(31,222,228,.36);background:rgba(0,169,178,.20);box-shadow:inset 0 0 24px rgba(0,200,210,.13);display:grid;place-items:center;opacity:.72}
+    .gg-custom-stick-knob{width:52%;height:52%;border-radius:50%;background:rgba(0,211,219,.32);border:1px solid rgba(78,244,247,.20);box-shadow:0 4px 12px rgba(0,0,0,.15);transform:translate3d(0,0,0);pointer-events:none}
+    .gg-custom-action{width:62px;height:62px;padding:0;border-radius:50%;border:1.5px solid rgba(238,244,255,.43);background:rgba(18,24,38,.22);color:rgba(244,248,255,.70);font:900 22px/1 Arial,sans-serif;text-shadow:0 1px 2px #000;display:grid;place-items:center;opacity:.80}
+    .gg-custom-action.gg-macro{font-size:12px;letter-spacing:.01em}
+    .gg-custom-action.gg-max{border-color:rgba(63,225,255,.62)}
+    .gg-custom-action.gg-dodge{border-color:rgba(255,214,77,.60)}
+    .gg-custom-system{min-width:70px;height:42px;padding:0 10px;border-radius:10px;border:1.5px solid rgba(238,244,255,.48);background:rgba(20,25,35,.34);color:rgba(248,250,255,.75);font:900 14px/1 Arial,sans-serif;opacity:.82}
+    #ggMobileArcadeControls .gg-pressed{opacity:1!important;filter:none!important}
+    body.gg-own-mobile-controls #game #gg-neo-stick,
+    body.gg-own-mobile-controls #game [id^="gg-neo-a-"],
+    body.gg-own-mobile-controls #game [id^="gg-neo-b-"],
+    body.gg-own-mobile-controls #game [id^="gg-neo-c-"],
+    body.gg-own-mobile-controls #game [id^="gg-neo-d-"],
+    body.gg-own-mobile-controls #game #gg-neo-coin,
+    body.gg-own-mobile-controls #game #gg-neo-start{opacity:0!important;visibility:hidden!important;pointer-events:none!important}
+    body.gg-own-mobile-controls #ggKofCombos{display:none!important}
+    body.gg-layout-editing #ggMobileArcadeControls>*{outline:2px dashed rgba(85,235,255,.94)!important;outline-offset:4px!important;opacity:.94!important;cursor:move!important;pointer-events:auto!important}
+    body.gg-layout-editing #ggMobileArcadeControls .gg-custom-stick{outline-color:rgba(76,238,223,.98)!important}
+    body.gg-layout-editing #ggMobileArcadeControls .gg-editor-selected{outline:3px solid #ffd85c!important;outline-offset:5px!important}
+    .hud-editor-btn.size{border-color:#436b83;color:#b9f4ff;background:#102335}
+    @media(orientation:landscape) and (max-height:620px){
+      #hudEditor{top:max(4px,env(safe-area-inset-top));padding:5px 7px;gap:5px;max-width:calc(100vw - 18px);overflow-x:auto}
+      #hudEditor strong{font-size:.62rem}.hud-editor-btn{padding:6px 7px;font-size:.60rem}
+    }
+
+    /* V19.4.7 — skin arcade vertical + controles transparentes no horizontal */
+    #ggPortraitArcadeDeck{display:none;position:fixed;left:0;right:0;bottom:0;height:var(--gg-portrait-deck-h);z-index:64;pointer-events:none;background:
+      radial-gradient(circle at 14% 0%,rgba(151,28,20,.34),transparent 32%),
+      radial-gradient(circle at 86% 0%,rgba(16,67,148,.32),transparent 32%),
+      linear-gradient(180deg,#34373c 0%,#23262b 8%,#16191d 100%);
+      border-top:3px solid #676b72;box-shadow:0 -10px 28px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.18);overflow:hidden}
+    #ggPortraitArcadeDeck:before,#ggPortraitArcadeDeck:after{content:"";position:absolute;top:0;bottom:0;width:7px}
+    #ggPortraitArcadeDeck:before{left:0;background:linear-gradient(#e13223,#641712,#e13223);box-shadow:4px 0 16px rgba(235,50,34,.28)}
+    #ggPortraitArcadeDeck:after{right:0;background:linear-gradient(#1c76d4,#11366e,#1c76d4);box-shadow:-4px 0 16px rgba(44,121,228,.24)}
+    .gg-deck-vent{position:absolute;top:14px;width:72px;height:20px;opacity:.72;background:repeating-linear-gradient(90deg,#090a0c 0 5px,transparent 5px 11px);border-radius:4px}
+    .gg-deck-vent-left{left:34px}.gg-deck-vent-right{right:34px}
+    .gg-portrait-utility{position:absolute;left:auto;right:18px;top:14px;transform:none;display:flex;gap:8px;pointer-events:auto}
+    .gg-portrait-utility button{height:38px;padding:0 14px;border-radius:7px;border:2px solid #6d7580;color:#f5f8ff;font:800 12px/1 Arial,sans-serif;letter-spacing:.03em;background:linear-gradient(#173e79,#0a1b3c 58%,#071329);box-shadow:0 3px 0 #07090c,0 0 0 2px #191c20,inset 0 1px 5px rgba(255,255,255,.18);text-shadow:0 1px 2px #000}
+
+    @media(orientation:portrait){
+      body.gg-mobile-coarse.gameplay-active #ggPortraitArcadeDeck{display:block}
+      body.gg-mobile-coarse.gameplay-active #game{top:0!important;bottom:auto!important;height:var(--gg-portrait-game-h)!important;min-height:var(--gg-portrait-game-h)!important;max-height:var(--gg-portrait-game-h)!important}
+      body.gg-mobile-coarse.gameplay-active #game>*,body.gg-mobile-coarse.gameplay-active #game canvas{max-height:var(--gg-portrait-game-h)!important}
+      body.gg-mobile-coarse .gg-custom-stick{border-radius:18px!important;border:1px solid #8a8e93!important;background:
+        radial-gradient(circle at 50% 50%,#111 0 36%,#050505 37% 47%,transparent 48%),
+        linear-gradient(145deg,#d8dadd,#888d92 45%,#d7d9db 70%,#777c82)!important;
+        box-shadow:0 7px 15px rgba(0,0,0,.55),inset 0 0 0 5px rgba(255,255,255,.12),inset 0 -10px 18px rgba(0,0,0,.18)!important;opacity:1!important}
+      body.gg-mobile-coarse .gg-custom-stick:before{content:"";position:absolute;inset:18%;border-radius:50%;background:radial-gradient(circle,#090909 0 58%,#272727 60% 68%,#050505 70%);box-shadow:inset 0 0 0 2px #5b5b5b,0 2px 5px rgba(0,0,0,.5);pointer-events:none}
+      body.gg-mobile-coarse .gg-custom-stick-knob{width:48%!important;height:48%!important;z-index:2;background:radial-gradient(circle at 35% 28%,#ff7870 0 8%,#ef241b 23%,#b80d08 58%,#5c0504 100%)!important;border:2px solid #ff8b80!important;box-shadow:0 8px 12px rgba(0,0,0,.45),inset 0 -9px 14px rgba(80,0,0,.45),inset 0 6px 10px rgba(255,255,255,.28)!important}
+      body.gg-mobile-coarse .gg-custom-action{opacity:1!important;border:4px solid #b9bec3!important;box-shadow:0 5px 8px rgba(0,0,0,.5),0 0 0 2px #4d5258,inset 0 5px 10px rgba(255,255,255,.35),inset 0 -8px 12px rgba(0,0,0,.35)!important;color:#161616!important;text-shadow:0 1px rgba(255,255,255,.28)!important}
+      body.gg-mobile-coarse .gg-custom-action.gg-a,body.gg-mobile-coarse .gg-custom-action.gg-b{background:radial-gradient(circle at 35% 28%,#ff766d 0 7%,#f01f17 27%,#bf100a 63%,#690503 100%)!important}
+      body.gg-mobile-coarse .gg-custom-action.gg-c,body.gg-mobile-coarse .gg-custom-action.gg-d{background:radial-gradient(circle at 35% 28%,#82f7ff 0 7%,#16cde7 27%,#0098c0 62%,#045067 100%)!important}
+      body.gg-mobile-coarse .gg-custom-action.gg-macro{border-width:3px!important;color:#fff!important;font-weight:900!important;text-shadow:0 1px 2px #000!important}
+      body.gg-mobile-coarse .gg-custom-action.gg-max{background:radial-gradient(circle at 35% 28%,#ff746b,#ef2017 30%,#9d0b07 72%,#500402)!important;border-color:#b9bec3!important}
+      body.gg-mobile-coarse .gg-custom-action.gg-dodge{background:radial-gradient(circle at 35% 28%,#57a7ff,#155ccb 32%,#0b3288 72%,#061a48)!important;border-color:#b9bec3!important}
+      body.gg-mobile-coarse .gg-custom-action.gg-dm{background:radial-gradient(circle at 35% 28%,#9cf29d,#2ebf4f 28%,#0e7a2a 68%,#063915)!important;border-color:#b9bec3!important;color:#fff!important}
+      body.gg-mobile-coarse .gg-custom-action.gg-hsdm{background:radial-gradient(circle at 35% 28%,#ff8df4,#d838c7 28%,#86247b 68%,#3a1035)!important;border-color:#b9bec3!important;color:#fff!important}
+      body.gg-mobile-coarse .gg-custom-action.gg-sdm{background:radial-gradient(circle at 35% 28%,#ffd772,#f0a71d 28%,#c96d02 68%,#5d2c00 100%)!important;border-color:#b9bec3!important;color:#241000!important}
+      body.gg-mobile-coarse .gg-custom-system{opacity:1!important;height:auto!important;border:2px solid #767d84!important;border-radius:7px!important;background:linear-gradient(#a31a16,#5e0806 55%,#310403)!important;color:#fff!important;box-shadow:0 3px 0 #060708,0 0 0 2px #1a1d21,inset 0 1px 4px rgba(255,255,255,.18)!important;text-shadow:0 1px 2px #000!important}
+      body.gg-mobile-coarse #ggCustomStart{background:linear-gradient(#174c9a,#09285d 55%,#061632)!important}
+      body.gg-mobile-coarse.gg-layout-editing #ggPortraitArcadeDeck{opacity:.55}
+    }
+
+    @media(orientation:landscape){
+      body.gg-mobile-coarse #ggPortraitArcadeDeck{display:none!important}
+      body.gg-mobile-coarse.gameplay-active #game{inset:0!important;width:100vw!important;height:100dvh!important;max-height:none!important}
+      body.gg-mobile-coarse .gg-custom-stick{border-radius:50%!important;border:2px solid rgba(28,218,224,.24)!important;background:rgba(0,157,168,.13)!important;box-shadow:inset 0 0 28px rgba(0,217,225,.11)!important;opacity:.46!important}
+      body.gg-mobile-coarse .gg-custom-stick:before{display:none!important}
+      body.gg-mobile-coarse .gg-custom-stick-knob{width:52%!important;height:52%!important;background:rgba(0,205,213,.25)!important;border:1px solid rgba(99,245,247,.16)!important;box-shadow:none!important}
+      body.gg-mobile-coarse .gg-custom-action{background:rgba(10,15,24,.12)!important;border:1.5px solid rgba(238,244,255,.32)!important;color:rgba(248,250,255,.62)!important;box-shadow:none!important;opacity:.44!important;text-shadow:0 1px 2px rgba(0,0,0,.8)!important}
+      body.gg-mobile-coarse .gg-custom-action.gg-max{border-color:rgba(63,225,255,.48)!important;background:rgba(17,117,139,.10)!important}
+      body.gg-mobile-coarse .gg-custom-action.gg-dodge{border-color:rgba(255,214,77,.44)!important;background:rgba(150,114,12,.08)!important}
+      body.gg-mobile-coarse .gg-custom-action.gg-sdm{border-color:rgba(255,168,61,.48)!important;background:rgba(158,93,16,.10)!important}
+      body.gg-mobile-coarse .gg-custom-action.gg-dm{border-color:rgba(71,203,103,.48)!important;background:rgba(17,107,47,.10)!important}
+      body.gg-mobile-coarse .gg-custom-action.gg-hsdm{border-color:rgba(230,94,215,.48)!important;background:rgba(129,28,115,.12)!important}
+      body.gg-mobile-coarse .gg-custom-system{background:rgba(10,15,24,.12)!important;border:1px solid rgba(238,244,255,.26)!important;color:rgba(248,250,255,.58)!important;box-shadow:none!important;opacity:.42!important}
+      body.gg-mobile-coarse #ggMobileArcadeControls .gg-pressed{opacity:.88!important;filter:none!important}
+    }
+
+
+    /* V19.6.0 — arquitetura de entrada única / layout estável */
+    body.gg-mobile-coarse.gameplay-active{background:#050913!important}
+    body.gg-own-mobile-controls #game .ejs_virtualGamepad_parent,
+    body.gg-own-mobile-controls #game .ejs_virtual_gamepad_parent,
+    body.gg-own-mobile-controls #game [class*="virtualGamepad"],
+    body.gg-own-mobile-controls #game [class*="virtual_gamepad"]{
+      display:none!important;visibility:hidden!important;opacity:0!important;pointer-events:none!important
+    }
+    body.gg-own-mobile-controls #ggMobileArcadeControls{display:block!important}
+    #ggMobileArcadeControls,.gg-custom-stick,.gg-custom-action,.gg-custom-system{
+      transition:none!important;animation:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important
+    }
+    #ggMobileArcadeControls{isolation:isolate}
+    .gg-custom-stick-knob{will-change:transform}
+    body.gg-mobile-coarse.gameplay-active #game canvas{touch-action:none!important;image-rendering:auto}
+    body.gg-mobile-coarse.gameplay-active #kofNetplayStatus{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+    body.gg-mobile-coarse.gameplay-active .gg-kof-toolbar{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+    @media(orientation:portrait){
+      body.gg-mobile-coarse.gameplay-active #ggPortraitArcadeDeck{height:var(--gg-portrait-deck-h)!important;display:block!important}
+      body.gg-mobile-coarse.gameplay-active #game{height:var(--gg-portrait-game-h)!important;min-height:var(--gg-portrait-game-h)!important;max-height:var(--gg-portrait-game-h)!important}
+      body.gg-mobile-coarse.gameplay-active #ggMobileArcadeControls{inset:0!important}
+    }
+    @media(orientation:landscape){
+      body.gg-mobile-coarse.gameplay-active #ggPortraitArcadeDeck{display:none!important}
+      body.gg-mobile-coarse.gameplay-active #game{inset:0!important;width:100vw!important;height:100dvh!important;max-height:none!important}
+      body.gg-mobile-coarse .gg-custom-action,
+      body.gg-mobile-coarse .gg-custom-system{box-shadow:none!important;filter:none!important}
+    }
+
+    /* V19.6.0 — superfície de controle determinística + custo mínimo no caminho de input */
+    #ggMobileArcadeControls{contain:layout style paint;isolation:isolate}
+    #ggMobileArcadeControls>*{position:absolute!important}
+    #ggMobileArcadeControls .gg-pressed{filter:none!important}
+    @media(orientation:portrait){
+      body.gg-mobile-coarse.gameplay-active #ggMobileArcadeControls{
+        left:0!important;right:0!important;top:var(--gg-portrait-game-h)!important;bottom:0!important;
+        width:100vw!important;height:var(--gg-portrait-deck-h)!important;inset:auto 0 0 0!important;
+        overflow:hidden!important
+      }
+      body.gg-mobile-coarse.gameplay-active #ggPortraitArcadeDeck{height:var(--gg-portrait-deck-h)!important}
+      body.gg-mobile-coarse.gameplay-active #game{top:0!important;bottom:auto!important;height:var(--gg-portrait-game-h)!important;min-height:var(--gg-portrait-game-h)!important;max-height:var(--gg-portrait-game-h)!important}
+      body.gg-mobile-coarse.gameplay-active #game canvas{max-height:var(--gg-portrait-game-h)!important}
+    }
+    @media(orientation:landscape){
+      body.gg-mobile-coarse.gameplay-active #ggMobileArcadeControls{
+        inset:0!important;left:0!important;top:0!important;width:100vw!important;height:100dvh!important;overflow:hidden!important
+      }
+    }
   </style>
 </head>
 <body>
   <div id="game"></div>
+  <div id="ggPortraitArcadeDeck" aria-label="Painel arcade vertical">
+    <div class="gg-deck-vent gg-deck-vent-left"></div>
+    <div class="gg-deck-vent gg-deck-vent-right"></div>
+    <div class="gg-portrait-utility">
+      <button id="ggPortraitOption" type="button">OPTION</button>
+      <button id="ggPortraitMenu" type="button">EXIT / MENU</button>
+    </div>
+  </div>
+  <div id="ggMobileArcadeControls" hidden aria-label="Controles arcade móveis personalizáveis">
+    <div id="ggCustomStick" class="gg-custom-stick" data-gg-drag-key="stick" aria-label="Alavanca 360 graus"><span class="gg-custom-stick-knob"></span></div>
+    <button id="ggCustomA" class="gg-custom-action gg-a" data-gg-action="a" data-gg-drag-key="a" type="button">A</button>
+    <button id="ggCustomB" class="gg-custom-action gg-b" data-gg-action="b" data-gg-drag-key="b" type="button">B</button>
+    <button id="ggCustomC" class="gg-custom-action gg-c" data-gg-action="c" data-gg-drag-key="c" type="button">C</button>
+    <button id="ggCustomD" class="gg-custom-action gg-d" data-gg-action="d" data-gg-drag-key="d" type="button">D</button>
+    <button id="ggCustomMax" class="gg-custom-action gg-macro gg-max" data-gg-action="max" data-gg-drag-key="max" type="button">MAX</button>
+    <button id="ggCustomDodge" class="gg-custom-action gg-macro gg-dodge" data-gg-action="dodge" data-gg-drag-key="dodge" type="button">ESQUIVA</button>
+    <button id="ggCustomDm" class="gg-custom-action gg-macro gg-dm" data-gg-action="dm" data-gg-drag-key="dm" type="button">DM</button>
+    <button id="ggCustomSdm" class="gg-custom-action gg-macro gg-sdm" data-gg-action="sdm" data-gg-drag-key="sdm" type="button">SDM</button>
+    <button id="ggCustomHsdm" class="gg-custom-action gg-macro gg-hsdm" data-gg-action="hsdm" data-gg-drag-key="hsdm" type="button">HSDM</button>
+    <button id="ggCustomCoin" class="gg-custom-system" data-gg-action="coin" data-gg-drag-key="coin" type="button">COIN</button>
+    <button id="ggCustomStart" class="gg-custom-system" data-gg-action="start" data-gg-drag-key="start" type="button">START</button>
+  </div>
   <button id="kofHudHotspot" type="button" aria-label="Mostrar controles do KOF"></button>
   <div class="gg-kof-toolbar" aria-label="Opções de visualização do KOF">
     <div class="gg-kof-toolbar-group">
@@ -136,8 +302,10 @@ body.gg-mobile-coarse.gg-hud-visible #kofHudHotspot{pointer-events:none}
     <button class="gg-kof-combo combo-max" id="ggKofBurstButton" type="button"><b>MAX</b></button>
     <button class="gg-kof-combo combo-roll" id="ggKofDodgeButton" type="button"><b>ESQUIVA</b></button>
   </div>
-  <div id="hudEditor" hidden aria-label="Editor de posição dos controles">
-    <strong>ARRASTE OS CONTROLES</strong>
+  <div id="hudEditor" hidden aria-label="Editor de posição e tamanho dos controles">
+    <strong id="hudEditorSelected">ARRASTE • TOQUE NUM BOTÃO</strong>
+    <button class="hud-editor-btn size" id="hudSizeDown" type="button">− TAM</button>
+    <button class="hud-editor-btn size" id="hudSizeUp" type="button">+ TAM</button>
     <button class="hud-editor-btn save" id="hudEditorSave" type="button">SALVAR</button>
     <button class="hud-editor-btn reset" id="hudEditorReset" type="button">PADRÃO</button>
     <button class="hud-editor-btn cancel" id="hudEditorCancel" type="button">CANCELAR</button>
@@ -145,6 +313,22 @@ body.gg-mobile-coarse.gg-hud-visible #kofHudHotspot{pointer-events:none}
   <div id="layoutModal" hidden role="dialog" aria-modal="true" aria-labelledby="layoutTitle">
     <div class="layout-card">
       <div class="layout-head"><h2 id="layoutTitle">🕹️ PERSONALIZAR CONTROLES DO CELULAR</h2><button class="layout-close" id="layoutClose" type="button">✕ FECHAR</button></div>
+      <div class="layout-quick-actions"><button class="layout-position-edit" id="layoutPositionEdit" type="button">✥ EDITAR POSIÇÃO E TAMANHO AGORA</button><button class="layout-position-reset" id="layoutPositionReset" type="button">↺ PADRÃO DESTA TELA</button></div>
+      <div class="layout-size-box">
+        <h3>📏 Tamanho direto dos controles</h3>
+        <div class="layout-size-grid"><select id="layoutSizeControl" aria-label="Controle para redimensionar"><option value="stick">ALAVANCA</option><option value="a">A</option><option value="b">B</option><option value="c">C</option><option value="d">D</option><option value="max">MAX</option><option value="dodge">ESQUIVA</option><option value="dm">DM</option><option value="sdm">SDM</option><option value="hsdm">HSDM</option><option value="coin">COIN</option><option value="start">START</option></select><input id="layoutSizeRange" type="range" min="42" max="190" step="2" value="118"><span id="layoutSizeValue" class="layout-size-value">118 px</span></div>
+        <div class="layout-size-buttons"><button id="layoutSizeMinus" type="button">− MENOR</button><button id="layoutSizePlus" type="button">+ MAIOR</button></div>
+      </div>
+      <div class="layout-guide-box">
+        <h3>🔵 Guia azul de 1 personagem</h3>
+        <div class="layout-guide-row"><label class="layout-guide-toggle"><input id="quickGuideEnabled" type="checkbox"> Mostrar durante a luta</label><select id="quickGuideCharacter" aria-label="Personagem da guia azul"></select></div>
+        <div class="layout-guide-row" style="display:block;margin-top:10px">
+          <label class="layout-guide-toggle"><input id="dmButtonEnabled" type="checkbox"> Mostrar botão DM automático</label><br>
+          <label class="layout-guide-toggle"><input id="sdmButtonEnabled" type="checkbox"> Mostrar botão SDM automático</label><br>
+          <label class="layout-guide-toggle"><input id="hsdmButtonEnabled" type="checkbox"> Mostrar botão HSDM/MAX2 automático</label>
+        </div>
+        <small>Os botões <b>DM</b>, <b>SDM</b> e <b>HSDM/MAX2</b> usam o personagem escolhido na guia azul / catálogo. O SDM ativa MAX corretamente com <b>B+C</b> antes do comando. HSDM/MAX2 ainda exige as condições normais do KOF 2002 (vida vermelha e, em alguns personagens, distância/ar/estado específico).</small>
+      </div>
       <div class="layout-grid">
         <div>
           <div class="layout-preview" aria-label="Prévia da ordem A B C D">
@@ -164,8 +348,7 @@ body.gg-mobile-coarse.gg-hud-visible #kofHudHotspot{pointer-events:none}
         </div>
       </div>
       <div class="layout-actions"><button class="layout-save" id="layoutSave" type="button">SALVAR ORDEM DOS BOTÕES</button><button class="layout-reset" id="layoutReset" type="button">RESTAURAR PADRÃO</button></div>
-      <div class="layout-position-actions"><button class="layout-position-edit" id="layoutPositionEdit" type="button">✥ EDITAR POSIÇÕES NA TELA</button><button class="layout-position-reset" id="layoutPositionReset" type="button">↺ RESETAR POSIÇÕES</button></div>
-      <div class="layout-note">A ordem A/B/C/D e a posição de cada controle ficam salvas neste aparelho. Use <b>EDITAR POSIÇÕES NA TELA</b> para arrastar alavanca, A/B/C/D, MAX, ESQUIVA, COIN e START. O layout é salvo separadamente para vertical e horizontal.</div>
+      <div class="layout-note">A ordem A/B/C/D e a posição de cada controle ficam salvas neste aparelho. Use <b>EDITAR POSIÇÃO E TAMANHO AGORA</b> para arrastar alavanca, A/B/C/D, MAX, ESQUIVA, COIN e START. Toque em um controle e use <b>− TAM / + TAM</b> para mudar o tamanho. Posição e tamanho são salvos separadamente para vertical e horizontal.</div>
     </div>
   </div>
   <div id="padModal" hidden role="dialog" aria-modal="true" aria-labelledby="padTitle">
@@ -222,7 +405,9 @@ body.gg-mobile-coarse.gg-hud-visible #kofHudHotspot{pointer-events:none}
       <div class="arcade-help-note">Celular: alavanca 360° + layout personalizável + atalhos <b>MAX = B+C</b> e <b>ESQUIVA = A+B</b>. PC/Android com controle: abra <b>🎮 CONTROLE</b> para detectar o gamepad, usar o padrão sugerido e salvar um mapeamento próprio.</div>
     </div>
   </div>
+  <aside id="ggCharacterQuickGuide" hidden aria-live="polite"><div class="gg-guide-head"><b id="ggGuideName">GUIA RÁPIDO</b><button id="ggGuideClose" class="gg-guide-close" type="button" aria-label="Fechar guia">✕</button></div><div id="ggGuideMoves"></div><div id="ggGuideCombo" class="gg-guide-combo"></div><div id="ggGuideTip" class="gg-guide-tip"></div></aside>
   <div id="boot"><div class="panel"><b>🥊 KOF 2002 Magic Plus II</b><small id="bootText">Preparando FBNeo.</small><button id="startKofButton" type="button">INICIAR KOF</button></div></div>
-  <script src="/kof-player.js?v=19.4.5"></script>
+  <script src="/kof-catalog.js?v=19.9.1"></script>
+  <script src="/kof-player.js?v=19.9.1"></script>
 </body>
 </html>

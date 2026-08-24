@@ -28,11 +28,7 @@ export default async function handler(req,res){
     return;
   }
 
-  const upstream=String(process.env.KOF_NETPLAY_SERVER||'').trim().replace(/\/+$/,'');
-  if(!upstream){
-    res.status(503).json({ok:false,error:'netplay_server_not_configured'});
-    return;
-  }
+  const upstream=String(process.env.KOF_NETPLAY_SERVER||'https://netplay.emulatorjs.org').trim().replace(/\/+$/,'') || 'https://netplay.emulatorjs.org';
   if(!/^https:\/\//i.test(upstream)){
     res.status(500).json({ok:false,error:'netplay_server_must_use_https'});
     return;
@@ -47,7 +43,7 @@ export default async function handler(req,res){
       method:'GET',
       cache:'no-store',
       signal:controller.signal,
-      headers:{accept:'application/json','user-agent':'GameGuess-Netplay-Proxy/19.1'}
+      headers:{accept:'application/json','user-agent':'GameGuess-Netplay-Proxy/19.7'}
     });
 
     const raw=await response.text();

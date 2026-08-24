@@ -1,2 +1,1 @@
-Game Guess V19.4.5
-Build consolidado corrigido
+Game Guess V19.9.1

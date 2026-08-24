@@ -3,9 +3,10 @@
   const $=id=>document.getElementById(id),CORE=()=>window.GameGuessCore,FB=()=>window.GameGuessFirebase;
   const WEB_GAME='/roms/v178/kf2k2mp2.zip';
   const EXPECTED_GAME_BYTES=86694745;
-  const KOF_WEB_VERSION='19.1.0';
-  const KOF_EMULATOR_VERSION='4.3.0-pre';
-  const FBN_BUILD='treino 4.2.1 / online WebRTC 4.3.0-pre';
+  const KOF_WEB_VERSION='19.9.1';
+  const KOF_TRAINING_EMULATOR_VERSION='4.2.3';
+  const KOF_ONLINE_EMULATOR_VERSION='4.3.0-pre';
+  const FBN_BUILD='FBNeo • treino 4.2.3 • online 4.3.0-pre';
   let roomCode='',room=null,unsub=null,launched=false,lastReadyRoom='',lastLaunchAtHandled=0;
   let launchInFlight=false,launchPollTimer=0,roomSessionArmed=false;
   let assetCache={at:0,ready:false,detail:null};
@@ -37,11 +38,12 @@
     try{
       const r=await fetch('/api/kof-health',{cache:'no-store'}),d=await r.json();
       const trainingEmu=Boolean(d?.trainingEmulator?.ok),onlineEmu=Boolean(d?.onlineEmulator?.ok),emu=trainingEmu&&onlineEmu,core=Boolean(d?.coreReport?.ok),rom=Boolean(d?.rom?.sizeMatches),net=Boolean(d?.netplay?.ok),netConfigured=Boolean(d?.netplayConfigured);
-      configuredNetplayServer=String(d?.netplay?.url||'').trim();
+      configuredNetplayServer=String(d?.netplay?.url||'https://netplay.emulatorjs.org').trim();
+      const netSource=d?.netplaySource==='dedicated'?'dedicado':'público automático';
       const serverField=$('kofNetplayServer');
-      if(serverField){serverField.value=configuredNetplayServer||'Configure KOF_NETPLAY_SERVER no Vercel';serverField.readOnly=true;serverField.disabled=false;}
-      if(el)el.textContent=emu&&core&&rom?`✅ Treino EJS 4.2.1 • Online EJS ${KOF_EMULATOR_VERSION} WebRTC • FBNeo • ROM ${mb(d?.rom?.size)}${!netConfigured?' • ⚠️ servidor PVP não configurado':net?' • Netplay dedicado OK':' • Netplay dedicado acordando/pendente'}`:'🟡 Diagnóstico incompleto — use REVERIFICAR ROM';
-      return {emulator:emu,trainingEmulator:trainingEmu,onlineEmulator:onlineEmu,core,rom,netplay:net,netplayConfigured:netConfigured};
+      if(serverField){serverField.value=`${configuredNetplayServer} • ${netSource}`;serverField.readOnly=true;serverField.disabled=false;}
+      if(el)el.textContent=emu&&core&&rom?`✅ Treino EJS ${KOF_TRAINING_EMULATOR_VERSION} • Online EJS ${KOF_ONLINE_EMULATOR_VERSION} • FBNeo • ROM ${mb(d?.rom?.size)}${net?' • Netplay '+netSource+' OK':' • Netplay '+netSource+' será revalidado ao conectar'}`:'🟡 Diagnóstico incompleto — use REVALIDAR ARQUIVOS';
+      return {emulator:emu,trainingEmulator:trainingEmu,onlineEmulator:onlineEmu,core,rom,netplay:net,netplayConfigured:netConfigured,netplaySource:d?.netplaySource||'public'};
     }catch{if(el)el.textContent='🟡 Diagnóstico online indisponível';return {emulator:false,core:false,rom:false,netplay:false}}
   }
 
@@ -175,7 +177,7 @@
     if($('kofPlayRoom'))$('kofPlayRoom').textContent=training?'TREINO LOCAL':`SALA ${roomCode} • ${role()}`;
     if($('kofNetplayHelp')){
       $('kofNetplayHelp').classList.toggle('hidden',training);
-      if(!training){$('kofNetplayHelp').innerHTML=`<b>⚔️ PVP Web • ${role()}</b><span>V19.1 usa Netplay WebRTC com servidor dedicado e negociação automática do Socket.IO no EmulatorJS ${KOF_EMULATOR_VERSION}. Você não precisa mais criar uma segunda sala dentro do emulador: o HOST cria e o CONVIDADO entra automaticamente usando o código ${esc(roomCode)} + Game ID ${gameId}. No celular use <b>⛶ CHEIA</b>, <b>↕ VERTICAL</b> ou <b>↔ HORIZONTAL</b>.</span>`}
+      if(!training){$('kofNetplayHelp').innerHTML=`<b>⚔️ PVP Web • ${role()}</b><span>V19.7 restaura a linha WebRTC do EmulatorJS ${KOF_ONLINE_EMULATOR_VERSION} e usa servidor dedicado quando configurado ou o servidor público compatível como fallback automático. Você não precisa mais criar uma segunda sala dentro do emulador: o HOST cria e o CONVIDADO entra automaticamente usando o código ${esc(roomCode)} + Game ID ${gameId}. No celular use <b>⛶ CHEIA</b>, <b>↕ VERTICAL</b> ou <b>↔ HORIZONTAL</b>.</span>`}
     }
   }
   function stopEmulator(){const f=$('kofEmulatorFrame');if(f)f.src='about:blank'}
