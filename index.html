@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#090b18">
-  <title>Game Guess V19.10.4 — GeoGuess + KOF + Quiz</title>
+  <title>Game Guess V19.11.0 — Home Redesign + GeoGuess + KOF + Quiz</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,6 +17,65 @@
     .result-body img.is-landscape,#resultImage.is-landscape,#universeResultImage.is-landscape,#duelQuestionImage.is-landscape,.duel-image-shell img.is-landscape,.assist-result img.is-landscape,.portrait-focus.is-landscape{object-position:center center!important}
     .result-body img.is-square,#resultImage.is-square,#universeResultImage.is-square,#duelQuestionImage.is-square,.duel-image-shell img.is-square,.assist-result img.is-square,.portrait-focus.is-square{object-position:center 22%!important}
   </style>
+  <style id="home-redesign-v19-11">
+    #homeScreen{display:flex;flex-direction:column;gap:22px;padding-bottom:96px}
+    #homeScreen .hero,#homeScreen .home-section,#homeScreen .home-bottom-note{position:relative;z-index:2}
+    #homeScreen .hero{display:grid!important;grid-template-columns:minmax(0,1.5fr) minmax(300px,.9fr);gap:18px;align-items:stretch;padding:22px;border-radius:28px;background:linear-gradient(135deg,rgba(14,19,44,.96),rgba(20,30,72,.92));border:1px solid rgba(104,132,255,.22);box-shadow:0 24px 60px rgba(0,0,0,.32)}
+    #homeScreen .hero h1{font-size:clamp(2rem,4vw,3.6rem);line-height:1.02;margin:10px 0 12px}
+    #homeScreen .hero h1 span{display:inline;color:#88e8ff}
+    #homeScreen .hero p{max-width:58ch}
+    #homeScreen .hero-copy{display:flex;flex-direction:column;justify-content:center;gap:10px}
+    #homeScreen .hero-quick-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:6px}
+    #homeScreen .hero-stats{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+    #homeScreen .hero-stats > div{padding:16px 14px;border-radius:22px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);min-height:92px;display:flex;flex-direction:column;justify-content:center}
+    #homeScreen .hero-stats b{font-size:1.8rem;margin-bottom:4px;color:#fff}
+    #homeScreen .hero-stats span{opacity:.82;font-size:.96rem}
+    #homeScreen .mini-glance-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+    #homeScreen .glance-card{padding:16px 18px;border-radius:22px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:space-between;gap:12px}
+    #homeScreen .glance-card strong{display:block;font-size:1.05rem;color:#fff}
+    #homeScreen .glance-card span{display:block;font-size:.85rem;opacity:.72}
+    #homeScreen .glance-card i{font-style:normal;font-size:1.3rem}
+    #homeScreen .home-section{padding:20px;border-radius:26px;background:rgba(10,14,34,.82);border:1px solid rgba(255,255,255,.08);box-shadow:0 18px 46px rgba(0,0,0,.18)}
+    #homeScreen .section-copy{display:flex;flex-direction:column;gap:6px;margin-bottom:16px}
+    #homeScreen .section-copy h2{margin:0;font-size:clamp(1.35rem,2vw,2rem)}
+    #homeScreen .section-copy p:last-child{margin:0;opacity:.8;max-width:62ch}
+    #homeScreen .home-feature-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+    #homeScreen .feature-card{padding:18px;border-radius:24px;background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.03));border:1px solid rgba(255,255,255,.08);display:flex;flex-direction:column;gap:14px;min-height:230px}
+    #homeScreen .feature-card .feature-icon{width:52px;height:52px;border-radius:16px;display:grid;place-items:center;font-size:1.55rem;background:rgba(255,255,255,.08)}
+    #homeScreen .feature-card h3{margin:0;font-size:1.22rem}
+    #homeScreen .feature-card p{margin:0;opacity:.8;line-height:1.5}
+    #homeScreen .feature-card .feature-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:auto}
+    #homeScreen .feature-card .secondary-btn,#homeScreen .feature-card .primary-btn{flex:1 1 180px}
+    #homeScreen .mode-grid-home{display:grid;gap:14px}
+    #homeScreen .arena-callout{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:18px;background:linear-gradient(135deg,rgba(26,16,44,.92),rgba(39,23,73,.88))}
+    #homeScreen .arena-actions{display:flex;flex-wrap:wrap;gap:12px}
+    #homeScreen .arena-actions .primary-btn,#homeScreen .arena-actions .secondary-btn{min-width:180px}
+    #homeScreen .universe-grid-secondary{display:grid;gap:12px}
+    #homeScreen .home-bottom-note{padding:14px 18px;border-radius:20px;border:1px dashed rgba(136,232,255,.35);background:rgba(136,232,255,.05);font-size:.96rem;opacity:.88}
+    #homeScreen .home-mobile-nav{position:fixed;left:12px;right:12px;bottom:12px;display:none;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;padding:10px;border-radius:22px;background:rgba(8,11,26,.95);border:1px solid rgba(255,255,255,.08);box-shadow:0 18px 40px rgba(0,0,0,.45);backdrop-filter:blur(10px);z-index:20}
+    #homeScreen .home-mobile-nav button{border:none;border-radius:16px;background:rgba(255,255,255,.04);color:#fff;padding:10px 8px;display:flex;flex-direction:column;align-items:center;gap:6px;font:inherit}
+    #homeScreen .home-mobile-nav span{font-size:.74rem;opacity:.82}
+    .topbar{gap:14px;align-items:center}
+    .topbar .top-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:10px}
+    .topbar #apiStatus,.topbar #duelButton{display:none!important}
+    .topbar .brand small{display:block;opacity:.72;letter-spacing:.06em}
+    .home-focus-note{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;background:rgba(136,232,255,.08);border:1px solid rgba(136,232,255,.16);font-size:.9rem;width:max-content}
+    @media (max-width: 1100px){
+      #homeScreen .home-feature-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+      #homeScreen .hero{grid-template-columns:1fr}
+      #homeScreen .mini-glance-row{grid-template-columns:1fr}
+    }
+    @media (max-width: 720px){
+      #homeScreen{gap:18px;padding-bottom:112px}
+      #homeScreen .hero,#homeScreen .home-section{padding:16px;border-radius:22px}
+      #homeScreen .hero-stats,#homeScreen .home-feature-grid{grid-template-columns:1fr}
+      #homeScreen .hero-quick-actions .primary-btn,#homeScreen .hero-quick-actions .secondary-btn,#homeScreen .arena-actions .primary-btn,#homeScreen .arena-actions .secondary-btn{width:100%}
+      #homeScreen .home-mobile-nav{display:grid}
+      .topbar{position:sticky;top:0;z-index:25;background:rgba(9,11,24,.96);backdrop-filter:blur(8px)}
+      .topbar .top-actions{gap:8px}
+      .topbar #recordTop,.topbar #rankingButton{display:none!important}
+    }
+  </style>
 </head>
 <body>
   <div class="bg-grid"></div>
@@ -28,7 +87,7 @@
     <header class="topbar">
       <button class="brand" id="brandButton" aria-label="Voltar ao menu principal">
         <span class="brand-icon">🎮</span>
-        <span><b>GAME GUESS</b><small>GEOGUESS + KOF + QUIZ V19.10.4</small></span>
+        <span><b>GAME GUESS</b><small>HOME REDESIGN • GEOGUESS + KOF + QUIZ V19.11.0</small></span>
       </button>
       <div class="top-actions">
         <span class="status-pill" id="apiStatus"><i></i> Pronto</span>
@@ -43,66 +102,121 @@
     </header>
 
     <section class="screen active" id="homeScreen">
-      <div class="hero">
-        <p class="eyebrow">ADIVINHE. ARRISQUE. FAÇA COMBO.</p>
-        <h1>Quanto você conhece de <span>games e personagens?</span></h1>
-        <p>Games, personagens, GeoGuess, Termo, Quiz, KOF 2002 Magic Plus II, ranking por temporada e Arena online.</p>
+      <div class="hero hero-compact">
+        <div class="hero-copy">
+          <p class="eyebrow">🎮 PLATAFORMA ARCADE</p>
+          <h1>O que vamos <span>jogar hoje?</span></h1>
+          <p>Agora a Home está mais direta: escolha um modo principal, entre na Arena online ou continue sua evolução sem precisar decifrar uma tela lotada.</p>
+          <span class="home-focus-note">✨ Foco no que importa: jogar rápido, achar os modos e entender para onde ir.</span>
+          <div class="hero-quick-actions">
+            <button class="primary-btn" data-home-action="scroll-modes">🎮 JOGAR AGORA</button>
+            <button class="secondary-btn" id="homeDuelButton">⚔️ ARENA ONLINE</button>
+          </div>
+        </div>
         <div class="hero-stats">
           <div><b id="homeBestStreak">0</b><span>Melhor sequência</span></div>
           <div><b id="homeAccuracy">0%</b><span>Taxa de acerto</span></div>
           <div><b id="homeAchievements">0</b><span>Conquistas</span></div>
-          <div><b>2–8</b><span>Jogadores na Arena</span></div>
+          <div><b>2–8</b><span>Jogadores nas salas</span></div>
         </div>
       </div>
 
-      <div class="mode-grid" id="modeGrid"></div>
+      <div class="mini-glance-row">
+        <div class="glance-card"><div><strong>Game Guess</strong><span>Clássico, Caos, Escalada e mais</span></div><i>🎯</i></div>
+        <div class="glance-card"><div><strong>Quiz + KOF + Termo</strong><span>Os modos mais pedidos em destaque</span></div><i>🔥</i></div>
+        <div class="glance-card"><div><strong>Ranking e conta</strong><span>Continue de onde parou e dispute a temporada</span></div><i>🏆</i></div>
+      </div>
 
-      <section class="quiz-home-banner">
-        <div class="quiz-home-icon">🧠</div>
-        <div class="quiz-home-copy">
-          <p class="eyebrow">🌍 QUIZ MUNDIAL</p>
-          <h2>Perguntas de tudo um pouco</h2>
-          <p>Jogue com categorias aleatórias ou escolha História, Geografia, Matemática, Português, Ciências, Filmes, Games, Desenhos & Anime, Esportes, Tecnologia, Música e muito mais.</p>
+      <section class="home-section">
+        <div class="section-copy">
+          <p class="eyebrow">🔥 POPULARES</p>
+          <h2>Quatro caminhos principais</h2>
+          <p>Os modos mais usados ficam em destaque para você entrar mais rápido no que realmente quer jogar.</p>
         </div>
-        <div class="quiz-home-actions">
-          <button class="primary-btn" id="homeQuizButton">🧠 JOGAR QUIZ</button>
-          <button class="secondary-btn" id="homeQuizArenaButton">⚔️ QUIZ NA ARENA</button>
+        <div class="home-feature-grid">
+          <article class="feature-card">
+            <div class="feature-icon">🎮</div>
+            <div>
+              <h3>Game Guess</h3>
+              <p>Escolha Clássico, Caos, Escalada, Maratona, Assist e outras variações do jogo principal.</p>
+            </div>
+            <div class="feature-actions">
+              <button class="primary-btn" data-home-action="scroll-modes">VER MODOS</button>
+            </div>
+          </article>
+          <article class="feature-card">
+            <div class="feature-icon">🧠</div>
+            <div>
+              <h3>Quiz Mundial</h3>
+              <p>Perguntas em português com categorias variadas, pontuação por desempenho e disputa online.</p>
+            </div>
+            <div class="feature-actions">
+              <button class="primary-btn" id="homeQuizButton">🧠 JOGAR QUIZ</button>
+              <button class="secondary-btn" id="homeQuizArenaButton">⚔️ QUIZ NA ARENA</button>
+            </div>
+          </article>
+          <article class="feature-card">
+            <div class="feature-icon">🥊</div>
+            <div>
+              <h3>KOF 2002 Magic Plus II</h3>
+              <p>Arcade no navegador com treino local, sala 1x1 e catálogo de especiais do Magic Plus II.</p>
+            </div>
+            <div class="feature-actions">
+              <button class="primary-btn" id="homeKofButton">🥊 ABRIR KOF</button>
+            </div>
+          </article>
+          <article class="feature-card">
+            <div class="feature-icon">🔤</div>
+            <div>
+              <h3>Termo Arcade</h3>
+              <p>Modo infinito com Uma Palavra, Dueto e Quarteto. Vá direto ao desafio de palavras.</p>
+            </div>
+            <div class="feature-actions">
+              <button class="primary-btn" data-home-action="open-termo">🔤 ABRIR TERMO</button>
+            </div>
+          </article>
         </div>
       </section>
 
-      <section class="kof-home-banner">
-        <div class="kof-home-icon">🥊</div>
-        <div class="kof-home-copy">
-          <p class="eyebrow">🔥 ARCADE ONLINE</p>
-          <h2>KOF 2002 Magic Plus II</h2>
-          <p>FBNeo no navegador, treino local e sala 1x1. A V17 usa um único romset Full Non-Merged com clone, parent e BIOS incorporados.</p>
+      <section class="home-section">
+        <div class="section-copy">
+          <p class="eyebrow">🎲 TODOS OS MODOS</p>
+          <h2>Game Guess principal</h2>
+          <p>Escolha o estilo de partida, configure a dificuldade e entre direto no modo que quiser.</p>
         </div>
-        <div class="kof-home-actions"><button class="primary-btn" id="homeKofButton">🥊 ABRIR KOF</button></div>
+        <div class="mode-grid mode-grid-home" id="modeGrid"></div>
       </section>
 
-      <section class="online-arena-banner">
-        <div>
-          <p class="eyebrow">⚡ ONLINE ARENA</p>
-          <h2>Conta, ranking global e duelo 1x1</h2>
-          <p>Entre com sua conta para salvar o progresso na nuvem, disputar posições no ranking e desafiar outro jogador. As 3 vidas aparecem somente no Difícil e Insano.</p>
+      <section class="home-section arena-callout">
+        <div class="section-copy">
+          <p class="eyebrow">⚔️ JOGAR COM AMIGOS</p>
+          <h2>Arena online, ranking e conta</h2>
+          <p>Crie salas, entre no 1x1, acompanhe a classificação global e mantenha o progresso sincronizado.</p>
         </div>
-        <div class="online-arena-actions">
-          <button class="primary-btn" id="homeDuelButton">⚔️ ENTRAR NO 1x1</button>
+        <div class="arena-actions">
+          <button class="primary-btn" data-home-action="open-duel">CRIAR / ENTRAR NA ARENA</button>
           <button class="secondary-btn" id="homeRankingButton">🌍 VER RANKING</button>
+          <button class="secondary-btn" id="tutorialButton">❔ COMO JOGAR</button>
         </div>
       </section>
 
-      <div class="multiverse-heading">
-        <p class="eyebrow">🌌 GAME GUESS MULTIVERSO</p>
-        <h2>Outros universos para adivinhar</h2>
-        <p>Descubra campeões, criaturas e personagens por imagem, habilidade, origem, grupo, saga, classe, silhueta ou dossiê — inclusive em Caos, Escalada e Maratona infinita.</p>
-      </div>
-      <div class="universe-grid" id="universeGrid"></div>
+      <section class="home-section">
+        <div class="section-copy">
+          <p class="eyebrow">🌌 MAIS JOGOS</p>
+          <h2>Universos extras</h2>
+          <p>Pokémon, Naruto, Dragon Ball, Yu-Gi-Oh!, Cavaleiros, Digimon, desenhos e outros temas continuam aqui, só que agora em uma área mais organizada.</p>
+        </div>
+        <div class="universe-grid universe-grid-secondary" id="universeGrid"></div>
+      </section>
 
-      <div class="home-footer">
-        <button class="secondary-btn" id="tutorialButton">❔ Como jogar</button>
-        <span>Jogos: IGDB • LoL: Riot • Pokémon: PokéAPI • Digimon: DAPI • animes/desenhos: curadoria + Wikipedia/Fandom • Termo Arcade: palavras locais • Quiz Mundial: Tryvia API PT-BR + banco local + geração procedural anti-repetição.</span>
-      </div>
+      <div class="home-bottom-note">⚙️ Informações técnicas, APIs e diagnósticos foram tirados da Home para deixar o início mais limpo. Esses detalhes continuam nas telas internas, onde fazem mais sentido.</div>
+
+      <nav class="home-mobile-nav" aria-label="Atalhos rápidos da Home">
+        <button type="button" data-home-action="scroll-top">🏠<span>Início</span></button>
+        <button type="button" data-home-action="scroll-modes">🎮<span>Jogar</span></button>
+        <button type="button" data-home-action="open-duel">⚔️<span>Arena</span></button>
+        <button type="button" data-home-action="open-account">👤<span>Conta</span></button>
+      </nav>
     </section>
 
     <section class="screen" id="quizSetupScreen">
@@ -636,6 +750,42 @@
       function bind(img){if(!img||img.__portraitFixBound)return;img.__portraitFixBound=true;img.addEventListener('load',()=>classify(img));if(img.complete)classify(img)}
       function scan(root=document){TARGETS.forEach(sel=>{try{root.querySelectorAll(sel).forEach(bind)}catch{}})}
       document.addEventListener('DOMContentLoaded',()=>{scan();new MutationObserver(ms=>ms.forEach(m=>{m.addedNodes.forEach(n=>{if(n?.nodeType===1){if(n.tagName==='IMG')bind(n);scan(n)}});if(m.type==='attributes'&&m.target?.tagName==='IMG')classify(m.target)})).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['src']})});
+    })();
+  </script>
+  <script data-home-redesign-v19-11>
+    (function(){
+      function tryOpenTermo(){
+        const root=document.getElementById('modeGrid');
+        if(!root) return false;
+        const direct=root.querySelector('[data-mode="termo"], [data-route="termo"], [data-screen="termoScreen"]');
+        if(direct){ direct.click(); return true; }
+        const items=[...root.querySelectorAll('button, [role="button"], .mode-card, .card, .choice-card, .setup-card')];
+        const target=items.find(el=>/termo/i.test((el.textContent||'').trim()));
+        if(target){ target.click(); return true; }
+        return false;
+      }
+      function openTermoWithRetry(attempt=0){
+        if(tryOpenTermo()) return true;
+        if(attempt>=8) return false;
+        setTimeout(()=>openTermoWithRetry(attempt+1),180);
+        return false;
+      }
+      document.addEventListener('DOMContentLoaded',()=>{
+        document.querySelectorAll('[data-home-action]').forEach(btn=>{
+          btn.addEventListener('click',()=>{
+            const action=btn.getAttribute('data-home-action');
+            if(action==='scroll-top') return window.scrollTo({top:0,behavior:'smooth'});
+            if(action==='scroll-modes') return document.getElementById('modeGrid')?.scrollIntoView({behavior:'smooth',block:'start'});
+            if(action==='open-duel') return document.getElementById('homeDuelButton')?.click();
+            if(action==='open-account') return document.getElementById('accountButton')?.click();
+            if(action==='open-termo'){
+              if(openTermoWithRetry()) return;
+              document.getElementById('modeGrid')?.scrollIntoView({behavior:'smooth',block:'start'});
+              openTermoWithRetry(1);
+            }
+          });
+        });
+      });
     })();
   </script>
 </body>
