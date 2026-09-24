@@ -852,3 +852,20 @@ input,select,textarea,button{max-width:100%}
   .tournaments-grid{grid-template-columns:1fr}
   .bracket-match{font-size:.8rem}
 }
+
+/* ===== Social Features V20.1 ===== */
+.social-hub{display:grid;gap:20px}.social-section{border:1px solid rgba(66,232,255,.15);border-radius:var(--radius-md);background:linear-gradient(135deg,rgba(32,75,90,.1),rgba(18,33,54,.08));padding:16px}
+
+.search-results{display:grid;gap:8px}.search-result-card{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px;background:rgba(255,255,255,.04);border-radius:10px;border-left:3px solid var(--cyan)}.result-player{flex:1;min-width:0}.result-player h4{font:700 .9rem 'Orbitron';color:#fff;margin:0}.result-player small{color:#7f89a8;display:block;margin-top:2px}.btn-add-friend{border:none;background:rgba(86,243,154,.15);color:#56f39a;border:1px solid rgba(86,243,154,.3);padding:6px 10px;border-radius:6px;font:700 .75rem 'Orbitron';cursor:pointer;transition:var(--transition-normal)}.btn-add-friend:hover:not(:disabled){background:rgba(86,243,154,.25)}.btn-add-friend:disabled{opacity:.6;cursor:not-allowed}
+
+.friend-requests{display:grid;gap:8px}.friend-request-card{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px;background:rgba(66,232,255,.08);border:1px solid rgba(66,232,255,.2);border-radius:10px}.request-info{flex:1}.request-info h4{font:700 .9rem 'Orbitron';color:#fff;margin:0}.request-info small{color:#7f89a8;display:block;margin-top:2px}.request-actions{display:flex;gap:6px}.btn-accept,.btn-decline{border:none;padding:6px 10px;border-radius:6px;font:700 .75rem 'Orbitron';cursor:pointer;transition:var(--transition-normal)}.btn-accept{background:rgba(86,243,154,.15);color:#56f39a;border:1px solid rgba(86,243,154,.3)}.btn-accept:hover{background:rgba(86,243,154,.25)}.btn-decline{background:rgba(255,98,122,.15);color:#ff6277;border:1px solid rgba(255,98,122,.3)}.btn-decline:hover{background:rgba(255,98,122,.25)}
+
+.friends-list{display:grid;gap:8px}.friend-card{display:flex;padding:12px;background:rgba(255,255,255,.04);border:1px solid rgba(66,232,255,.1);border-radius:10px;border-left:3px solid var(--cyan)}.friend-header{display:flex;gap:10px;align-items:center;width:100%}.friend-status{font-size:1.2rem;flex:none}.friend-info{flex:1;min-width:0}.friend-info h4{font:700 .9rem 'Orbitron';color:#fff;margin:0}.friend-info small{color:#7f89a8;display:block;margin-top:2px}.friend-actions{display:flex;gap:4px}.friend-btn{border:none;background:rgba(66,232,255,.15);color:var(--cyan);width:32px;height:32px;border-radius:6px;cursor:pointer;font-size:.9rem;transition:var(--transition-normal);display:flex;align-items:center;justify-content:center}.friend-btn:hover{background:rgba(66,232,255,.25)}.friend-btn.remove{background:rgba(255,98,122,.15);color:#ff6277}.friend-btn.remove:hover{background:rgba(255,98,122,.25)}
+
+.activity-feed{display:grid;gap:10px}.activity-item{display:flex;gap:12px;padding:10px;background:rgba(255,255,255,.04);border-radius:10px;border-left:3px solid var(--cyan)}.activity-icon{font-size:1.4rem;flex:none}.activity-content{flex:1;min-width:0}.activity-content p{margin:0;font-size:.85rem;line-height:1.4;color:#dce3ff}.activity-content b{color:#fff;font:700 .9rem 'Orbitron'}.activity-highlight{color:var(--cyan);font-weight:700}.activity-content small{display:block;color:#7f89a8;margin-top:4px}
+
+@media(max-width:720px){
+  .social-hub{gap:16px}
+  .friend-header{flex-direction:column;align-items:flex-start}
+  .friend-actions{margin-top:8px;width:100%}
+}
