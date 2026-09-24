@@ -622,15 +622,28 @@
 
   function comboMultiplier(streak) { if(streak>=10)return 3;if(streak>=5)return 2;if(streak>=3)return 1.5;return 1; }
   function currentPotentialPoints() {
-    if(!session)return 0; const d=DIFFICULTIES[session.currentDifficulty]; const base=Math.round(600*d.scoreMult); const penalty=session.roundErrors*85+session.hintsUsed.size*65+session.purchases*45; const raw=Math.max(80,base-penalty); return Math.round(raw*comboMultiplier(session.streak+1));
+    if(!session)return 0;
+    const d=DIFFICULTIES[session.currentDifficulty];
+    const attemptsRemaining=Math.max(0,session.attemptsLeft);
+    // Use unified scoring framework v20
+    const basePoints=window.GameGuessScoring?.calculateScore?.('gameGuess',{
+      attemptsRemaining,
+      comboMultiplier:comboMultiplier(session.streak+1),
+      difficultyMultiplier:d.scoreMult,
+      hintsPenalty:(session.hintsUsed.size*65),
+      wrongGuesses:session.roundErrors
+    })||Math.round(600*d.scoreMult-session.roundErrors*85-session.hintsUsed.size*65-session.purchases*45);
+    return Math.max(80,basePoints);
   }
 
   function winRound() {
     if(!session||session.roundResolved)return; session.roundResolved=true; isResolving=true; const elapsed=(Date.now()-session.roundStart)/1000; const nextStreak=session.streak+1; const points=currentPotentialPoints(); session.streak=nextStreak; session.wins++; profile.gamesPlayed++;profile.gamesWon++;profile.bestStreak=Math.max(profile.bestStreak,session.streak);
-    const mult=comboMultiplier(session.streak); const speedBonus=elapsed<5?120:elapsed<10?60:elapsed<20?25:0; const finalPoints=points+Math.round(speedBonus*mult); const d=DIFFICULTIES[session.currentDifficulty]; const coinsEarned=3+(d===DIFFICULTIES.hard?2:d===DIFFICULTIES.insane?3:d===DIFFICULTIES.normal?1:0)+(elapsed<10?1:0)+Math.min(2,Math.floor(session.streak/4));
+    const mult=comboMultiplier(session.streak); const speedBonus=elapsed<5?120:elapsed<10?60:elapsed<20?25:0; const finalPoints=points+Math.round(speedBonus*mult); const d=DIFFICULTIES[session.currentDifficulty];
+    // V20: Use unified coin reward system
+    const coinsEarned=window.GameGuessScoring?.pointsToCoinReward?.(finalPoints,session.currentDifficulty)||3+(d===DIFFICULTIES.hard?2:d===DIFFICULTIES.insane?3:d===DIFFICULTIES.normal?1:0)+(elapsed<10?1:0)+Math.min(2,Math.floor(session.streak/4));
     session.score+=finalPoints; profile.highScore=Math.max(profile.highScore,session.score); profile.coins+=coinsEarned; profile.modeWins[session.config.mode]=(profile.modeWins[session.config.mode]||0)+1;
     (session.currentGame.platforms||[]).forEach(p=>{if(p?.id)profile.platformWins[p.id]=(profile.platformWins[p.id]||0)+1;}); rememberCurrentGame(); saveProfile(); revealAllPieces(); playSound('win'); spawnConfetti(); checkAchievements({elapsed}); updateGameUI();
-    if(session.config.mode==='blitz') { toast('✅ Acertou!',`+${finalPoints} pontos • +${coinsEarned} pontos`); setTimeout(()=>advanceRound(),520); isResolving=false; return; }
+    if(session.config.mode==='blitz') { toast('✅ Acertou!',`+${finalPoints} pontos • +${coinsEarned} moedas`); setTimeout(()=>advanceRound(),520); isResolving=false; return; }
     showRoundResult(true,{points:finalPoints,coins:coinsEarned,elapsed}); isResolving=false;
   }
 
