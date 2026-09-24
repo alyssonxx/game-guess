@@ -1,7 +1,13 @@
 :root{
   --bg:#080a15;--panel:#11152a;--panel2:#171c35;--line:#2b3358;--muted:#8b94b3;
   --text:#f5f7ff;--cyan:#42e8ff;--pink:#ff54e8;--green:#56f39a;--amber:#ffc857;--red:#ff6277;
-  --radius:18px;--shadow:0 22px 60px rgba(0,0,0,.38)
+  --radius:18px;--shadow:0 22px 60px rgba(0,0,0,.38);
+  /* V20.0: Expanded design tokens */
+  --radius-sm:12px;--radius-md:18px;--radius-lg:24px;
+  --shadow-low:0 8px 22px rgba(0,0,0,.14);--shadow-med:0 22px 60px rgba(0,0,0,.38);--shadow-high:0 40px 100px rgba(0,0,0,.55);
+  --gradient-cyan:linear-gradient(135deg,var(--cyan),#54a8ff);
+  --gradient-card:linear-gradient(150deg,rgba(24,29,56,.96),rgba(10,13,28,.96));
+  --transition-normal:.2s ease;--transition-smooth:.35s ease;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
@@ -645,7 +651,91 @@ input,select,textarea,button{max-width:100%}
   .tutorial-grid{grid-template-columns:minmax(0,1fr)!important}
 }
 
-@media(max-height:520px) and (orientation:landscape){
+/* =========================================================
+   V20.0 — Design Redesign: Stat Cards, Achievement Badges, Rating Badges
+========================================================= */
+
+/* Stat Card: Display score, ranking, progress */
+.stat-card{border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--gradient-card);padding:20px;display:grid;gap:12px;min-width:180px}
+.stat-card.trending{border-color:#ff9d5c;box-shadow:0 0 18px rgba(255,157,92,.12)}
+.stat-card-value{font:900 clamp(1.5rem,3vw,2.2rem) 'Orbitron';color:var(--cyan)}
+.stat-card-label{color:var(--muted);font-size:.85rem;text-transform:uppercase}
+.stat-card-trend{display:inline-flex;align-items:center;gap:4px;font-size:.8rem;margin-top:8px;padding:6px 10px;border-radius:8px;background:rgba(86,243,154,.08);color:var(--green)}
+.stat-card-trend.down{background:rgba(255,98,104,.08);color:var(--red)}
+
+/* Achievement Badge: Unlock animation */
+.achievement-badge{display:inline-flex;align-items:center;justify-content:center;width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,#8b6a37,#d6ae5b);border:2px solid #d6ae5b;font-size:2.2rem;position:relative;box-shadow:0 0 30px rgba(214,174,91,.25);animation:unlockPulse .6s ease-out}
+.achievement-badge.locked{background:rgba(20,25,48,.8);border-color:#303959;opacity:.35;animation:none}
+@keyframes unlockPulse{0%{transform:scale(0) rotate(-180deg);opacity:0}60%{transform:scale(1.1)}100%{transform:scale(1);opacity:1}}
+
+/* Rating Badge: Shows rating with gradient bg */
+.rating-badge{display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border-radius:12px;background:linear-gradient(135deg,rgba(100,85,232,.15),rgba(66,232,255,.1));border:1px solid rgba(100,85,232,.25);font:700 .9rem 'Orbitron'}
+.rating-badge .rating-value{font-size:1.35rem;color:var(--cyan)}
+
+/* Progress Bar: Animated with milestones */
+.progress-bar{width:100%;height:8px;border-radius:999px;background:rgba(43,51,88,.5);overflow:hidden;border:1px solid var(--line)}
+.progress-bar-fill{height:100%;background:linear-gradient(90deg,var(--green),var(--cyan));animation:progressGrow 1.2s ease-out;border-radius:999px}
+.progress-bar-milestone{display:inline-flex;align-items:center;gap:4px;font-size:.75rem;color:var(--muted);margin-top:4px}
+@keyframes progressGrow{from{width:0}to{width:var(--progress,50%)}}
+
+/* Leaderboard Row: Ranking visual with medals */
+.leaderboard-row{display:grid;grid-template-columns:50px minmax(0,1fr) 120px 100px;gap:12px;align-items:center;padding:14px;border-radius:12px;border:1px solid var(--line);background:linear-gradient(90deg,rgba(66,232,255,.03),transparent);transition:var(--transition-normal)}
+.leaderboard-row:hover{border-color:var(--cyan);background:linear-gradient(90deg,rgba(66,232,255,.08),transparent)}
+.leaderboard-medal{font-size:1.8rem;text-align:center;width:50px}
+.leaderboard-medal.gold{color:#ffd700;text-shadow:0 0 10px rgba(255,215,0,.3)}
+.leaderboard-medal.silver{color:#c0c0c0;text-shadow:0 0 10px rgba(192,192,192,.2)}
+.leaderboard-medal.bronze{color:#cd7f32;text-shadow:0 0 10px rgba(205,127,50,.2)}
+.leaderboard-name{min-width:0;display:grid;gap:2px}
+.leaderboard-name b{display:block;color:var(--text);font-family:'Orbitron';font-size:.95rem}
+.leaderboard-name span{display:block;color:var(--muted);font-size:.8rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.leaderboard-rating{font-family:'Orbitron';font-weight:800;color:var(--cyan)}
+.leaderboard-record{color:var(--muted);text-align:right}
+
+/* Podium: Top 3 placement */
+.podium-container{display:flex;align-items:flex-end;justify-content:center;gap:16px;margin:24px 0;height:200px}
+.podium-place{display:flex;flex-direction:column;align-items:center;gap:12px;flex:1}
+.podium-place.first{order:2}
+.podium-place.second{order:1;opacity:.85}
+.podium-place.third{order:3;opacity:.85}
+.podium-step{border-radius:8px 8px 0 0;background:linear-gradient(180deg,var(--cyan),rgba(66,232,255,.1));display:flex;align-items:flex-end;justify-content:center;font-weight:900;color:#05121a}
+.podium-place.first .podium-step{width:100px;height:140px;font-size:2.5rem;background:linear-gradient(180deg,#ffd700,rgba(255,215,0,.1))}
+.podium-place.second .podium-step{width:90px;height:120px;font-size:2rem;background:linear-gradient(180deg,#c0c0c0,rgba(192,192,192,.1))}
+.podium-place.third .podium-step{width:85px;height:100px;font-size:1.8rem;background:linear-gradient(180deg,#cd7f32,rgba(205,127,50,.1))}
+.podium-player{text-align:center;min-width:0}
+.podium-player-name{font-family:'Orbitron';font-weight:800;color:var(--text);font-size:.9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.podium-player-rating{color:var(--muted);font-size:.8rem;margin-top:2px}
+
+/* Season info bar */
+.season-info-bar{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;padding:20px;border:1px solid var(--line);border-radius:var(--radius-lg);background:linear-gradient(135deg,rgba(66,232,255,.05),transparent)}
+.season-info-item{display:grid;gap:8px}
+.season-info-label{font:700 .75rem 'Orbitron';letter-spacing:.08em;color:var(--muted);text-transform:uppercase}
+.season-info-value{font:800 1.25rem 'Orbitron';color:var(--text)}
+.season-info-progress{height:4px;border-radius:999px;background:rgba(43,51,88,.5);overflow:hidden;margin-top:6px}
+.season-info-progress-fill{height:100%;background:var(--gradient-cyan);animation:progressGrow .8s ease-out}
+
+/* Ranking page redesign */
+.ranking-page-layout{display:grid;grid-template-columns:1fr;gap:24px}
+.ranking-podium-section{border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--gradient-card);padding:28px;box-shadow:var(--shadow-high)}
+.ranking-filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.ranking-filter-btn{border:1px solid var(--line);background:rgba(43,51,88,.3);color:var(--muted);border-radius:8px;padding:8px 14px;font-size:.85rem;cursor:pointer;transition:var(--transition-normal)}
+.ranking-filter-btn:hover,.ranking-filter-btn.active{border-color:var(--cyan);background:rgba(66,232,255,.1);color:var(--cyan)}
+
+@media(max-width:1050px){
+  .leaderboard-row{grid-template-columns:50px minmax(0,1fr) 100px}
+  .podium-container{height:160px;gap:12px}
+  .podium-step span{font-size:1rem}
+}
+@media(max-width:720px){
+  .leaderboard-row{grid-template-columns:40px minmax(0,1fr) 80px}
+  .leaderboard-medal{font-size:1.4rem}
+  .leaderboard-name b{font-size:.85rem}
+  .podium-container{flex-direction:column;height:auto;gap:8px}
+  .podium-place{order:0!important;opacity:1!important;flex-direction:row;align-items:center;gap:12px}
+  .podium-step{width:50px!important;height:50px!important;border-radius:8px;font-size:1.5rem!important}
+  .podium-player{text-align:left}
+  .season-info-bar{grid-template-columns:1fr}
+}
+
   .shell{padding-top:6px;padding-bottom:16px}
   .topbar{position:static!important;padding:4px 0 8px!important}
   .brand small{display:none!important}
