@@ -221,6 +221,25 @@
     return String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
 
+  let rankingUnsub = null;
+
+  function subscribeToRanking(sortBy = 'rating') {
+    if (rankingUnsub) rankingUnsub();
+    const limit = 100;
+    FB()?.listenToRanking?.(limit, (rows) => {
+      if (!rows || rows.length === 0) {
+        $('rankingList').innerHTML = '<div style="padding:40px;text-align:center;color:#7f89a8">Nenhum jogador no ranking ainda. Comece a jogar!</div>';
+        return;
+      }
+      renderSeasonInfo();
+      renderFilters();
+      renderPodium(rows);
+      renderLeaderboard(rows, sortBy);
+      renderMyStats(CORE()?.getProfile?.());
+      $('rankingModeLabel').textContent = sortBy === 'bestScore' ? 'Melhor Score' : sortBy === 'bestStreak' ? 'Sequência' : 'Geral';
+    });
+  }
+
   function loadRankingV20(sortBy = 'rating') {
     CORE()?.showScreen?.('rankingScreenV20');
     if (!FB()?.ready?.()) {
@@ -228,28 +247,14 @@
       return;
     }
 
-    const season = FB()?.getSeason?.();
     const user = FB()?.getUser?.();
     if (!user) {
       $('rankingList').innerHTML = '<div style="padding:40px;text-align:center;color:#7f89a8">Entre na sua conta para ver o ranking.</div>';
       return;
     }
 
-    // Simular carregamento — em produção seria um listener Firebase
-    const mockData = [
-      { uid: '1', displayName: 'TOP Player', rating: 2400, bestScore: 850, bestStreak: 45, totalPlayed: 342, accuracy: 92, duelWins: 87, kofWins: 34 },
-      { uid: '2', displayName: 'Elite Gamer', rating: 2300, bestScore: 820, bestStreak: 38, totalPlayed: 298, accuracy: 89, duelWins: 76, kofWins: 29 },
-      { uid: '3', displayName: 'Pro Player', rating: 2200, bestScore: 795, bestStreak: 35, totalPlayed: 276, accuracy: 87, duelWins: 68, kofWins: 24 },
-      { uid: user.uid, displayName: user.displayName || 'Você', rating: 1850, bestScore: 620, bestStreak: 22, totalPlayed: 145, accuracy: 76, duelWins: 34, kofWins: 12 }
-    ];
-
-    renderSeasonInfo();
-    renderFilters();
-    renderPodium(mockData);
-    renderLeaderboard(mockData, sortBy);
-    renderMyStats(CORE()?.getProfile?.());
-
-    $('rankingModeLabel').textContent = sortBy === 'bestScore' ? 'Melhor Score' : sortBy === 'bestStreak' ? 'Sequência' : 'Geral';
+    $('rankingList').innerHTML = '<div style="padding:40px;text-align:center;color:#7f89a8">Carregando ranking...</div>';
+    subscribeToRanking(sortBy);
   }
 
   function bind() {

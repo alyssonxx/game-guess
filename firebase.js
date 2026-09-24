@@ -594,6 +594,36 @@ function watchSocialInbox(cb){
   if(!currentUser||!db)return()=>{};const uid=currentUser.uid;let timer=0;const fire=()=>{clearTimeout(timer);timer=setTimeout(async()=>{try{cb?.(await getSocialData())}catch{}},80)};const a=onValue(ref(db,`friendRequests/${uid}`),fire),b=onValue(ref(db,`gameInvites/${uid}`),fire),c=onValue(ref(db,`friends/${uid}`),fire);fire();return()=>{clearTimeout(timer);a?.();b?.();c?.()};
 }
 
+async function listenToRanking(limit=100,cb){
+  if(!currentUser||!db)return()=>{};
+  const transform=snap=>{
+    const data=snap.val()||{};
+    const rows=Object.entries(data).map(([uid,profile])=>{
+      const p=profile.profile||{};
+      const r=normalizeRankedStats(p.rankedStats||{});
+      const totalPlayed=Object.values(r.modes||{}).reduce((sum,m)=>sum+(num(m.played)||0),0);
+      const totalWins=Object.values(r.modes||{}).reduce((sum,m)=>sum+(num(m.wins)||0),0);
+      const accuracy=totalPlayed>0?Math.round(totalWins/totalPlayed*100):0;
+      return{
+        uid,displayName:cleanName(p.nickname||profile.name||'Jogador'),
+        rating:num(r.overallRating)||1000,
+        bestScore:num(r.bestMatch?.score)||0,
+        bestCorrect:num(r.bestMatch?.correct)||0,
+        bestStreak:num(p.bestStreak)||0,
+        totalPlayed,accuracy,
+        duelWins:num(r.modes?.duel?.wins)||0,
+        kofWins:num(r.modes?.kof?.wins)||0,
+        gamesWon:num(r.modes?.gameGuess?.wins)||0,
+        termWins:num(r.modes?.termo?.wins)||0,
+        geoWins:num(r.modes?.geoguess?.wins)||0
+      };
+    }).sort((a,b)=>Number(b.rating||0)-Number(a.rating||0)).slice(0,limit);
+    cb?.(rows);
+  };
+  const q=query(ref(db,'publicProfiles'),orderByValue());
+  const unsub=onValue(q,transform,err=>console.warn('Ranking listen error:',err));
+  return unsub;
+}
 
 window.GameGuessRanked={record:recordRankedResult};
 window.GameGuessFirebase={
@@ -603,7 +633,7 @@ window.GameGuessFirebase={
   createDuelRoom, joinDuelRoom, startDuelRoom, leaveDuelRoom, ensureDuelHost, attachDuelPresence, detachDuelPresence, cleanupExpiredDuel,
   watchDuel, mutateDuel, deleteDuel,getRoom:async code=>configured?(await get(ref(db,`duels/${String(code||'').toUpperCase()}`))).val():null,
   fightProtocolVersion:FIGHT_PROTOCOL_VERSION, createFightRoom, joinFightRoom, watchFightRoom, markFightReady, requestFightLaunch, submitFightResult, claimFightRankedRecord, leaveFightRoom, attachFightPresence, detachFightPresence, getFightRoom:async code=>configured?(await get(ref(db,`fightRooms/${String(code||'').toUpperCase()}`))).val():null,
-  syncPublicProfile, searchPlayers, sendFriendRequest, respondFriendRequest, removeFriend, getSocialData, sendGameInvite, dismissGameInvite, watchSocialInbox
+  syncPublicProfile, searchPlayers, sendFriendRequest, respondFriendRequest, removeFriend, getSocialData, sendGameInvite, dismissGameInvite, watchSocialInbox, listenToRanking
 };
 
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind);else bind();
