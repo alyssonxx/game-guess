@@ -21,6 +21,9 @@
 
       <div class="ranking-layout-v20">
         <div class="ranking-main">
+          <!-- Season Info & Countdown -->
+          <section id="seasonCountdownSection" style="display:none"></section>
+
           <!-- Podium Top 3 -->
           <section class="ranking-podium-section">
             <h3 style="font:800 1.3rem 'Orbitron';margin-bottom:20px;text-align:center">🥇 Top 3 Jogadores</h3>
@@ -254,6 +257,8 @@
       renderPodium(rows);
       renderLeaderboard(rows, sortBy);
       renderMyStats(CORE()?.getProfile?.());
+      window.GameGuessSeasons?.renderSeasonCountdown?.('seasonCountdownSection');
+      $('seasonCountdownSection').style.display = 'block';
       $('rankingModeLabel').textContent = sortBy === 'bestScore' ? 'Melhor Score' : sortBy === 'bestStreak' ? 'Sequência' : 'Geral';
     });
   }
