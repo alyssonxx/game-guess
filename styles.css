@@ -814,3 +814,14 @@ input,select,textarea,button{max-width:100%}
   .achievement-icon{font-size:1.5rem}
   .achievement-category{padding:12px}
 }
+
+/* ===== Daily/Weekly Challenges V20.1 ===== */
+.challenges-section{margin-bottom:20px}.challenges-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+
+.challenge-card{border:1px solid rgba(66,232,255,.15);border-radius:var(--radius-md);background:linear-gradient(135deg,rgba(32,75,90,.1),rgba(18,33,54,.08));padding:14px;transition:var(--transition-normal);position:relative}.challenge-card:hover{border-color:rgba(66,232,255,.3);background:linear-gradient(135deg,rgba(32,75,90,.18),rgba(18,33,54,.12))}.challenge-card.completed{border-color:rgba(86,243,154,.3);background:linear-gradient(135deg,rgba(86,243,154,.08),rgba(18,33,54,.1))}.challenge-header{display:flex;gap:10px;align-items:flex-start;margin-bottom:10px}.challenge-icon{font-size:1.6rem;flex:none}.challenge-meta{flex:1;min-width:0}.challenge-meta h4{font:700 .9rem 'Orbitron';color:#fff;margin:0;line-height:1.2}.challenge-meta small{color:#7f89a8;font-size:.8rem}.challenge-reward{flex:none;font:700 .85rem 'Orbitron';color:var(--amber);background:rgba(255,200,87,.1);padding:4px 8px;border-radius:6px;white-space:nowrap}.challenge-desc{font-size:.85rem;color:#9fa8c4;margin:8px 0;line-height:1.4}.challenge-progress{margin-bottom:8px}.progress-bar{width:100%;height:5px;background:rgba(255,255,255,.08);border-radius:999px;overflow:hidden;margin-bottom:4px}.progress-fill{height:100%;width:var(--progress,0%);background:var(--gradient-cyan);border-radius:999px;transition:width .4s ease}.progress-text{font-size:.75rem;color:#7f89a8;display:block;text-align:right}.challenge-badge{position:absolute;top:10px;right:10px;background:linear-gradient(135deg,#56f39a,#42e8ff);color:#05121a;font:700 .75rem 'Orbitron';padding:4px 8px;border-radius:6px}
+
+@media(max-width:720px){
+  .challenges-grid{grid-template-columns:1fr}
+  .challenge-card{padding:12px}
+  .challenge-icon{font-size:1.4rem}
+}
