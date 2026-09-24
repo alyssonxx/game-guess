@@ -146,7 +146,7 @@ async function browserMapillaryImages(lat,lng){
   u.searchParams.set('bbox',mlyBbox(Number(lat),Number(lng),4.5));
   u.searchParams.set('limit','80');
   u.searchParams.set('fields','id,computed_geometry,geometry,computed_compass_angle,compass_angle,camera_type,sequence,captured_at');
-  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),5000);
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),8000);
   try{
     const r=await fetch(u,{signal:controller.signal,headers:{Accept:'application/json'}});
     const d=await r.json().catch(()=>({}));
@@ -172,7 +172,7 @@ async function fetchRounds(){
   const wanted=config.rounds;
   let data={};
   try{
-    const {r,d}=await fetchJsonWithTimeout(`/api/geoguess?region=${encodeURIComponent(config.region)}&count=${wanted}`,6500);
+    const {r,d}=await fetchJsonWithTimeout(`/api/geoguess?region=${encodeURIComponent(config.region)}&count=${wanted}`,8000);
     if(!r.ok)throw new Error(d?.error||`API GeoGuess HTTP ${r.status}`);
     data=d||{};
   }catch(e){
@@ -207,7 +207,7 @@ async function fetchRounds(){
     const auth=[400,401,403].includes(Number(firstError.status));
     throw new Error(auth?`O Mapillary recusou o Client Token (${firstError.status}). Confirme a permissão READ no Developer Dashboard e atualize MAPILLARY_ACCESS_TOKEN no Vercel. Detalhe: ${firstError.message}`:`Não consegui consultar cobertura suficiente do Mapillary. ${firstError.message}`);
   }
-  throw new Error(`Encontrei apenas ${resolved.length} de ${wanted} locais com imagens Mapillary. Tente novamente ou escolha outra região.`);
+  throw new Error(`Encontrei apenas ${resolved.length} de ${wanted} locais com imagens Mapillary. Tente novamente ou escolha outra região com melhor cobertura (World, Europe ou Americas têm melhor cobertura).`);
 }
 
 function currentQ(){return mode==='solo'?solo?.questions?.[solo.index]:room?.questions?.[Number(room.roundIndex||0)]}
