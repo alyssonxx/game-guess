@@ -1,72 +1,160 @@
 /**
- * GeoGuess Configuration Endpoint
- * Serves Mapillary API token securely from backend
- *
- * Required env var: MAPILLARY_ACCESS_TOKEN
- * Token format: MLY|... (Client Token from Mapillary)
- *
- * Rate limit: 50k calls/month (free tier)
- * Estimated capacity: ~300 concurrent games/day
+ * GeoGuess Configuration & Images Endpoint
+ * Handles both config and image queries for GeoGuess
  */
 
-export default function handler(req, res) {
+export default async function handler(req, res) {
   // Only allow GET requests
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Security: Add CORS and cache headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET');
-  res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache 1 hour
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
 
   try {
-    const token = process.env.MAPILLARY_ACCESS_TOKEN;
-    const isProduction = process.env.NODE_ENV === 'production';
+    // Route: /api/geoguess-config - returns token config
+    if (!req.url.includes('?') || req.url === '/api/geoguess-config') {
+      res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache 1 hour
+      const token = process.env.MAPILLARY_ACCESS_TOKEN;
+      const isProduction = process.env.NODE_ENV === 'production';
 
-    // Validate token exists
-    if (!token) {
-      console.warn('[GeoGuess] MAPILLARY_ACCESS_TOKEN not configured');
-      return res.status(503).json({
-        enabled: false,
-        token: '',
-        error: 'Mapillary token not configured',
-        message: 'Add MAPILLARY_ACCESS_TOKEN to Vercel environment variables'
+      if (!token) {
+        console.warn('[GeoGuess] MAPILLARY_ACCESS_TOKEN not configured');
+        return res.status(503).json({
+          enabled: false,
+          token: '',
+          error: 'Mapillary token not configured',
+          message: 'Add MAPILLARY_ACCESS_TOKEN to Vercel environment variables'
+        });
+      }
+
+      if (!token.startsWith('MLY|')) {
+        console.warn('[GeoGuess] Invalid token format (should start with MLY|)');
+        return res.status(400).json({
+          enabled: false,
+          token: '',
+          error: 'Invalid token format',
+          message: 'Token must be a Mapillary Client Token starting with MLY|'
+        });
+      }
+
+      return res.status(200).json({
+        enabled: true,
+        token: token,
+        version: '4.1.2',
+        endpoint: 'https://graph.mapillary.com/v4',
+        cdnJs: 'https://cdn.jsdelivr.net/npm/mapillary-js@4.1.2/dist/mapillary.js',
+        cdnCss: 'https://cdn.jsdelivr.net/npm/mapillary-js@4.1.2/dist/mapillary.css',
+        limits: {
+          requestsPerMonth: 50000,
+          estimatedCapacity: '~300 games/day',
+          note: 'Monitor quota at https://www.mapillary.com/dashboard/api-keys'
+        },
+        timestamp: new Date().toISOString()
       });
     }
 
-    // Validate token format (should start with MLY|)
-    if (!token.startsWith('MLY|')) {
-      console.warn('[GeoGuess] Invalid token format (should start with MLY|)');
-      return res.status(400).json({
-        enabled: false,
-        token: '',
-        error: 'Invalid token format',
-        message: 'Token must be a Mapillary Client Token starting with MLY|'
-      });
+    // Route: /api/geoguess-config?lat=X&lng=Y - returns images for location
+    if (req.query.lat && req.query.lng) {
+      res.setHeader('Cache-Control', 'public, max-age=300'); // Cache 5 min
+
+      const { lat, lng } = req.query;
+      const token = process.env.MAPILLARY_ACCESS_TOKEN;
+
+      if (!token) {
+        return res.status(503).json({ error: 'Mapillary token not configured' });
+      }
+
+      const latNum = Number(lat);
+      const lngNum = Number(lng);
+      const latPad = Math.min(0.045, Math.max(0.012, 0.04));
+      const lngPad = Math.min(0.045, Math.max(0.012, 0.04));
+
+      const bbox = [
+        lngNum - lngPad,
+        latNum - latPad,
+        lngNum + lngPad,
+        latNum + latPad
+      ].map(n => Number(n.toFixed(6))).join(',');
+
+      const url = new URL('https://graph.mapillary.com/images');
+      url.searchParams.set('access_token', token);
+      url.searchParams.set('bbox', bbox);
+      url.searchParams.set('limit', '100');
+      url.searchParams.set('fields', 'id,computed_geometry,geometry,computed_compass_angle,compass_angle,camera_type,sequence,captured_at');
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+      try {
+        const response = await fetch(url.toString(), {
+          signal: controller.signal,
+          headers: { 'Accept': 'application/json' }
+        });
+
+        clearTimeout(timeout);
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          console.error(`[GeoGuess Images] Mapillary HTTP ${response.status}:`, errorData);
+
+          if (response.status === 401 || response.status === 403) {
+            return res.status(401).json({
+              error: 'Token inválido',
+              message: 'O Client Token do Mapillary é inválido ou não tem permissões suficientes',
+              status: response.status
+            });
+          }
+
+          return res.status(response.status).json({
+            error: errorData?.error?.message || `Mapillary HTTP ${response.status}`,
+            message: 'Falha ao consultar imagens do Mapillary'
+          });
+        }
+
+        const data = await response.json();
+        const images = Array.isArray(data.data) ? data.data : [];
+
+        if (images.length === 0) {
+          return res.status(200).json({
+            data: [],
+            message: 'Nenhuma imagem encontrada nesta localização',
+            coverage: false
+          });
+        }
+
+        return res.status(200).json({
+          data: images,
+          count: images.length,
+          coverage: true,
+          bbox
+        });
+
+      } catch (fetchError) {
+        clearTimeout(timeout);
+
+        if (fetchError.name === 'AbortError') {
+          console.error('[GeoGuess Images] Request timeout');
+          return res.status(408).json({
+            error: 'Timeout',
+            message: 'O Mapillary demorou demais para responder. Tente novamente.'
+          });
+        }
+
+        throw fetchError;
+      }
     }
 
-    // Success: Return token (safe in backend-to-frontend communication)
-    return res.status(200).json({
-      enabled: true,
-      token: token,
-      version: '4.1.2',
-      endpoint: 'https://graph.mapillary.com/v4',
-      cdnJs: 'https://cdn.jsdelivr.net/npm/mapillary-js@4.1.2/dist/mapillary.js',
-      cdnCss: 'https://cdn.jsdelivr.net/npm/mapillary-js@4.1.2/dist/mapillary.css',
-      limits: {
-        requestsPerMonth: 50000,
-        estimatedCapacity: '~300 games/day',
-        note: 'Monitor quota at https://www.mapillary.com/dashboard/api-keys'
-      },
-      timestamp: new Date().toISOString()
-    });
+    return res.status(400).json({ error: 'Invalid parameters' });
+
   } catch (error) {
-    console.error('[GeoGuess] Config error:', error);
+    console.error('[GeoGuess Config] Error:', error);
     return res.status(500).json({
-      enabled: false,
       error: 'Internal server error',
-      message: 'Failed to load GeoGuess configuration'
+      message: error.message || 'Erro ao processar requisição'
     });
   }
 }
+

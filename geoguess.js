@@ -143,7 +143,7 @@ async function browserMapillaryImages(lat,lng){
   await ensureMapillaryToken();
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),10000);
   try{
-    const u=`/api/geoguess-images?lat=${encodeURIComponent(lat)}&lng=${encodeURIComponent(lng)}`;
+    const u=`/api/geoguess-config?lat=${encodeURIComponent(lat)}&lng=${encodeURIComponent(lng)}`;
     const r=await fetch(u,{signal:controller.signal,headers:{Accept:'application/json'}});
     const d=await r.json().catch(()=>({}));
     if(!r.ok){const msg=d?.message||d?.error||`HTTP ${r.status}`;const e=new Error(msg);e.status=r.status;throw e;}
