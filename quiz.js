@@ -53,7 +53,11 @@
     state.deadline=Date.now()+d.seconds*1000;updateClock();timer=setInterval(updateClock,200);
   }
   function updateClock(){if(!state)return;const left=Math.max(0,Math.ceil((state.deadline-Date.now())/1000));if($('quizTimer'))$('quizTimer').textContent=`⏱️ ${left}`;if(left<=0&&!state.answered)answer(null,true);}
-  function points(left){const d=DIFF[config.difficulty];return Math.max(100,Math.round((350+left*18+state.streak*25)*d.mult));}
+  function points(left){
+    const scoreConfig={timeLeft:left,streak:state.streak,formula:'accuracyBased'};
+    const pts=window.GameGuessScoring?.calculateScore?.('quiz',scoreConfig);
+    return pts||Math.max(100,Math.round((350+left*18+state.streak*25)*(DIFF[config.difficulty]?.mult||1)));
+  }
   function answer(raw,timeout=false){
     if(!state||state.answered)return;state.answered=true;clearTimer();const q=current();const correct=raw===q.correct;const left=Math.max(0,Math.ceil((state.deadline-Date.now())/1000));
     document.querySelectorAll('#quizOptions .quiz-option').forEach(b=>{b.disabled=true;const val=b.dataset.answer;if(val===q.correct)b.classList.add('correct');else if(raw&&val===raw)b.classList.add('wrong');});
@@ -64,7 +68,9 @@
   }
   function finish(){
     clearTimer();if(!state)return;const p=readProfile(),won=state.correct>=Math.ceil(state.questions.length*.6),cat=meta(config.category);
-    p.gamesPlayed=Number(p.gamesPlayed||0)+1;if(won)p.gamesWon=Number(p.gamesWon||0)+1;p.coins=Number(p.coins||0)+Math.max(2,Math.min(10,Math.round(state.correct/2)+(won?2:0)));p.highScore=Math.max(Number(p.highScore||0),state.score);p.bestStreak=Math.max(Number(p.bestStreak||0),state.bestStreak);p.modeWins={...(p.modeWins||{})};if(won)p.modeWins.quiz=Number(p.modeWins.quiz||0)+1;p.multiverseWins={...(p.multiverseWins||{})};if(won)p.multiverseWins.quiz=Number(p.multiverseWins.quiz||0)+1;
+    p.gamesPlayed=Number(p.gamesPlayed||0)+1;if(won)p.gamesWon=Number(p.gamesWon||0)+1;
+    const coinsEarned=window.GameGuessScoring?.pointsToCoinReward?.(state.score,config.difficulty)||Math.max(2,Math.min(10,Math.round(state.correct/2)+(won?2:0)));
+    p.coins=Number(p.coins||0)+coinsEarned;p.highScore=Math.max(Number(p.highScore||0),state.score);p.bestStreak=Math.max(Number(p.bestStreak||0),state.bestStreak);p.modeWins={...(p.modeWins||{})};if(won)p.modeWins.quiz=Number(p.modeWins.quiz||0)+1;p.multiverseWins={...(p.multiverseWins||{})};if(won)p.multiverseWins.quiz=Number(p.multiverseWins.quiz||0)+1;
     window.GameGuessRanked?.record?.(p,{kind:'quiz',score:state.score,mode:'quiz',universe:'quiz',challenge:config.category==='random'?'misto':config.category,difficulty:config.difficulty,correct:state.correct,wrong:state.wrong,won});saveProfile(p);
     if(won)CORE()?.spawnConfetti?.();
     if($('quizResultTitle'))$('quizResultTitle').textContent=won?'Mandou bem!':'Fim do Quiz';

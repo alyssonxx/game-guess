@@ -187,7 +187,11 @@
     const u=user();if(!u)return;const key=`gameGuessKofRecorded:${r.code}:${u.uid}`;if(localStorage.getItem(key))return;
     const claimed=await FB()?.claimFightRankedRecord?.(r.code).catch(()=>false);if(!claimed)return;
     localStorage.setItem(key,'1');const p=CORE()?.getProfile?.()||{},won=r.winnerUid===u.uid;
-    p.kofPlayed=Number(p.kofPlayed||0)+1;p.kofWins=Number(p.kofWins||0)+(won?1:0);p.kofLosses=Number(p.kofLosses||0)+(won?0:1);p.kofCurrentStreak=won?Number(p.kofCurrentStreak||0)+1:0;p.kofBestStreak=Math.max(Number(p.kofBestStreak||0),p.kofCurrentStreak);p.kofRating=Math.max(1000,Number(p.kofRating||1000)+(won?35:-22));p.coins=Number(p.coins||0)+(won?12:4);
+    p.kofPlayed=Number(p.kofPlayed||0)+1;p.kofWins=Number(p.kofWins||0)+(won?1:0);p.kofLosses=Number(p.kofLosses||0)+(won?0:1);p.kofCurrentStreak=won?Number(p.kofCurrentStreak||0)+1:0;p.kofBestStreak=Math.max(Number(p.kofBestStreak||0),p.kofCurrentStreak);
+    const newRating=window.GameGuessScoring?.updateRating?.(Number(p.kofRating||1000),won,'normal')||Math.max(1000,Number(p.kofRating||1000)+(won?35:-22));
+    p.kofRating=newRating;
+    const coinsEarned=window.GameGuessScoring?.pointsToCoinReward?.(newRating,'normal')||(won?12:4);
+    p.coins=Number(p.coins||0)+coinsEarned;
     window.GameGuessRanked?.record?.(p,{kind:'kof',score:p.kofRating,mode:'kof2002',universe:'arcade',challenge:'1x1',difficulty:'ranked',correct:won?1:0,wrong:won?0:1,won,players:2,streak:p.kofCurrentStreak});
     CORE()?.replaceProfile?.(p);CORE()?.saveProfile?.();FB()?.syncLocalProfile?.(p);toast(won?'Vitória registrada!':'Partida registrada',`${won?'🏆 Vitória':'🥊 Derrota'} • Elo KOF ${p.kofRating}`)
   }
