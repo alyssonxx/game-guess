@@ -740,6 +740,8 @@
 
   function bindEvents(){
     $('brandButton').onclick=()=>session?requestQuit():showScreen('homeScreen'); qsa('[data-go-home]').forEach(b=>b.onclick=()=>showScreen('homeScreen'));
+    qsa('[data-home-action]').forEach(b=>b.addEventListener('click',e=>{const action=e.target.closest('[data-home-action]').dataset.homeAction;if(action==='scroll-modes')$('modeGrid').scrollIntoView({behavior:'smooth',block:'center'});else if(action==='open-duel')window.GameGuessDuel?.open?.();else if(action==='open-termo')window.GameGuessTermo?.open?.();}));
+    $('homeDuelButton').addEventListener('click',()=>window.GameGuessDuel?.open?.());$('homeRankingButton').addEventListener('click',()=>showScreen('rankingScreen'));
     $('timerToggle').addEventListener('change',e=>{setupConfig.timed=e.target.checked;updateSetupSummary();}); $('startButton').onclick=()=>startSession({...setupConfig});
     $('guessButton').onclick=makeGuess;$('skipButton').onclick=skipRound;$('guessInput').addEventListener('keydown',e=>{if(e.key==='Enter')makeGuess();});$('guessInput').addEventListener('input',e=>renderSuggestions(e.target.value));
     document.addEventListener('click',e=>{if(!e.target.closest('.input-wrapper'))$('suggestions').classList.remove('active');});qsa('.assist-btn').forEach(b=>b.onclick=()=>buyAssist(b.dataset.assist));

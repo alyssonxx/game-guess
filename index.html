@@ -17,8 +17,8 @@
     .result-body img.is-square,#resultImage.is-square,#universeResultImage.is-square,#duelQuestionImage.is-square,.duel-image-shell img.is-square,.assist-result img.is-square,.portrait-focus.is-square{object-position:center 22%!important}
   </style>
   <style id="home-redesign-v19-11">
-    #homeScreen{flex-direction:column;gap:22px;padding-bottom:96px}
-    #homeScreen.active{display:flex}
+    #homeScreen{display:flex !important;flex-direction:column;gap:22px;padding-bottom:96px}
+    #homeScreen.active{display:flex !important}
     #homeScreen:not(.active){display:none!important}
     #homeScreen .hero,#homeScreen .home-section,#homeScreen .home-bottom-note{position:relative;z-index:2}
     #homeScreen .hero{display:grid!important;grid-template-columns:minmax(0,1.5fr) minmax(300px,.9fr);gap:18px;align-items:stretch;padding:22px;border-radius:28px;background:linear-gradient(135deg,rgba(14,19,44,.96),rgba(20,30,72,.92));border:1px solid rgba(104,132,255,.22);box-shadow:0 24px 60px rgba(0,0,0,.32)}
@@ -40,13 +40,13 @@
     #homeScreen .section-copy{display:flex;flex-direction:column;gap:6px;margin-bottom:16px}
     #homeScreen .section-copy h2{margin:0;font-size:clamp(1.35rem,2vw,2rem)}
     #homeScreen .section-copy p:last-child{margin:0;opacity:.8;max-width:62ch}
-    #homeScreen .home-feature-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+    #homeScreen .home-feature-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px}
     #homeScreen .feature-card{padding:18px;border-radius:24px;background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.03));border:1px solid rgba(255,255,255,.08);display:flex;flex-direction:column;gap:14px;min-height:230px}
     #homeScreen .feature-card .feature-icon{width:52px;height:52px;border-radius:16px;display:grid;place-items:center;font-size:1.55rem;background:rgba(255,255,255,.08)}
     #homeScreen .feature-card h3{margin:0;font-size:1.22rem}
     #homeScreen .feature-card p{margin:0;opacity:.8;line-height:1.5}
     #homeScreen .feature-card .feature-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:auto}
-    #homeScreen .feature-card .secondary-btn,#homeScreen .feature-card .primary-btn{flex:1 1 180px}
+    #homeScreen .feature-card .secondary-btn,#homeScreen .feature-card .primary-btn{flex:1 1 160px;min-width:0}
     #homeScreen .mode-grid-home{display:grid;gap:14px}
     #homeScreen .arena-callout{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:18px;background:linear-gradient(135deg,rgba(26,16,44,.92),rgba(39,23,73,.88))}
     #homeScreen .arena-actions{display:flex;flex-wrap:wrap;gap:12px}
@@ -61,6 +61,9 @@
     .topbar #apiStatus,.topbar #duelButton{display:none!important}
     .topbar .brand small{display:block;opacity:.72;letter-spacing:.06em}
     .home-focus-note{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;background:rgba(136,232,255,.08);border:1px solid rgba(136,232,255,.16);font-size:.9rem;width:fit-content;max-width:100%;white-space:normal}
+    @media (max-width: 1200px){
+      #homeScreen .home-feature-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+    }
     @media (max-width: 1100px){
       #homeScreen .home-feature-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
       #homeScreen .hero{grid-template-columns:1fr}
@@ -68,11 +71,14 @@
     }
     @media (max-width: 720px){
       #homeScreen{gap:16px;padding-bottom:112px}
-      #homeScreen .hero{margin-top:4px}
+      #homeScreen .hero{margin-top:4px;padding:16px!important;border-radius:22px!important}
       #homeScreen .hero h1{font-size:clamp(1.85rem,10vw,2.65rem);overflow-wrap:anywhere}
       #homeScreen .hero-copy>p,#homeScreen .section-copy p,#homeScreen .feature-card p{font-size:1rem;line-height:1.45}
-      #homeScreen .hero,#homeScreen .home-section{padding:16px;border-radius:22px}
+      #homeScreen .hero,#homeScreen .home-section{padding:16px!important;border-radius:22px!important}
       #homeScreen .hero-stats,#homeScreen .home-feature-grid{grid-template-columns:1fr}
+      #homeScreen .feature-card{min-height:auto;padding:16px!important}
+      #homeScreen .feature-card .feature-actions{display:grid;grid-template-columns:1fr;width:100%}
+      #homeScreen .feature-card .primary-btn,#homeScreen .feature-card .secondary-btn{width:100%!important;flex:none!important}
       #homeScreen .hero-quick-actions .primary-btn,#homeScreen .hero-quick-actions .secondary-btn,#homeScreen .arena-actions .primary-btn,#homeScreen .arena-actions .secondary-btn{width:100%}
       #homeScreen .home-mobile-nav{display:grid}
       .topbar{position:sticky;top:0;z-index:25;background:rgba(9,11,24,.96);backdrop-filter:blur(8px)}
