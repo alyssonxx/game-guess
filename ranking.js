@@ -254,6 +254,8 @@
 
   function bind() {
     $('rankingBackV20')?.addEventListener('click', () => CORE()?.showScreen?.('homeScreen'));
+    $('rankingButton')?.addEventListener('click', () => loadRankingV20('rating'));
+    $('homeRankingButton')?.addEventListener('click', () => loadRankingV20('rating'));
   }
 
   window.GameGuessRankingV20 = { loadRankingV20, injectRankingV20 };
