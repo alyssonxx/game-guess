@@ -746,3 +746,31 @@ input,select,textarea,button{max-width:100%}
   #homeScreen .hero-stats{grid-template-columns:repeat(4,minmax(0,1fr))!important}
   #homeScreen .hero-stats>div{min-height:60px!important}
 }
+
+/* =========================================================
+   V20.0 — Design Redesign: Componentes Premium
+========================================================= */
+
+/* Stat Card com trending badge */
+.stat-card{border:1px solid rgba(66,232,255,.15);border-radius:var(--radius-md);background:linear-gradient(135deg,rgba(32,75,90,.2),rgba(18,33,54,.15));backdrop-filter:blur(8px);padding:20px;box-shadow:var(--shadow-low);transition:var(--transition-normal)}.stat-card:hover{border-color:rgba(66,232,255,.35);box-shadow:var(--shadow-med);transform:translateY(-2px)}.stat-card h3{font:700 .85rem 'Orbitron';letter-spacing:.08em;color:#7f89a8;margin-bottom:12px}.stat-card b{display:block;font:900 clamp(1.8rem,4vw,2.8rem) 'Orbitron';color:#fff;margin-bottom:8px}.stat-card span{display:block;font-size:.9rem;color:#aeb7d2}.stat-card .trending{display:inline-block;padding:4px 8px;background:rgba(86,243,154,.1);border:1px solid rgba(86,243,154,.3);border-radius:6px;color:#56f39a;font:700 .75rem 'Orbitron';margin-top:10px}
+
+/* Achievement Badge */
+.achievement-badge{display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;aspect-ratio:1;border:2px solid rgba(255,255,255,.1);border-radius:var(--radius-lg);background:linear-gradient(135deg,rgba(20,25,50,.8),rgba(10,15,30,.9));padding:16px;text-align:center;opacity:.4;transition:var(--transition-smooth);cursor:default}.achievement-badge.unlocked{opacity:1;border-color:rgba(215,169,59,.4);background:linear-gradient(135deg,rgba(68,54,20,.5),rgba(30,25,45,.8));box-shadow:0 0 30px rgba(215,169,59,.2);animation:unlockPulse .6s ease-out}.achievement-badge .badge-icon{font-size:clamp(2rem,4vw,3.2rem);margin-bottom:8px}.achievement-badge h4{font:700 .8rem 'Orbitron';color:#d8b9ff;margin-bottom:4px}.achievement-badge p{font-size:.75rem;color:#9fa8c4}@keyframes unlockPulse{0%{transform:scale(.8);opacity:.5}50%{transform:scale(1.15)}100%{transform:scale(1);opacity:1}}
+
+/* Rating Badge */
+.rating-badge{display:inline-flex;align-items:center;gap:10px;padding:12px 18px;border-radius:999px;background:var(--gradient-cyan);color:#05121a;font:800 .9rem 'Orbitron';box-shadow:0 8px 24px rgba(66,232,255,.2)}.rating-badge.high{background:linear-gradient(135deg,#ff54e8,#ff8ed7)}.rating-badge.low{background:linear-gradient(135deg,#ffc857,#ffb970)}.rating-badge span{font-size:1.1rem}
+
+/* Progress Bar */
+.progress-bar{width:100%;height:8px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(66,232,255,.1);overflow:hidden}.progress-bar-fill{height:100%;background:var(--gradient-cyan);border-radius:999px;transition:width .4s ease;animation:progressGrow .6s ease-out}@keyframes progressGrow{0%{width:0;opacity:.5}100%{width:var(--progress,0%);opacity:1}}.progress-milestone{display:inline-block;width:12px;height:12px;border-radius:50%;background:var(--cyan);position:absolute;top:50%;transform:translate(-50%,-50%);box-shadow:0 0 12px var(--cyan)}
+
+/* Leaderboard Row */
+.leaderboard-row{display:grid;grid-template-columns:60px minmax(0,1fr) 100px auto;gap:12px;align-items:center;padding:16px;border:1px solid rgba(66,232,255,.1);border-radius:var(--radius-md);background:linear-gradient(90deg,rgba(66,232,255,.05),transparent);transition:var(--transition-normal)}.leaderboard-row:hover{border-color:rgba(66,232,255,.25);background:linear-gradient(90deg,rgba(66,232,255,.12),transparent)}.leaderboard-medal{font-size:1.8rem;text-align:center}.leaderboard-player{min-width:0}.leaderboard-player span{display:block;font:700 .95rem 'Orbitron';color:#fff}.leaderboard-player small{color:#8a94b3;font-size:.85rem}.leaderboard-rating{font:900 1.2rem 'Orbitron';color:var(--cyan)}.leaderboard-stats{text-align:right;font-size:.85rem;color:#9fa8c4}
+
+/* Podium Container */
+.podium-container{display:flex;justify-content:center;align-items:flex-end;gap:16px;margin:24px 0}.podium-place{display:flex;flex-direction:column;align-items:center;gap:12px;opacity:.65;transition:var(--transition-normal)}.podium-place.first{order:-1;opacity:1;transform:scale(1.1)}.podium-place.second{order:0}.podium-place.third{order:1}.podium-step{width:80px;height:var(--height,100px);border-radius:12px;background:linear-gradient(135deg,rgba(66,232,255,.2),rgba(66,232,255,.05));border:2px solid rgba(66,232,255,.2);display:flex;align-items:center;justify-content:center;font:700 1.8rem 'Orbitron';color:var(--cyan);box-shadow:var(--shadow-med)}.podium-place.first .podium-step{--height:130px;background:linear-gradient(135deg,rgba(255,200,87,.2),rgba(255,200,87,.05));border-color:rgba(255,200,87,.3);color:#ffc857}.podium-place.second .podium-step{--height:100px}.podium-place.third .podium-step{--height:70px}.podium-player{text-align:center}.podium-name{font:700 1rem 'Orbitron';color:#fff;margin-bottom:4px}.podium-rating{font:700 .85rem 'Orbitron';color:var(--cyan)}.podium-place.first .podium-rating{color:#ffc857}
+
+/* Season Info Bar */
+.season-info-bar{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;padding:20px;border:1px solid rgba(66,232,255,.15);border-radius:var(--radius-md);background:linear-gradient(135deg,rgba(32,75,90,.15),rgba(18,33,54,.1));margin-bottom:24px}.season-info-item h4{font:700 .8rem 'Orbitron';color:#7f89a8;margin-bottom:8px;text-transform:uppercase;letter-spacing:.08em}.season-info-item span{display:block;font:700 clamp(1.2rem,3vw,1.8rem) 'Orbitron';color:#fff;margin-bottom:6px}.season-info-item small{color:#aeb7d2;font-size:.85rem}
+
+@media(max-width:1050px){.podium-place.first{transform:scale(1.05)}}
+@media(max-width:720px){.leaderboard-row{grid-template-columns:50px minmax(0,1fr) 80px}.season-info-bar{grid-template-columns:1fr}.podium-container{gap:12px}.podium-place{gap:8px}.podium-step{width:70px;font-size:1.4rem}}
