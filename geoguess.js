@@ -141,16 +141,12 @@ function pickMlyImage(items){
 }
 async function browserMapillaryImages(lat,lng){
   await ensureMapillaryToken();
-  const u=new URL('https://graph.mapillary.com/images');
-  u.searchParams.set('access_token',mapillaryToken);
-  u.searchParams.set('bbox',mlyBbox(Number(lat),Number(lng),4.5));
-  u.searchParams.set('limit','80');
-  u.searchParams.set('fields','id,computed_geometry,geometry,computed_compass_angle,compass_angle,camera_type,sequence,captured_at');
-  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),8000);
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),10000);
   try{
+    const u=`/api/geoguess-images?lat=${encodeURIComponent(lat)}&lng=${encodeURIComponent(lng)}`;
     const r=await fetch(u,{signal:controller.signal,headers:{Accept:'application/json'}});
     const d=await r.json().catch(()=>({}));
-    if(!r.ok){const msg=d?.error?.message||`Mapillary HTTP ${r.status}`;const e=new Error(msg);e.status=r.status;throw e;}
+    if(!r.ok){const msg=d?.message||d?.error||`HTTP ${r.status}`;const e=new Error(msg);e.status=r.status;throw e;}
     return Array.isArray(d.data)?d.data:[];
   }catch(e){
     if(e?.name==='AbortError'){const x=new Error('Tempo esgotado ao consultar a cobertura do Mapillary.');x.status=408;throw x;}
