@@ -74,6 +74,16 @@
             <h3>Por Modo</h3>
             <div id="myModeStatsDisplay" style="display:grid;gap:8px;margin-top:12px;font-size:.9rem"></div>
           </div>
+
+          <div class="stat-card">
+            <h3>Conquistas</h3>
+            <div id="myAchievementsDisplay" style="margin-top:12px">
+              <div style="text-align:center;padding:12px">
+                <b id="achievementProgress" style="font-size:1.3rem;color:var(--cyan)">—</b>
+                <small style="display:block;color:#7f89a8;margin-top:4px">achievements desbloqueadas</small>
+              </div>
+            </div>
+          </div>
         </aside>
       </div>
     </section>
@@ -185,6 +195,7 @@
       $('myRankDisplay').innerHTML = '<p style="color:#7f89a8">Faça login para ver seu ranking</p>';
       $('myStatsDisplay').style.display = 'none';
       $('myModeStatsDisplay').innerHTML = '';
+      $('myAchievementsDisplay').innerHTML = '';
       return;
     }
 
@@ -215,6 +226,13 @@
       }
     }
     $('myModeStatsDisplay').innerHTML = modesHtml || '<small style="color:#7f89a8">Jogue em diferentes modos para ver estatísticas</small>';
+
+    // Render achievements
+    const achievements = window.GameGuessAchievements?.getAchievementStats?.();
+    if (achievements) {
+      const { unlockedCount, totalCount, percentage } = achievements;
+      $('achievementProgress').textContent = `${unlockedCount}/${totalCount} (${percentage}%)`;
+    }
   }
 
   function escapeHtml(v) {
