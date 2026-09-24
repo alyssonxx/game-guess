@@ -774,3 +774,29 @@ input,select,textarea,button{max-width:100%}
 
 @media(max-width:1050px){.podium-place.first{transform:scale(1.05)}}
 @media(max-width:720px){.leaderboard-row{grid-template-columns:50px minmax(0,1fr) 80px}.season-info-bar{grid-template-columns:1fr}.podium-container{gap:12px}.podium-place{gap:8px}.podium-step{width:70px;font-size:1.4rem}}
+
+/* ===== Ranking V20.0 Layout ===== */
+.ranking-layout-v20{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:24px;align-items:start}
+.ranking-main{display:grid;gap:20px}
+.ranking-podium-section{padding:20px;border:1px solid rgba(66,232,255,.15);border-radius:var(--radius-lg);background:linear-gradient(135deg,rgba(32,75,90,.1),rgba(18,33,54,.08))}
+.ranking-filters{margin:16px 0;padding:12px 0}
+.ranking-filter-btn{transition:var(--transition-normal)}
+.ranking-leaderboard-section #rankingList{grid-template-columns:1fr}
+.ranking-sidebar{display:flex;flex-direction:column;gap:16px}
+.stat-card{border:1px solid rgba(66,232,255,.15);border-radius:var(--radius-lg);background:linear-gradient(135deg,rgba(32,75,90,.1),rgba(18,33,54,.08));padding:20px;transition:var(--transition-normal)}.stat-card:hover{border-color:rgba(66,232,255,.25)}.stat-card h3{font:700 1rem 'Orbitron';color:#fff;margin-bottom:14px}.stat-card .trending{display:inline-flex;align-items:center;gap:4px;font-size:.8rem;color:var(--green);margin-left:auto}
+
+#rankingSeasonInfo .season-info-item{padding:12px 0}
+
+@media(max-width:1050px){
+  .ranking-layout-v20{grid-template-columns:1fr}
+  .ranking-sidebar{grid-template-columns:repeat(3,1fr)}
+}
+
+@media(max-width:720px){
+  .ranking-layout-v20{gap:16px}
+  .ranking-sidebar{grid-template-columns:1fr}
+  .season-info-bar{grid-template-columns:repeat(2,1fr)}
+  .podium-container{margin:16px 0}
+  .leaderboard-row{grid-template-columns:50px minmax(0,1fr) auto}
+  .leaderboard-stats{display:none}
+}
