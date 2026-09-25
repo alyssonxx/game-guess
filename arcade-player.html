@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+  <meta name="theme-color" content="#050913">
+  <title>Game Guess • Arcade</title>
+  <style>
+    *{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;overflow:hidden;background:#050913;color:#fff;font-family:Inter,Arial,sans-serif;overscroll-behavior:none}body{user-select:none;-webkit-user-select:none}
+    #game{position:fixed;inset:0;background:#050913;overflow:hidden}#game canvas,#game iframe,#game video,#game object{max-width:100%!important;max-height:100%!important;touch-action:none!important}
+    .topbar{position:fixed;z-index:70;top:max(8px,env(safe-area-inset-top));left:max(8px,env(safe-area-inset-left));right:max(8px,env(safe-area-inset-right));display:flex;justify-content:space-between;gap:8px;pointer-events:none}.group{display:flex;gap:6px;flex-wrap:wrap;pointer-events:auto}
+    .tool,.badge{border:1px solid rgba(66,232,255,.5);background:rgba(5,9,19,.84);color:#fff;padding:8px 10px;border-radius:12px;font-weight:900;backdrop-filter:blur(8px)}.tool{cursor:pointer}.badge{color:#bdf8ff}
+    #boot{position:fixed;inset:0;z-index:90;display:grid;place-items:center;padding:22px;background:radial-gradient(circle at 50% 22%,#1b3556 0,#11172b 44%,#050913 78%)}
+    .panel{width:min(760px,95vw);max-height:94vh;overflow:auto;padding:24px;border:1px solid rgba(66,232,255,.3);border-radius:20px;background:rgba(5,9,19,.9);box-shadow:0 20px 70px rgba(0,0,0,.48);text-align:center}.panel h1{margin:0 0 8px;font-size:clamp(1.5rem,5vw,2.5rem)}.panel p{color:#bfc9df;line-height:1.5;margin:8px auto;max-width:650px}
+    #startButton{margin-top:14px;border:0;border-radius:14px;padding:14px 22px;background:linear-gradient(135deg,#42e8ff,#7d72ff);color:#03131b;font-size:1rem;font-weight:1000;letter-spacing:.04em;cursor:pointer;box-shadow:0 12px 34px rgba(66,232,255,.2)}#startButton:disabled{opacity:.6;cursor:wait}
+    .controls-summary{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;text-align:left}.controls-summary.one{grid-template-columns:1fr}.controls-summary div{padding:12px;border:1px solid rgba(255,255,255,.11);border-radius:12px;background:rgba(255,255,255,.04)}.controls-summary b{display:block;margin-bottom:5px}.controls-summary small{color:#aeb9d2;line-height:1.45}
+    #help{position:fixed;z-index:85;inset:64px 12px auto 12px;margin:auto;max-width:760px;padding:16px;border:1px solid rgba(66,232,255,.35);border-radius:16px;background:rgba(5,9,19,.96);box-shadow:0 18px 55px rgba(0,0,0,.5);display:none;max-height:78vh;overflow:auto}.help-open #help{display:block}#help h2{margin:0 0 8px}#help p{margin:7px 0;color:#c1cce1;line-height:1.45}
+    #touchWrap{display:none;position:fixed;z-index:64;left:0;right:0;bottom:0;height:min(47vh,390px);pointer-events:none;background:linear-gradient(180deg,transparent,rgba(5,9,19,.46) 16%,rgba(5,9,19,.78))}.touch-player{position:absolute;bottom:max(8px,env(safe-area-inset-bottom));height:92%;pointer-events:none}.touch-player.single{left:0;width:100%}.touch-player.p1{left:0;width:50%}.touch-player.p2{right:0;width:50%}.player-label{position:absolute;left:50%;top:0;transform:translateX(-50%);font-weight:1000;font-size:.76rem;letter-spacing:.08em;opacity:.85}
+    .dpad{position:absolute;left:4%;bottom:8%;width:min(36vw,170px);height:min(36vw,170px);max-width:44%;max-height:78%;pointer-events:auto}.single .dpad{left:5%;width:min(38vw,190px);height:min(38vw,190px)}.dpad button,.actions button,.mini-actions button{position:absolute;border:1px solid rgba(255,255,255,.42);background:rgba(5,9,19,.72);color:#fff;font-weight:1000;touch-action:none;box-shadow:0 5px 18px rgba(0,0,0,.28)}.dpad button{width:34%;height:34%;border-radius:14px;font-size:1.05rem}.dpad .up{left:33%;top:0}.dpad .down{left:33%;bottom:0}.dpad .left{left:0;top:33%}.dpad .right{right:0;top:33%}
+    .actions{position:absolute;right:3%;bottom:10%;width:min(32vw,168px);height:min(34vw,190px);max-width:48%;pointer-events:auto}.single .actions{right:5%;width:min(44vw,250px);height:min(38vw,210px)}.actions button{border-radius:50%;font-size:.72rem;width:30%;height:30%}.actions.four .b0{left:0;bottom:8%}.actions.four .b1{left:34%;bottom:0}.actions.four .b2{left:34%;top:0}.actions.four .b3{right:0;top:12%}.actions.six .b0{left:0;top:0}.actions.six .b1{left:34%;top:0}.actions.six .b2{right:0;top:0}.actions.six .b3{left:0;bottom:0}.actions.six .b4{left:34%;bottom:0}.actions.six .b5{right:0;bottom:0}
+    .mini-actions{position:absolute;right:4%;top:8%;display:flex;gap:5px;pointer-events:auto}.mini-actions button{position:static;border-radius:10px;padding:7px 8px;font-size:.6rem}.pressed{transform:scale(.93);filter:brightness(1.35)}
+    #status{position:fixed;z-index:66;left:50%;bottom:10px;transform:translateX(-50%);max-width:min(760px,92vw);padding:8px 12px;border-radius:999px;background:rgba(5,9,19,.8);border:1px solid rgba(255,255,255,.12);font-size:.78rem;color:#d9e2f2;pointer-events:none;text-align:center}
+    @media (hover:none) and (pointer:coarse){#touchWrap{display:block}.badge{display:none}.topbar{opacity:.76}.tool{padding:7px 8px;font-size:.72rem}#status{bottom:calc(min(47vh,390px) + 6px)}}
+    @media (max-width:680px){.panel{padding:17px}.controls-summary{grid-template-columns:1fr}#touchWrap{height:44vh}.dpad{width:40vw;height:40vw}.actions{width:34vw;height:35vw}.touch-player.p1 .actions,.touch-player.p2 .actions{max-width:48%}}
+  </style>
+</head>
+<body>
+  <div id="game"></div>
+  <div class="topbar">
+    <div class="group"><span class="badge" id="gameBadge">🎮 ARCADE</span></div>
+    <div class="group"><button class="tool" id="helpButton" type="button">❔ CONTROLES</button><button class="tool" id="fullscreenButton" type="button">⛶ CHEIA</button></div>
+  </div>
+  <div id="boot"><div class="panel"><div id="gameIcon" style="font-size:3rem">🎮</div><h1 id="gameTitle">Arcade</h1><p id="bootText">Preparando o emulador…</p><div class="controls-summary" id="controlsSummary"></div><p id="deviceHint"><strong>Entradas:</strong> teclado, gamepads/joysticks e touchscreen.</p><button id="startButton" type="button">▶ INICIAR</button></div></div>
+  <div id="help"><h2 id="helpTitle">Controles</h2><div id="helpBody"></div></div>
+  <div id="touchWrap"></div>
+  <div id="status">Preparando o jogo automaticamente…</div>
+  <script src="/arcade-player.js?v=2.0.0"></script>
+</body>
+</html>

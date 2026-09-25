@@ -1,0 +1,753 @@
+diff --git a/arcade-player.html b/arcade-player.html
+index 74aadf8..b66c8a2 100644
+--- a/arcade-player.html
++++ b/arcade-player.html
+@@ -33,7 +33,7 @@
+   <div id="boot"><div class="panel"><div id="gameIcon" style="font-size:3rem">🎮</div><h1 id="gameTitle">Arcade</h1><p id="bootText">Preparando o emulador…</p><div class="controls-summary" id="controlsSummary"></div><p id="deviceHint"><strong>Entradas:</strong> teclado, gamepads/joysticks e touchscreen.</p><button id="startButton" type="button">▶ INICIAR</button></div></div>
+   <div id="help"><h2 id="helpTitle">Controles</h2><div id="helpBody"></div></div>
+   <div id="touchWrap"></div>
+-  <div id="status">Clique em INICIAR para carregar o jogo.</div>
+-  <script src="/arcade-player.js?v=1.0.0"></script>
++  <div id="status">Preparando o jogo automaticamente…</div>
++  <script src="/arcade-player.js?v=2.0.0"></script>
+ </body>
+ </html>
+diff --git a/arcade-player.js b/arcade-player.js
+index 49d5f10..e849610 100644
+--- a/arcade-player.js
++++ b/arcade-player.js
+@@ -12,8 +12,9 @@
+   const playerName = String(params.get('name') || (role === 'host' ? 'HOST' : role === 'guest' ? 'CONVIDADO' : 'PLAYER')).trim().slice(0,20) || 'PLAYER';
+ 
+   const GAMES = {
++    kf2k2mp2: { title:'KOF 2002 Magic Plus II', icon:'🥊', system:'Neo Geo', core:'fbneo', url:'/roms/v178/kf2k2mp2.zip', size:86694745, profile:'neo4', localId:20020202 },
+     neobombe: { title:'Neo Bomberman', icon:'💣', system:'Neo Geo', core:'fbneo', url:'/roms/neogeo/neobombe.zip', size:7431142, profile:'neo4', localId:19970501 },
+-    samsh5spho: { title:'Samurai Shodown V Special', icon:'⚔️', system:'Neo Geo', core:'fbneo', url:'/roms/arcade/samsh5spho.zip', size:84382326, profile:'neo4', localId:20040422 },
++    samsh5spho: { title:'Samurai Shodown V Special', icon:'⚔️', system:'Neo Geo', core:'fbneo', url:'/roms/arcade/samsh5spho.zip', size:83295234, profile:'neo4', localId:20040422 },
+     mvsc: { title:'Marvel vs. Capcom', icon:'🦸', system:'CPS-2', core:'fbalpha2012_cps2', url:'/roms/arcade/mvsc.zip', size:21493122, profile:'cps6', localId:19980123 },
+     xmvsfur1: { title:'X-Men vs. Street Fighter', icon:'✖️', system:'CPS-2', core:'fbalpha2012_cps2', url:'/roms/arcade/xmvsfur1.zip', size:18468916, profile:'cps6', localId:19961004 }
+   };
+@@ -58,7 +59,7 @@
+   function setBoot(message){ if(bootText) bootText.textContent=message; }
+   function mb(n){ return `${(Number(n||0)/1024/1024).toFixed(1)} MB`; }
+   function fail(message){ const msg=String(message||'Falha ao iniciar o Arcade.'); loading=false;started=false;directReady=false;if(boot)boot.style.display='grid';if(startButton){startButton.disabled=false;startButton.textContent='↻ TENTAR NOVAMENTE'}setBoot(msg);setStatus('❌ '+msg);post('arcade-player-error',msg); }
+-  async function head(url){ try{ const r=await fetch(url,{method:'HEAD',cache:'no-store'});return{ok:r.ok,status:r.status,size:Number(r.headers.get('content-length')||0)} }catch{return{ok:false,status:0,size:0}} }
++  async function head(url,timeout=6500){ const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),timeout);try{ const r=await fetch(url,{method:'HEAD',cache:'no-store',signal:ctrl.signal});return{ok:r.ok,status:r.status,size:Number(r.headers.get('content-length')||0)} }catch(e){return{ok:false,status:0,size:0,error:e?.name==='AbortError'?'timeout':'network'}}finally{clearTimeout(timer)} }
+   async function json(url){ try{const r=await fetch(url,{cache:'no-store'});return r.ok?await r.json():null}catch{return null} }
+ 
+   function setupUi(){
+@@ -136,7 +137,7 @@
+   async function bootGame(){
+     if(loading||started||!game)return;loading=true;startButton.disabled=true;startButton.textContent='CARREGANDO…';
+     try{
+-      setBoot(`Validando ${game.url.split('/').pop()}…`);const rom=await head(game.url);if(!rom.ok)throw new Error(`ROM não encontrada: ${game.url}`);if(rom.size&&game.size&&rom.size!==game.size)throw new Error(`ROM diferente da validada: ${rom.size} bytes; esperado ${game.size}.`);
++      setBoot(`Validando ${game.url.split('/').pop()}…`);const rom=await head(game.url);if(rom.status===404||rom.status===410)throw new Error(`ROM não encontrada: ${game.url}`);if(rom.ok&&rom.size&&game.size&&rom.size!==game.size)throw new Error(`ROM diferente da validada: ${rom.size} bytes; esperado ${game.size}.`);
+       setBoot(`ROM OK (${mb(rom.size||game.size)}). Carregando EmulatorJS ${EJS_VERSION} + ${game.core}…`);
+       const cfg=online?await json('/api/kof-config'):null,server=String(cfg?.netplayServer||PUBLIC_NETPLAY_SERVER).trim().replace(/\/+$/,'')||PUBLIC_NETPLAY_SERVER,ice=Array.isArray(cfg?.iceServers)&&cfg.iceServers.length?cfg.iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}];
+       window.EJS_player='#game';window.EJS_core=game.core;window.EJS_gameUrl=game.url;window.EJS_gameID=online?gameId:game.localId;window.EJS_pathtodata=EJS_DATA;window.EJS_language='pt-BR';window.EJS_disableAutoLang=true;window.EJS_startOnLoaded=true;window.EJS_noAutoFocus=true;window.EJS_threads=!!(window.crossOriginIsolated&&typeof SharedArrayBuffer!=='undefined');window.EJS_color='#42e8ff';window.EJS_backgroundColor='#050913';window.EJS_backgroundBlur=false;window.EJS_controlScheme='arcade';window.EJS_defaultControls=defaultControls();window.EJS_VirtualGamepadSettings=[];window.EJS_Buttons={playPause:false,restart:false,mute:false,settings:false,fullscreen:false,saveState:false,loadState:false,screenRecord:false,gamepad:false,cheat:false,volume:false,saveSavFiles:false,loadSavFiles:false,quickSave:false,quickLoad:false,screenshot:false,cacheManager:false,exitEmulation:false};window.EJS_AdTimer=-1;window.EJS_CacheLimit=512*1024*1024;
+@@ -148,4 +149,8 @@
+   }
+ 
+   setupUi();bindKeyboard();startButton?.addEventListener('click',bootGame);helpButton?.addEventListener('click',()=>document.body.classList.toggle('help-open'));$('help')?.addEventListener('click',e=>{if(e.target===$('help'))document.body.classList.remove('help-open')});fullscreenButton?.addEventListener('click',async()=>{try{if(!document.fullscreenElement)await document.documentElement.requestFullscreen();else await document.exitFullscreen()}catch{}});document.addEventListener('fullscreenchange',()=>{if(fullscreenButton)fullscreenButton.textContent=document.fullscreenElement?'↙ SAIR':'⛶ CHEIA'});addEventListener('pagehide',()=>{releaseAll();stopNetplayTimers();cancelAnimationFrame(padFrame)});addEventListener('unhandledrejection',e=>{if(!started&&e?.reason)fail(e.reason?.message||String(e.reason))});
++
++  // O clique no modo no lobby já representa a intenção de jogar. Tentamos iniciar
++  // automaticamente; se o navegador bloquear áudio/autoplay, o botão permanece disponível.
++  setTimeout(()=>{ if(game&&!started&&!loading) bootGame(); },220);
+ })();
+diff --git a/arcade-x1.js b/arcade-x1.js
+index 260a4a4..e4d4c25 100644
+--- a/arcade-x1.js
++++ b/arcade-x1.js
+@@ -1,42 +1,445 @@
+ (() => {
+   'use strict';
+-  const $=id=>document.getElementById(id), CORE=()=>window.GameGuessCore, FB=()=>window.GameGuessFirebase;
+-  const VERSION='1.0.0';
+-  const GAMES={
+-    neobombe:{title:'Neo Bomberman',icon:'💣',url:'/roms/neogeo/neobombe.zip',size:7431142},
+-    samsh5spho:{title:'Samurai Shodown V Special',icon:'⚔️',url:'/roms/arcade/samsh5spho.zip',size:84382326},
+-    mvsc:{title:'Marvel vs. Capcom',icon:'🦸',url:'/roms/arcade/mvsc.zip',size:21493122},
+-    xmvsfur1:{title:'X-Men vs. Street Fighter',icon:'✖️',url:'/roms/arcade/xmvsfur1.zip',size:18468916}
++
++  const $ = id => document.getElementById(id);
++  const CORE = () => window.GameGuessCore;
++  const FB = () => window.GameGuessFirebase;
++  const VERSION = '2.0.0';
++
++  const GAMES = {
++    kf2k2mp2: {
++      title: 'KOF 2002 Magic Plus II', icon: '🥊', system: 'Neo Geo', core: 'fbneo',
++      url: '/roms/v178/kf2k2mp2.zip', size: 86694745
++    },
++    neobombe: {
++      title: 'Neo Bomberman', icon: '💣', system: 'Neo Geo', core: 'fbneo',
++      url: '/roms/neogeo/neobombe.zip', size: 7431142
++    },
++    samsh5spho: {
++      title: 'Samurai Shodown V Special', icon: '⚔️', system: 'Neo Geo', core: 'fbneo',
++      url: '/roms/arcade/samsh5spho.zip', size: 83295234
++    },
++    mvsc: {
++      title: 'Marvel vs. Capcom', icon: '🦸', system: 'CPS-2', core: 'fbalpha2012_cps2',
++      url: '/roms/arcade/mvsc.zip', size: 21493122
++    },
++    xmvsfur1: {
++      title: 'X-Men vs. Street Fighter', icon: '✖️', system: 'CPS-2', core: 'fbalpha2012_cps2',
++      url: '/roms/arcade/xmvsfur1.zip', size: 18468916
++    }
+   };
+-  let selected='',roomCode='',room=null,unsub=null,sessionArmed=false,launched=false,launching=false,lastLaunchAt=0,readyRoom='';
+-  function toast(a,b,t=''){CORE()?.toast?.(a,b,t)}function show(id){CORE()?.showScreen?.(id)}function user(){return FB()?.getUser?.()||null}function game(){return GAMES[selected]||null}function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}function playerName(){const u=user(),p=CORE()?.getProfile?.()||{};return String(p.nickname||u?.displayName||u?.email?.split('@')[0]||'PLAYER').trim().slice(0,20)||'PLAYER'}
+-  async function head(url,timeout=9000){const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),timeout);try{const r=await fetch(url,{method:'HEAD',cache:'no-store',signal:ctrl.signal});return{ok:r.ok,status:r.status,size:Number(r.headers.get('content-length')||0)}}catch(e){return{ok:false,status:0,error:e?.name==='AbortError'?'timeout':'network'}}finally{clearTimeout(timer)}}
+-  async function validate(key=selected){const g=GAMES[key];if(!g)return false;const r=await head(g.url);if(!r.ok){toast(g.title,`ROM não encontrada: ${g.url}`,'error');return false}if(r.size&&r.size!==g.size){toast(g.title,`ROM diferente da validada: ${r.size} bytes; esperado ${g.size}.`,'error');return false}return true}
+-  function playUrl(mode,launchAt=0){const g=game(),name=playerName();if(!g)return'';if(mode==='online'){const role=room?.hostUid===user()?.uid?'host':'guest';return `/arcade-player.html?v=${VERSION}&game=${encodeURIComponent(selected)}&role=${role}&room=${encodeURIComponent(roomCode)}&gameId=${encodeURIComponent(room?.gameId||1)}&launch=${encodeURIComponent(launchAt||room?.launchAt||Date.now())}&name=${encodeURIComponent(name)}`};return `/arcade-player.html?v=${VERSION}&game=${encodeURIComponent(selected)}&role=local&players=${mode==='local2'?2:1}&name=${encodeURIComponent(name)}`}
+-  async function launchLocal(key,players){selected=key;if(!await validate())return;const g=game();$('arcadePlayTitle').textContent=`${g.icon} ${g.title.toUpperCase()}`;$('arcadePlayMode').textContent=players===2?'2 PLAYERS LOCAL':'1 PLAYER LOCAL';$('arcadePlayFrame').title=`${g.title} • ${players}P local`;$('arcadePlayFrame').src=playUrl(players===2?'local2':'local1');show('arcadePlayScreen')}
+-  function playerOnline(uid,r=room){return Boolean(uid&&Object.keys(r?.presence?.[uid]||{}).length)}function playerCount(){return room?Object.keys(room.players||{}).length:0}function connectedCount(){return room?Object.keys(room.players||{}).filter(uid=>playerOnline(uid)).length:0}function readyCount(){return Object.values(room?.clientReady||{}).filter(x=>x?.ready).length}function isHost(){return Boolean(user()&&room?.hostUid===user().uid)}
+-  async function ensureReady(){if(!roomCode||!user()||!selected)return false;if(room?.clientReady?.[user().uid]?.ready){readyRoom=roomCode;return true}if(readyRoom===roomCode)return true;if(!await validate())return false;readyRoom=roomCode;try{return await FB()?.markFightReady?.(roomCode,true)}catch{readyRoom='';return false}}
+-  function renderRoom(){
+-    $('arcadeRoomPanel')?.classList.toggle('hidden',!room);if(!room)return;
+-    const g=game();$('arcadeRoomCode').textContent=room.code||roomCode;$('arcadeRoomGame').textContent=`${g?.icon||'🎮'} ${g?.title||selected} • ${isHost()?'HOST / PLAYER 1':'CONVIDADO / PLAYER 2'}`;
+-    $('arcadeRoomPlayers').innerHTML=Object.values(room.players||{}).map(p=>`<div class="kof-player-row"><span>${p.uid===room.hostUid?'👑':'🥊'}</span><b>${esc(p.name)}</b><small>${playerOnline(p.uid)?'🟢 online':'🟡 reconectando'} • ${room.clientReady?.[p.uid]?.ready?'🎮 pronto':'🔎 validando ROM'}</small></div>`).join('');
+-    const count=playerCount(),connected=connectedCount(),ready=readyCount();const status=$('arcadeRoomStatus');if(status){if(count<2)status.textContent='⏳ 1/2 jogadores • compartilhe o código';else if(connected<2)status.textContent=`🟡 2/2 jogadores • ${connected}/2 online`;else if(ready<2)status.textContent=`🔎 ${ready}/2 aparelhos prontos`;else status.textContent='✅ 2/2 jogadores online e prontos'}
+-    const launch=$('arcadeLaunchButton');if(launch){if(isHost()){launch.disabled=launching||count<2||connected<2||ready<2;launch.textContent=launching?'⏳ INICIANDO…':'🚀 INICIAR ONLINE X1'}else{launch.disabled=true;launch.textContent=ready>=2?'✅ PRONTO • AGUARDE O HOST':'🔎 VALIDANDO…'}}
+-    const launchAt=Number(room.launchAt||0);if(sessionArmed&&(room.launchState==='starting'||room.status==='playing')&&launchAt&&!launched&&launchAt!==lastLaunchAt){lastLaunchAt=launchAt;setTimeout(()=>launchOnline(true,launchAt),100)}
++
++  let selected = '';
++  let roomCode = '';
++  let room = null;
++  let unsub = null;
++  let sessionArmed = false;
++  let launched = false;
++  let launching = false;
++  let lastLaunchAt = 0;
++  let readyRoom = '';
++
++  const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({
++    '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
++  }[c]));
++
++  function toast(title, message, type='') { CORE()?.toast?.(title, message, type); }
++  function show(id) { CORE()?.showScreen?.(id); }
++  function user() { return FB()?.getUser?.() || null; }
++  function game(key=selected) { return GAMES[key] || null; }
++  function playerName() {
++    const u = user(), p = CORE()?.getProfile?.() || {};
++    return String(p.nickname || u?.displayName || u?.email?.split('@')[0] || 'PLAYER').trim().slice(0,20) || 'PLAYER';
++  }
++
++  function setHubStatus(message, kind='info') {
++    const el = $('arcadeActionStatus');
++    if (!el) return;
++    el.dataset.kind = kind;
++    const dot = el.querySelector('.arcade-v2-status-dot');
++    if (dot) dot.textContent = kind === 'error' ? '!' : kind === 'loading' ? '…' : kind === 'ok' ? '✓' : '';
++    const b = el.querySelector('b');
++    const span = el.querySelector('span:last-child');
++    if (b) b.textContent = kind === 'error' ? 'Atenção.' : kind === 'loading' ? 'Carregando.' : kind === 'ok' ? 'Pronto.' : 'Arcade.';
++    if (span) span.textContent = message;
++  }
++
++  function setOnlineStatus(message, kind='info') {
++    const el = $('arcadeOnlineStatus');
++    if (!el) return;
++    el.dataset.kind = kind;
++    const bullet = el.querySelector('span');
++    if (bullet) bullet.textContent = kind === 'error' ? '!' : kind === 'ok' ? '✓' : kind === 'loading' ? '…' : '●';
++    const b = el.querySelector('b');
++    if (b) b.textContent = message;
++  }
++
++  function setPlayStatus(message, kind='info') {
++    const el = $('arcadePlayConnection');
++    if (!el) return;
++    el.dataset.kind = kind;
++    el.textContent = message;
++  }
++
++  async function head(url, timeout=4500) {
++    const ctrl = new AbortController();
++    const timer = setTimeout(() => ctrl.abort(), timeout);
++    try {
++      const r = await fetch(url, { method:'HEAD', cache:'no-store', signal:ctrl.signal });
++      return { ok:r.ok, status:r.status, size:Number(r.headers.get('content-length') || 0) };
++    } catch (e) {
++      return { ok:false, status:0, error:e?.name === 'AbortError' ? 'timeout' : 'network' };
++    } finally { clearTimeout(timer); }
++  }
++
++  // Não bloqueia a jogabilidade quando o host não responde HEAD. Só barra 404/410
++  // ou tamanho comprovadamente incompatível.
++  async function validate(key=selected, { quiet=false }={}) {
++    const g = game(key);
++    if (!g) return false;
++    const r = await head(g.url);
++    if (r.status === 404 || r.status === 410) {
++      if (!quiet) {
++        setHubStatus(`A ROM de ${g.title} não está no deploy: ${g.url}`, 'error');
++        setOnlineStatus(`ROM ausente no deploy: ${g.url}`, 'error');
++        toast(g.title, `ROM não encontrada: ${g.url}`, 'error');
++      }
++      return false;
++    }
++    if (r.ok && r.size && g.size && r.size !== g.size) {
++      if (!quiet) {
++        const msg = `ROM com tamanho diferente: ${r.size} bytes; esperado ${g.size}.`;
++        setHubStatus(msg, 'error'); setOnlineStatus(msg, 'error'); toast(g.title, msg, 'error');
++      }
++      return false;
++    }
++    // Em Vercel/CDNs, HEAD pode falhar mesmo com GET funcionando. O player faz a
++    // validação definitiva e mostra erro dentro da própria tela.
++    return true;
++  }
++
++  function playUrl(mode, launchAt=0) {
++    const g = game();
++    if (!g) return '';
++    const name = playerName();
++    if (mode === 'online') {
++      const role = room?.hostUid === user()?.uid ? 'host' : 'guest';
++      return `/arcade-player.html?v=${VERSION}&game=${encodeURIComponent(selected)}&role=${role}&room=${encodeURIComponent(roomCode)}&gameId=${encodeURIComponent(room?.gameId || 1)}&launch=${encodeURIComponent(launchAt || room?.launchAt || Date.now())}&name=${encodeURIComponent(name)}`;
++    }
++    const players = mode === 'local2' ? 2 : 1;
++    return `/arcade-player.html?v=${VERSION}&game=${encodeURIComponent(selected)}&role=local&players=${players}&name=${encodeURIComponent(name)}`;
++  }
++
++  function markBusy(button, busy, text='') {
++    if (!button) return;
++    if (busy) {
++      if (!button.dataset.originalHtml) button.dataset.originalHtml = button.innerHTML;
++      button.disabled = true;
++      button.classList.add('is-busy');
++      if (text) button.innerHTML = text;
++    } else {
++      button.disabled = false;
++      button.classList.remove('is-busy');
++      if (button.dataset.originalHtml) button.innerHTML = button.dataset.originalHtml;
++    }
++  }
++
++  async function launchLocal(key, players, button=null) {
++    selected = key;
++    const g = game();
++    if (!g) return;
++    markBusy(button, true, '⏳ ABRINDO…');
++    setHubStatus(`Abrindo ${g.title} para ${players} jogador${players > 1 ? 'es' : ''}…`, 'loading');
++
++    // A navegação é imediata; a validação final acontece no player e nunca deixa o
++    // botão parecer “morto”.
++    const frame = $('arcadePlayFrame');
++    $('arcadePlayTitle').textContent = `${g.icon} ${g.title.toUpperCase()}`;
++    $('arcadePlayMode').textContent = players === 2 ? '2 PLAYERS LOCAL' : '1 PLAYER LOCAL';
++    frame.title = `${g.title} • ${players}P local`;
++    frame.src = playUrl(players === 2 ? 'local2' : 'local1');
++    setPlayStatus('Carregando ROM e emulador…', 'loading');
++    show('arcadePlayScreen');
++    setTimeout(() => markBusy(button, false), 450);
++  }
++
++  function playerOnline(uid, r=room) { return Boolean(uid && Object.keys(r?.presence?.[uid] || {}).length); }
++  function playerCount() { return room ? Object.keys(room.players || {}).length : 0; }
++  function connectedCount() { return room ? Object.keys(room.players || {}).filter(uid => playerOnline(uid)).length : 0; }
++  function readyCount() { return Object.values(room?.clientReady || {}).filter(x => x?.ready).length; }
++  function isHost() { return Boolean(user() && room?.hostUid === user().uid); }
++
++  async function ensureReady() {
++    if (!roomCode || !user() || !selected) return false;
++    if (room?.clientReady?.[user().uid]?.ready) { readyRoom = roomCode; return true; }
++    if (readyRoom === roomCode) return true;
++    setOnlineStatus('Validando ROM neste aparelho…', 'loading');
++    if (!await validate(selected)) { readyRoom = ''; return false; }
++    readyRoom = roomCode;
++    try {
++      const ok = await FB()?.markFightReady?.(roomCode, true);
++      if (ok) setOnlineStatus('ROM validada. Aguardando o outro jogador…', 'ok');
++      return ok;
++    } catch (e) {
++      readyRoom = '';
++      setOnlineStatus(e?.message || 'Falha ao marcar este aparelho como pronto.', 'error');
++      return false;
++    }
++  }
++
++  function renderRoom() {
++    const panel = $('arcadeRoomPanel');
++    panel?.classList.toggle('hidden', !room);
++    if (!room) return;
++    const g = game();
++    $('arcadeRoomCode').textContent = room.code || roomCode;
++    $('arcadeRoomGame').textContent = `${g?.icon || '🎮'} ${g?.title || selected} • ${isHost() ? 'HOST / PLAYER 1' : 'CONVIDADO / PLAYER 2'}`;
++    $('arcadeRoomPlayers').innerHTML = Object.values(room.players || {}).map(p => `
++      <div class="kof-player-row arcade-player-row-v2">
++        <span>${p.uid === room.hostUid ? '👑' : '🥊'}</span>
++        <b>${esc(p.name)}</b>
++        <small>${playerOnline(p.uid) ? '🟢 online' : '🟡 reconectando'} • ${room.clientReady?.[p.uid]?.ready ? '🎮 pronto' : '🔎 validando ROM'}</small>
++      </div>`).join('');
++
++    const count = playerCount(), connected = connectedCount(), ready = readyCount();
++    const status = $('arcadeRoomStatus');
++    if (status) {
++      if (count < 2) status.textContent = '⏳ 1/2 jogadores • compartilhe o código da sala';
++      else if (connected < 2) status.textContent = `🟡 2/2 jogadores • ${connected}/2 online`;
++      else if (ready < 2) status.textContent = `🔎 ${ready}/2 aparelhos prontos • validando ROM`;
++      else status.textContent = '✅ 2/2 jogadores online e prontos para iniciar';
++    }
++
++    if (count < 2) setOnlineStatus('Sala criada. Compartilhe o código com seu rival.', 'ok');
++    else if (connected < 2) setOnlineStatus('Rival encontrado. Aguardando conexão estável…', 'loading');
++    else if (ready < 2) setOnlineStatus('Dois jogadores online. Validando os aparelhos…', 'loading');
++    else setOnlineStatus(isHost() ? 'Tudo pronto. Clique em INICIAR ONLINE X1.' : 'Tudo pronto. Aguarde o host iniciar.', 'ok');
++
++    const launch = $('arcadeLaunchButton');
++    if (launch) {
++      if (isHost()) {
++        launch.disabled = launching || count < 2 || connected < 2 || ready < 2;
++        launch.textContent = launching ? '⏳ INICIANDO…' : '🚀 INICIAR ONLINE X1';
++      } else {
++        launch.disabled = true;
++        launch.textContent = ready >= 2 ? '✅ PRONTO • AGUARDE O HOST' : '🔎 VALIDANDO…';
++      }
++    }
++
++    const launchAt = Number(room.launchAt || 0);
++    if (sessionArmed && (room.launchState === 'starting' || room.status === 'playing') && launchAt && !launched && launchAt !== lastLaunchAt) {
++      lastLaunchAt = launchAt;
++      setTimeout(() => launchOnline(true, launchAt), 90);
++    }
+     ensureReady();
+   }
+-  function watch(code){if(unsub)unsub();unsub=FB()?.watchFightRoom?.(code,(r,e)=>{if(e){toast('Sala Arcade','Falha ao sincronizar sala.','error');return}room=r;if(!room){leaveRoom(false);return}const roomGame=String(room.arcadeGame||'kf2k2mp2');if(roomGame!==selected){toast('Sala incompatível',`Esta sala é de ${GAMES[roomGame]?.title||roomGame}.`,'error');leaveRoom(false);return}renderRoom()})}
+-  async function createRoom(){if(!selected)return; if(!user())return toast('Arcade Online','Faça login antes de criar sala.','error');if(!await validate())return;try{roomCode=await FB().createFightRoom({arcadeGame:selected});sessionArmed=true;launched=false;launching=false;lastLaunchAt=0;readyRoom='';watch(roomCode);show('arcadeOnlineScreen');toast('Sala criada',`Código ${roomCode}`)}catch(e){toast('Erro ao criar sala',e?.message||String(e),'error')}}
+-  async function joinRoom(){if(!selected)return;const code=String($('arcadeJoinCode')?.value||'').trim().toUpperCase();if(!user())return toast('Arcade Online','Faça login antes de entrar.','error');if(!await validate())return;try{roomCode=await FB().joinFightRoom(code,selected);sessionArmed=true;launched=false;launching=false;lastLaunchAt=0;readyRoom='';watch(roomCode);toast('Conectado',`Você entrou na sala ${roomCode}`)}catch(e){toast('Não consegui entrar',e?.message||String(e),'error')}}
+-  async function leaveRoom(goBack=true){if(roomCode)await FB()?.leaveFightRoom?.(roomCode).catch(()=>{});if(unsub){try{unsub()}catch{}unsub=null}roomCode='';room=null;sessionArmed=false;launched=false;launching=false;lastLaunchAt=0;readyRoom='';$('arcadeRoomPanel')?.classList.add('hidden');if(goBack)show('kofScreen')}
+-  async function requestLaunch(){if(!roomCode||!room)return toast('Arcade Online','Crie ou entre em uma sala.','error');if(!isHost())return;if(playerCount()<2||connectedCount()<2||readyCount()<2)return toast('Aguardando rival','Os dois aparelhos precisam estar online e prontos.','error');launching=true;renderRoom();try{const result=await FB().requestFightLaunch(roomCode);if(!launched)await launchOnline(true,Number(result?.launchAt||Date.now()))}catch(e){launching=false;renderRoom();toast('Não consegui iniciar',e?.message||String(e),'error')}}
+-  async function launchOnline(fromRoom=false,launchAt=0){if(!fromRoom||!sessionArmed||!roomCode||!room)return; if(launched)return;const g=game();if(!g)return;launched=true;launching=false;$('arcadePlayTitle').textContent=`${g.icon} ${g.title.toUpperCase()}`;$('arcadePlayMode').textContent=`SALA ${roomCode} • ${isHost()?'PLAYER 1':'PLAYER 2'}`;$('arcadePlayFrame').title=`${g.title} • Online X1`;$('arcadePlayFrame').src=playUrl('online',launchAt);show('arcadePlayScreen')}
+-  function openOnline(key){selected=key;const g=game();if(!g)return;$('arcadeOnlineTitle').textContent=`${g.icon} ${g.title}`;$('arcadeOnlineSubtitle').textContent='ONLINE 1x1 • cada jogador usa seu próprio aparelho';$('arcadeJoinCode').value='';$('arcadeRoomPanel').classList.add('hidden');show('arcadeOnlineScreen')}
+-  function stopPlayer(){$('arcadePlayFrame').src='about:blank'}
+-  function bind(){
+-    document.querySelectorAll('[data-arcade-game][data-arcade-mode]').forEach(btn=>btn.addEventListener('click',()=>{const key=btn.dataset.arcadeGame,mode=btn.dataset.arcadeMode;if(mode==='local1')launchLocal(key,1);else if(mode==='local2')launchLocal(key,2);else if(mode==='online')openOnline(key)}));
+-    $('arcadeOnlineBack')?.addEventListener('click',()=>leaveRoom(true));$('arcadeCreateRoom')?.addEventListener('click',createRoom);$('arcadeJoinRoom')?.addEventListener('click',joinRoom);$('arcadeLeaveRoom')?.addEventListener('click',()=>leaveRoom(false));$('arcadeLaunchButton')?.addEventListener('click',requestLaunch);$('arcadeCopyRoom')?.addEventListener('click',()=>navigator.clipboard?.writeText(roomCode).then(()=>toast('Código copiado',roomCode)));$('arcadePlayBack')?.addEventListener('click',()=>{stopPlayer();if(roomCode)show('arcadeOnlineScreen');else show('kofScreen')});
+-    window.addEventListener('message',e=>{if(e.origin!==location.origin)return;const d=e.data||{};if(d.type==='arcade-player-error')toast('Arcade',d.message||'Falha ao iniciar.','error');if(d.type==='arcade-player-ready')toast('Arcade pronto',d.message||'Jogo carregado.');if(d.type==='arcade-netplay-status'&&d.state==='connected')toast('PVP conectado','Player 1 e Player 2 estão conectados pelo WebRTC.')});
+-  }
+-  window.GameGuessArcadeX1={openOnline,launchLocal};if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind);else bind();
++
++  function watch(code) {
++    if (unsub) { try { unsub(); } catch {} }
++    unsub = FB()?.watchFightRoom?.(code, (r, e) => {
++      if (e) {
++        setOnlineStatus(e?.message || 'Falha ao sincronizar a sala.', 'error');
++        toast('Sala Arcade', 'Falha ao sincronizar sala.', 'error');
++        return;
++      }
++      room = r;
++      if (!room) { leaveRoom(false); return; }
++      const roomGame = String(room.arcadeGame || 'kf2k2mp2');
++      if (roomGame !== selected) {
++        setOnlineStatus('Este código pertence a outro jogo do Arcade.', 'error');
++        toast('Sala incompatível', `Esta sala é de ${GAMES[roomGame]?.title || roomGame}.`, 'error');
++        leaveRoom(false);
++        return;
++      }
++      renderRoom();
++    });
++  }
++
++  async function createRoom() {
++    const g = game();
++    if (!g) return;
++    if (!FB()?.ready?.() || !user()) {
++      setOnlineStatus('Faça login para criar uma sala online.', 'error');
++      toast('Arcade Online', 'Faça login antes de criar sala.', 'error');
++      return;
++    }
++    const btn = $('arcadeCreateRoom');
++    markBusy(btn, true, '⏳ CRIANDO…');
++    setOnlineStatus(`Preparando sala de ${g.title}…`, 'loading');
++    try {
++      if (!await validate()) return;
++      roomCode = await FB().createFightRoom({ arcadeGame:selected });
++      sessionArmed = true; launched = false; launching = false; lastLaunchAt = 0; readyRoom = '';
++      watch(roomCode);
++      setOnlineStatus(`Sala ${roomCode} criada. Compartilhe o código.`, 'ok');
++      toast('Sala criada', `Código ${roomCode}`);
++    } catch (e) {
++      setOnlineStatus(e?.message || String(e), 'error');
++      toast('Erro ao criar sala', e?.message || String(e), 'error');
++    } finally { markBusy(btn, false); }
++  }
++
++  async function joinRoom() {
++    const g = game();
++    if (!g) return;
++    const code = String($('arcadeJoinCode')?.value || '').trim().toUpperCase();
++    if (!/^[A-Z2-9]{6}$/.test(code)) {
++      setOnlineStatus('Digite um código de sala válido com 6 caracteres.', 'error');
++      return;
++    }
++    if (!FB()?.ready?.() || !user()) {
++      setOnlineStatus('Faça login para entrar em uma sala online.', 'error');
++      toast('Arcade Online', 'Faça login antes de entrar.', 'error');
++      return;
++    }
++    const btn = $('arcadeJoinRoom');
++    markBusy(btn, true, '⏳ ENTRANDO…');
++    setOnlineStatus(`Entrando na sala ${code}…`, 'loading');
++    try {
++      if (!await validate()) return;
++      roomCode = await FB().joinFightRoom(code, selected);
++      sessionArmed = true; launched = false; launching = false; lastLaunchAt = 0; readyRoom = '';
++      watch(roomCode);
++      setOnlineStatus(`Conectado à sala ${roomCode}. Validando aparelhos…`, 'ok');
++      toast('Conectado', `Você entrou na sala ${roomCode}`);
++    } catch (e) {
++      setOnlineStatus(e?.message || String(e), 'error');
++      toast('Não consegui entrar', e?.message || String(e), 'error');
++    } finally { markBusy(btn, false); }
++  }
++
++  async function leaveRoom(goBack=true) {
++    if (roomCode) await FB()?.leaveFightRoom?.(roomCode).catch(() => {});
++    if (unsub) { try { unsub(); } catch {} unsub = null; }
++    roomCode = ''; room = null; sessionArmed = false; launched = false; launching = false; lastLaunchAt = 0; readyRoom = '';
++    $('arcadeRoomPanel')?.classList.add('hidden');
++    setOnlineStatus('Escolha como entrar na partida.', 'info');
++    if (goBack) show('kofScreen');
++  }
++
++  async function requestLaunch() {
++    if (!roomCode || !room) return setOnlineStatus('Crie ou entre em uma sala primeiro.', 'error');
++    if (!isHost()) return setOnlineStatus('Somente o host pode iniciar a partida.', 'error');
++    if (playerCount() < 2 || connectedCount() < 2 || readyCount() < 2) {
++      setOnlineStatus('Aguarde os dois aparelhos ficarem online e prontos.', 'error');
++      return;
++    }
++    launching = true; renderRoom();
++    try {
++      const result = await FB().requestFightLaunch(roomCode);
++      if (!launched) await launchOnline(true, Number(result?.launchAt || Date.now()));
++    } catch (e) {
++      launching = false; renderRoom();
++      setOnlineStatus(e?.message || String(e), 'error');
++      toast('Não consegui iniciar', e?.message || String(e), 'error');
++    }
++  }
++
++  async function launchOnline(fromRoom=false, launchAt=0) {
++    if (!fromRoom || !sessionArmed || !roomCode || !room || launched) return;
++    const g = game(); if (!g) return;
++    launched = true; launching = false;
++    $('arcadePlayTitle').textContent = `${g.icon} ${g.title.toUpperCase()}`;
++    $('arcadePlayMode').textContent = `SALA ${roomCode} • ${isHost() ? 'PLAYER 1 / HOST' : 'PLAYER 2 / CONVIDADO'}`;
++    $('arcadePlayFrame').title = `${g.title} • Online X1`;
++    $('arcadePlayFrame').src = playUrl('online', launchAt);
++    setPlayStatus('Carregando jogo e conectando WebRTC…', 'loading');
++    show('arcadePlayScreen');
++  }
++
++  async function openOnline(key) {
++    if (roomCode) await leaveRoom(false);
++    selected = key;
++    const g = game(); if (!g) return;
++    $('arcadeOnlineIcon').textContent = g.icon;
++    $('arcadeOnlineTitle').textContent = g.title;
++    $('arcadeOnlineSubtitle').textContent = `${g.system} • ONLINE 1x1 • um jogador por aparelho`;
++    $('arcadeJoinCode').value = '';
++    $('arcadeRoomPanel')?.classList.add('hidden');
++    setOnlineStatus('Crie uma sala ou digite o código recebido do seu rival.', 'info');
++    show('arcadeOnlineScreen');
++  }
++
++  function stopPlayer() {
++    const frame = $('arcadePlayFrame');
++    if (frame) frame.src = 'about:blank';
++    setPlayStatus('Parado.', 'info');
++  }
++
++  function openHub() {
++    stopPlayer();
++    show('kofScreen');
++    setHubStatus('Escolha 1 Player, 2 Players local ou Online X1.', 'ok');
++  }
++
++  async function copyRoom() {
++    if (!roomCode) return;
++    try {
++      await navigator.clipboard?.writeText(roomCode);
++      setOnlineStatus(`Código ${roomCode} copiado.`, 'ok');
++      toast('Código copiado', roomCode);
++    } catch {
++      const ta = document.createElement('textarea'); ta.value = roomCode; document.body.appendChild(ta); ta.select();
++      try { document.execCommand('copy'); } catch {} ta.remove();
++      setOnlineStatus(`Código da sala: ${roomCode}`, 'ok');
++    }
++  }
++
++  function bind() {
++    if (window.__GG_ARCADE_V2_BOUND__) return;
++    window.__GG_ARCADE_V2_BOUND__ = true;
++
++    $('homeKofButton')?.addEventListener('click', openHub);
++    $('kofBackButton')?.addEventListener('click', () => show('homeScreen'));
++
++    // Delegação: os botões continuam funcionando mesmo se os cards forem re-renderizados.
++    document.addEventListener('click', e => {
++      const btn = e.target.closest?.('[data-arcade-game][data-arcade-mode]');
++      if (!btn) return;
++      e.preventDefault();
++      const key = btn.dataset.arcadeGame;
++      const mode = btn.dataset.arcadeMode;
++      if (!GAMES[key]) return setHubStatus('Jogo não cadastrado.', 'error');
++      if (mode === 'local1') launchLocal(key, 1, btn);
++      else if (mode === 'local2') launchLocal(key, 2, btn);
++      else if (mode === 'online') openOnline(key);
++    });
++
++    $('arcadeOnlineBack')?.addEventListener('click', () => leaveRoom(true));
++    $('arcadeCreateRoom')?.addEventListener('click', createRoom);
++    $('arcadeJoinRoom')?.addEventListener('click', joinRoom);
++    $('arcadeJoinCode')?.addEventListener('keydown', e => { if (e.key === 'Enter') joinRoom(); });
++    $('arcadeLeaveRoom')?.addEventListener('click', () => leaveRoom(false));
++    $('arcadeLaunchButton')?.addEventListener('click', requestLaunch);
++    $('arcadeCopyRoom')?.addEventListener('click', copyRoom);
++    $('arcadePlayBack')?.addEventListener('click', () => {
++      stopPlayer();
++      if (roomCode) show('arcadeOnlineScreen'); else show('kofScreen');
++    });
++
++    window.addEventListener('message', e => {
++      if (e.origin !== location.origin) return;
++      const d = e.data || {};
++      if (d.type === 'arcade-player-error') {
++        setPlayStatus(d.message || 'Falha ao iniciar.', 'error');
++        toast('Arcade', d.message || 'Falha ao iniciar.', 'error');
++      }
++      if (d.type === 'arcade-player-ready') {
++        setPlayStatus(d.online ? 'Jogo pronto • conectando PVP…' : 'Jogo pronto • COIN + START para jogar', 'ok');
++        toast('Arcade pronto', d.message || 'Jogo carregado.');
++      }
++      if (d.type === 'arcade-netplay-status') {
++        if (d.state === 'connected') {
++          setPlayStatus('✅ PVP conectado • Player 1 x Player 2', 'ok');
++          toast('PVP conectado', 'Player 1 e Player 2 estão conectados pelo WebRTC.');
++        } else if (d.state === 'error') {
++          setPlayStatus(d.message || 'Falha no Netplay.', 'error');
++        }
++      }
++    });
++  }
++
++  window.GameGuessArcadeX1 = { open:openHub, openOnline, launchLocal, games:GAMES };
++  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
++  else bind();
+ })();
+diff --git a/index.html b/index.html
+index ba95e40..099fddf 100644
+--- a/index.html
++++ b/index.html
+@@ -300,61 +300,115 @@
+       </div>
+     </section>
+ 
+-    <section class="screen kof-screen" id="kofScreen">
+-      <div class="section-heading kof-heading"><button class="back-link" id="kofBackButton">← Voltar</button><div><p class="eyebrow">🕹️ ARCADE X1 • NEO GEO + CPS-2</p><h2>ARCADE X1</h2><p>Escolha <b>1 jogador</b>, <b>2 jogadores local</b> ou <b>Online 1x1</b>. Os novos títulos aceitam teclado, joystick/gamepad e controles touchscreen.</p></div></div>
+-      <div class="kof-layout">
+-        <div class="kof-main">
+-          <section class="kof-card arcade-library">
+-            <div class="kof-web-title"><h3>🎮 Biblioteca Arcade</h3><span class="kof-web-badge">1P • 2P LOCAL • ONLINE X1</span></div>
+-            <p class="kof-note">O modo online reutiliza as salas Firebase + Netplay WebRTC já existentes no projeto. Cada jogador remoto usa o próprio aparelho.</p>
+-            <div class="arcade-library-grid">
+-              <article class="arcade-game-card">
+-                <div class="arcade-game-title"><span>💣</span><div><b>Neo Bomberman</b><small>Neo Geo • FBNeo • 2 jogadores</small></div></div>
+-                <div class="arcade-game-actions"><button class="secondary-btn" data-arcade-game="neobombe" data-arcade-mode="local1">👤 1 PLAYER</button><button class="secondary-btn" data-arcade-game="neobombe" data-arcade-mode="local2">👥 2P LOCAL</button><button class="primary-btn" data-arcade-game="neobombe" data-arcade-mode="online">🌐 ONLINE X1</button></div>
+-              </article>
+-              <article class="arcade-game-card">
+-                <div class="arcade-game-title"><span>⚔️</span><div><b>Samurai Shodown V Special</b><small>Neo Geo • FBNeo • 2 jogadores</small></div></div>
+-                <div class="arcade-game-actions"><button class="secondary-btn" data-arcade-game="samsh5spho" data-arcade-mode="local1">👤 1 PLAYER</button><button class="secondary-btn" data-arcade-game="samsh5spho" data-arcade-mode="local2">👥 2P LOCAL</button><button class="primary-btn" data-arcade-game="samsh5spho" data-arcade-mode="online">🌐 ONLINE X1</button></div>
+-              </article>
+-              <article class="arcade-game-card">
+-                <div class="arcade-game-title"><span>🦸</span><div><b>Marvel vs. Capcom</b><small>CPS-2 • 6 botões • 2 jogadores</small></div></div>
+-                <div class="arcade-game-actions"><button class="secondary-btn" data-arcade-game="mvsc" data-arcade-mode="local1">👤 1 PLAYER</button><button class="secondary-btn" data-arcade-game="mvsc" data-arcade-mode="local2">👥 2P LOCAL</button><button class="primary-btn" data-arcade-game="mvsc" data-arcade-mode="online">🌐 ONLINE X1</button></div>
+-              </article>
+-              <article class="arcade-game-card">
+-                <div class="arcade-game-title"><span>✖️</span><div><b>X-Men vs. Street Fighter</b><small>CPS-2 • 6 botões • 2 jogadores</small></div></div>
+-                <div class="arcade-game-actions"><button class="secondary-btn" data-arcade-game="xmvsfur1" data-arcade-mode="local1">👤 1 PLAYER</button><button class="secondary-btn" data-arcade-game="xmvsfur1" data-arcade-mode="local2">👥 2P LOCAL</button><button class="primary-btn" data-arcade-game="xmvsfur1" data-arcade-mode="online">🌐 ONLINE X1</button></div>
+-              </article>
+-            </div>
+-          </section>
+-          <section class="arcade-kof-divider"><span>KOF 2002 MAGIC PLUS II • SISTEMA EXISTENTE</span></section>
+-          <section class="kof-card kof-web-card"><div class="kof-web-title"><h3>🌐 Arcade Web integrado</h3><span class="kof-web-badge">SEM IMPORTAR ROM</span></div><div class="kof-file-grid"><div id="kofCloneState" class="kof-file-state"></div><div id="kofParentState" class="kof-file-state"></div><div id="kofBiosState" class="kof-file-state"></div></div><p id="kofFilesReady" class="kof-note"></p><div class="kof-web-actions"><button id="kofTrainingButton" class="primary-btn huge">🎮 INICIAR TREINO LOCAL</button><button id="kofRecheckFiles" class="secondary-btn">🔎 REVALIDAR ARQUIVOS</button><button id="kofCatalogButton" class="secondary-btn">📚 CATÁLOGO DE LUTADORES</button></div></section>
+-          <section class="kof-card"><h3>⚔️ Duelo 1x1 sincronizado</h3><p>O Firebase cria a sala, verifica os dois aparelhos e o HOST dispara o carregamento simultâneo. O EmulatorJS recebe o mesmo Game ID e servidor Netplay nos dois lados.</p><div class="kof-room-actions"><button class="primary-btn" id="kofCreateRoom">CRIAR SALA</button><div class="kof-join"><input id="kofJoinCode" maxlength="6" placeholder="ABC123" autocomplete="off"><button class="secondary-btn" id="kofJoinRoom">ENTRAR</button></div></div><label class="kof-server-field">Servidor Netplay (automático)<input id="kofNetplayServer" value="Carregando configuração…" autocomplete="off" readonly></label></section>
+-          <section class="kof-card hidden" id="kofRoomPanel"><div class="kof-room-code"><span>SALA</span><b id="kofRoomCode">------</b><button class="icon-btn" id="kofCopyRoom">📋</button></div><div id="kofRoomRole" class="kof-note"></div><div id="kofRoomPlayers" class="kof-players"></div><div id="kofRoomStatus" class="kof-room-status">Aguardando...</div><div class="kof-room-buttons"><button class="primary-btn" id="kofLaunchButton">🚀 INICIAR KOF ONLINE</button><button class="secondary-btn" id="kofLeaveRoom">SAIR DA SALA</button></div><div id="kofResultControls" class="kof-result-controls hidden"><p id="kofVoteStatus">Depois da luta, os dois jogadores confirmam o vencedor.</p><button class="primary-btn" id="kofVoteMe">🏆 EU VENCI</button><button class="secondary-btn" id="kofVoteRival">🥊 O RIVAL VENCEU</button></div></section>
++    <section class="screen arcade-hub-screen" id="kofScreen">
++      <div class="arcade-v2-topbar">
++        <button class="back-link" id="kofBackButton" type="button">← Voltar</button>
++        <div class="arcade-v2-heading">
++          <p class="eyebrow">🕹️ GAME GUESS ARCADE</p>
++          <h2>Escolha o jogo e o modo</h2>
++          <p>1 jogador, 2 jogadores no mesmo aparelho ou X1 online. Teclado, joystick/gamepad e touchscreen são aceitos.</p>
++        </div>
++        <div class="arcade-v2-capabilities" aria-label="Recursos do Arcade">
++          <span>⌨️ Teclado</span><span>🎮 Gamepad</span><span>📱 Touch</span><span>🌐 WebRTC</span>
+         </div>
+-        <aside class="kof-card kof-info"><h3>🛡️ Diagnóstico V19.10.4</h3><div class="kof-diagnostics"><span>✅ Treino: EmulatorJS 4.2.3 • Online/WebRTC: EmulatorJS 4.3.0-pre</span><span>✅ Driver: kf2k2mp2.zip</span><span>✅ Parent KOF 2002 incorporado ao Full Non-Merged</span><span>✅ BIOS Neo Geo incorporada ao Full Non-Merged</span><span>✅ Parent/BIOS incorporados ao arquivo principal</span><span>✅ URL nova /roms/v178/ para eliminar cache antigo</span><span>✅ Ready-check dos 2 jogadores</span><span>✅ Matchmaking Firebase + reconexão</span><span>✅ Resultado confirmado pelos 2 jogadores</span><span>✅ Alavanca virtual 360° no celular</span><span>✅ Entrada direta única: touch + teclado + gamepad, com agregação por fonte e sem dupla emissão</span><span>✅ Vertical: controles confinados ao painel inferior • Horizontal: overlay transparente isolado + MAX/ESQUIVA</span><span>✅ Netplay híbrido: KOF_NETPLAY_SERVER dedicado quando existir + fallback público automático</span><span>✅ Lista de salas usa domain + game_id como exige o servidor oficial</span><span>✅ Socket.IO com negociação automática (polling/WebSocket)</span><span>✅ Catálogo dos lutadores com DM / SDM/MAX / HSDM/MAX2 nativos do Magic Plus II</span><span>✅ Guia azul opcional de 1 personagem dentro da tela de controles</span><span>✅ Três botões automáticos DM / SDM/MAX / HSDM/MAX2 vinculados ao personagem da guia azul</span><span>✅ Auditoria completa dos 44 personagens: DM + SDM/MAX + HSDM/MAX2 específicos do Magic Plus II, com atalhos simplificados quando confirmados</span><span>✅ Espelhamento de frente/trás com botão LADO →/← para macros direcionais</span><span>✅ Layout retrato sem faixa escura excedente entre jogo e painel arcade</span><span id="kofServiceState">🔎 Verificando EmulatorJS + arquivos do romset…</span><span>🏆 Vitória/derrota entra no Ranked</span></div><small>O loader valida um único arquivo antes do core. Consulte <b>KOF-SETUP.md</b> para a estratégia V17 e os CRCs preservados.</small></aside>
+       </div>
+-    </section>
+ 
+-    <section class="screen kof-play-screen" id="kofPlayScreen">
+-      <div class="kof-play-top"><button class="back-link" id="kofPlayBackButton">← Lobby Arcade</button><div><p class="eyebrow" id="kofPlayTitle">🥊 KOF 2002 MAGIC PLUS II</p><b id="kofPlayRoom">TREINO LOCAL</b></div></div>
+-      <div id="kofNetplayHelp" class="kof-netplay-help hidden"><b>⚔️ Netplay</b><span>Os dois jogadores carregam o mesmo Game ID. No menu do EmulatorJS, abra <strong>Netplay</strong>: o HOST cria a sessão e o CONVIDADO entra. O servidor configurado no lobby já foi aplicado.</span></div>
+-      <div class="kof-emulator-shell"><iframe id="kofEmulatorFrame" title="KOF 2002 Magic Plus II" allow="fullscreen" allowfullscreen referrerpolicy="same-origin"></iframe></div>
++      <div class="arcade-v2-grid" id="arcadeGameGrid">
++        <article class="arcade-v2-card arcade-v2-featured" data-game-card="kf2k2mp2">
++          <div class="arcade-v2-card-head">
++            <div class="arcade-v2-icon">🥊</div>
++            <div><span class="arcade-v2-system">NEO GEO • FBNEO</span><h3>KOF 2002 Magic Plus II</h3><p>Luta 1x1 • 4 botões • Full Non-Merged</p></div>
++          </div>
++          <div class="arcade-v2-modes">
++            <button type="button" class="arcade-mode-card" data-arcade-game="kf2k2mp2" data-arcade-mode="local1"><b>👤 1 PLAYER</b><small>Jogar sozinho / treino</small></button>
++            <button type="button" class="arcade-mode-card" data-arcade-game="kf2k2mp2" data-arcade-mode="local2"><b>👥 2 PLAYERS</b><small>X1 local no mesmo aparelho</small></button>
++            <button type="button" class="arcade-mode-card online" data-arcade-game="kf2k2mp2" data-arcade-mode="online"><b>🌐 ONLINE X1</b><small>Criar ou entrar em sala</small></button>
++          </div>
++          <button type="button" id="kofCatalogButton" class="arcade-v2-link-btn">📚 Catálogo de lutadores e golpes</button>
++        </article>
++
++        <article class="arcade-v2-card" data-game-card="neobombe">
++          <div class="arcade-v2-card-head"><div class="arcade-v2-icon">💣</div><div><span class="arcade-v2-system">NEO GEO • FBNEO</span><h3>Neo Bomberman</h3><p>Ação • batalha • 2 jogadores</p></div></div>
++          <div class="arcade-v2-modes">
++            <button type="button" class="arcade-mode-card" data-arcade-game="neobombe" data-arcade-mode="local1"><b>👤 1 PLAYER</b><small>Campanha solo</small></button>
++            <button type="button" class="arcade-mode-card" data-arcade-game="neobombe" data-arcade-mode="local2"><b>👥 2 PLAYERS</b><small>Dois no mesmo aparelho</small></button>
++            <button type="button" class="arcade-mode-card online" data-arcade-game="neobombe" data-arcade-mode="online"><b>🌐 ONLINE X1</b><small>Um jogador por aparelho</small></button>
++          </div>
++        </article>
++
++        <article class="arcade-v2-card" data-game-card="samsh5spho">
++          <div class="arcade-v2-card-head"><div class="arcade-v2-icon">⚔️</div><div><span class="arcade-v2-system">NEO GEO • FBNEO</span><h3>Samurai Shodown V Special</h3><p>Luta com armas • 4 botões</p></div></div>
++          <div class="arcade-v2-modes">
++            <button type="button" class="arcade-mode-card" data-arcade-game="samsh5spho" data-arcade-mode="local1"><b>👤 1 PLAYER</b><small>Arcade solo</small></button>
++            <button type="button" class="arcade-mode-card" data-arcade-game="samsh5spho" data-arcade-mode="local2"><b>👥 2 PLAYERS</b><small>X1 local</small></button>
++            <button type="button" class="arcade-mode-card online" data-arcade-game="samsh5spho" data-arcade-mode="online"><b>🌐 ONLINE X1</b><small>Sala privada por código</small></button>
++          </div>
++        </article>
++
++        <article class="arcade-v2-card" data-game-card="mvsc">
++          <div class="arcade-v2-card-head"><div class="arcade-v2-icon">🦸</div><div><span class="arcade-v2-system">CPS-2 • FBA2012</span><h3>Marvel vs. Capcom</h3><p>Luta em equipes • 6 botões</p></div></div>
++          <div class="arcade-v2-modes">
++            <button type="button" class="arcade-mode-card" data-arcade-game="mvsc" data-arcade-mode="local1"><b>👤 1 PLAYER</b><small>Arcade solo</small></button>
++            <button type="button" class="arcade-mode-card" data-arcade-game="mvsc" data-arcade-mode="local2"><b>👥 2 PLAYERS</b><small>X1 local</small></button>
++            <button type="button" class="arcade-mode-card online" data-arcade-game="mvsc" data-arcade-mode="online"><b>🌐 ONLINE X1</b><small>Sala privada por código</small></button>
++          </div>
++        </article>
++
++        <article class="arcade-v2-card" data-game-card="xmvsfur1">
++          <div class="arcade-v2-card-head"><div class="arcade-v2-icon">✖️</div><div><span class="arcade-v2-system">CPS-2 • FBA2012</span><h3>X-Men vs. Street Fighter</h3><p>Luta em equipes • 6 botões</p></div></div>
++          <div class="arcade-v2-modes">
++            <button type="button" class="arcade-mode-card" data-arcade-game="xmvsfur1" data-arcade-mode="local1"><b>👤 1 PLAYER</b><small>Arcade solo</small></button>
++            <button type="button" class="arcade-mode-card" data-arcade-game="xmvsfur1" data-arcade-mode="local2"><b>👥 2 PLAYERS</b><small>X1 local</small></button>
++            <button type="button" class="arcade-mode-card online" data-arcade-game="xmvsfur1" data-arcade-mode="online"><b>🌐 ONLINE X1</b><small>Sala privada por código</small></button>
++          </div>
++        </article>
++      </div>
++
++      <div class="arcade-v2-status" id="arcadeActionStatus" role="status" aria-live="polite">
++        <span class="arcade-v2-status-dot"></span><b>Pronto.</b><span>Escolha um jogo e um modo acima.</span>
++      </div>
+     </section>
+ 
+-    <section class="screen kof-screen" id="arcadeOnlineScreen">
+-      <div class="section-heading kof-heading"><button class="back-link" id="arcadeOnlineBack">← Arcade</button><div><p class="eyebrow">🌐 ARCADE NETPLAY • WEBRTC</p><h2 id="arcadeOnlineTitle">Arcade Online</h2><p id="arcadeOnlineSubtitle">ONLINE 1x1 • cada jogador usa seu próprio aparelho</p></div></div>
+-      <div class="kof-layout arcade-online-layout">
+-        <div class="kof-main">
+-          <section class="kof-card"><h3>⚔️ Criar ou entrar numa sala</h3><p>O HOST cria um código de 6 caracteres. O rival entra com o mesmo código e os dois aparelhos validam a ROM antes de liberar a partida.</p><div class="kof-room-actions"><button class="primary-btn" id="arcadeCreateRoom">CRIAR SALA</button><div class="kof-join"><input id="arcadeJoinCode" maxlength="6" placeholder="ABC123" autocomplete="off"><button class="secondary-btn" id="arcadeJoinRoom">ENTRAR</button></div></div></section>
+-          <section class="kof-card hidden" id="arcadeRoomPanel"><div class="kof-room-code"><span>SALA</span><b id="arcadeRoomCode">------</b><button class="icon-btn" id="arcadeCopyRoom">📋</button></div><div id="arcadeRoomGame" class="kof-note"></div><div id="arcadeRoomPlayers" class="kof-players"></div><div id="arcadeRoomStatus" class="kof-room-status">Aguardando...</div><div class="kof-room-buttons"><button class="primary-btn" id="arcadeLaunchButton">🚀 INICIAR ONLINE X1</button><button class="secondary-btn" id="arcadeLeaveRoom">SAIR DA SALA</button></div></section>
++    <section class="screen arcade-online-screen" id="arcadeOnlineScreen">
++      <div class="arcade-v2-topbar online-head">
++        <button class="back-link" id="arcadeOnlineBack" type="button">← Arcade</button>
++        <div class="arcade-online-game-badge"><span id="arcadeOnlineIcon">🎮</span><div><p class="eyebrow">ONLINE X1 • WEBRTC</p><h2 id="arcadeOnlineTitle">Arcade Online</h2><p id="arcadeOnlineSubtitle">Um jogador em cada aparelho</p></div></div>
++      </div>
++
++      <div class="arcade-online-v2">
++        <div class="arcade-online-status" id="arcadeOnlineStatus" role="status" aria-live="polite"><span>●</span><b>Escolha como entrar na partida.</b></div>
++        <div class="arcade-online-choice-grid">
++          <article class="arcade-online-choice-card host-card">
++            <span class="arcade-online-choice-icon">👑</span><div><h3>Criar sala</h3><p>Você será o Player 1. Envie o código de 6 caracteres para seu rival.</p></div>
++            <button class="primary-btn arcade-online-big-btn" id="arcadeCreateRoom" type="button">CRIAR SALA</button>
++          </article>
++          <article class="arcade-online-choice-card guest-card">
++            <span class="arcade-online-choice-icon">🥊</span><div><h3>Entrar na sala</h3><p>Digite o código recebido do Player 1.</p></div>
++            <div class="arcade-online-code-row"><input id="arcadeJoinCode" maxlength="6" placeholder="ABC123" autocomplete="off" inputmode="text"><button class="secondary-btn" id="arcadeJoinRoom" type="button">ENTRAR</button></div>
++          </article>
+         </div>
+-        <aside class="kof-card kof-info"><h3>🎮 Entradas aceitas</h3><div class="kof-diagnostics"><span>✅ Teclado</span><span>✅ Gamepad USB/Bluetooth</span><span>✅ Joystick reconhecido pelo navegador</span><span>✅ Touchscreen em celular/tablet</span><span>✅ Controles simultâneos no 2P local</span><span>✅ Online: um jogador por aparelho</span></div><small>No online, o Netplay do EmulatorJS sincroniza a sessão WebRTC entre HOST e convidado.</small></aside>
++
++        <section class="arcade-room-v2 hidden" id="arcadeRoomPanel">
++          <div class="arcade-room-v2-code"><span>CÓDIGO DA SALA</span><strong id="arcadeRoomCode">------</strong><button class="icon-btn" id="arcadeCopyRoom" type="button" aria-label="Copiar código">📋</button></div>
++          <div class="arcade-room-v2-game" id="arcadeRoomGame"></div>
++          <div class="arcade-room-steps">
++            <div><span>1</span><b>Sala criada</b><small>Compartilhe o código</small></div>
++            <div><span>2</span><b>Rival conectado</b><small>Aguarde 2/2 online</small></div>
++            <div><span>3</span><b>ROM validada</b><small>Os dois aparelhos prontos</small></div>
++            <div><span>4</span><b>Iniciar luta</b><small>Somente o host inicia</small></div>
++          </div>
++          <div id="arcadeRoomPlayers" class="kof-players arcade-room-v2-players"></div>
++          <div id="arcadeRoomStatus" class="arcade-room-v2-status">Aguardando...</div>
++          <div class="arcade-room-v2-buttons"><button class="primary-btn" id="arcadeLaunchButton" type="button">🚀 INICIAR ONLINE X1</button><button class="secondary-btn" id="arcadeLeaveRoom" type="button">SAIR DA SALA</button></div>
++        </section>
++
++        <div class="arcade-online-help"><span>⌨️ Teclado</span><span>🎮 Controle/joystick</span><span>📱 Touchscreen</span><span>🔒 Sala privada</span></div>
+       </div>
+     </section>
+ 
+     <section class="screen kof-play-screen" id="arcadePlayScreen">
+-      <div class="kof-play-top"><button class="back-link" id="arcadePlayBack">← Arcade</button><div><p class="eyebrow" id="arcadePlayTitle">🎮 ARCADE</p><b id="arcadePlayMode">1 PLAYER LOCAL</b></div></div>
+-      <div class="kof-emulator-shell arcade-emulator-shell"><iframe id="arcadePlayFrame" title="Arcade" allow="fullscreen; gamepad" allowfullscreen referrerpolicy="same-origin"></iframe></div>
++      <div class="kof-play-top arcade-play-v2-head"><button class="back-link" id="arcadePlayBack" type="button">← Arcade</button><div><p class="eyebrow" id="arcadePlayTitle">🎮 ARCADE</p><b id="arcadePlayMode">1 PLAYER LOCAL</b></div><div id="arcadePlayConnection" class="arcade-play-v2-state">Preparando…</div></div>
++      <div class="kof-emulator-shell arcade-emulator-shell"><iframe id="arcadePlayFrame" title="Arcade" allow="fullscreen; gamepad; autoplay" allowfullscreen referrerpolicy="same-origin"></iframe></div>
+     </section>
+ 
+     <section class="screen" id="setupScreen">
+@@ -840,8 +894,7 @@
+   <script src="/duel.js?v=17.0.0" defer></script>
+   <script src="/kof-catalog.js?v=19.10.4" defer></script>
+   <script src="/kof-catalog-ui.js?v=19.10.4" defer></script>
+-  <script src="/kof.js?v=19.12.0" defer></script>
+-  <script src="/arcade-x1.js?v=1.0.1" defer></script>
++  <script src="/arcade-x1.js?v=2.0.0" defer></script>
+     <script src="/friends.js?v=19.11.1" defer></script>
+ 
+   <script data-portrait-fix-v19>
+diff --git a/styles.css b/styles.css
+index 7ceb25f..0bf3106 100644
+--- a/styles.css
++++ b/styles.css
+@@ -896,3 +896,31 @@ input,select,textarea,button{max-width:100%}
+ .arcade-online-layout{max-width:1120px;margin:0 auto}.arcade-emulator-shell{min-height:min(76vh,860px)}.arcade-emulator-shell iframe{min-height:min(76vh,860px)}
+ @media(max-width:900px){.arcade-library-grid{grid-template-columns:1fr}.arcade-game-actions{grid-template-columns:1fr 1fr}.arcade-game-actions .primary-btn{grid-column:1/-1}}
+ @media(max-width:560px){.arcade-game-card{padding:12px}.arcade-game-actions{grid-template-columns:1fr}.arcade-game-actions .primary-btn{grid-column:auto}.arcade-game-actions button{min-height:44px;font-size:.66rem}.arcade-emulator-shell,.arcade-emulator-shell iframe{min-height:78dvh}}
++
++/* =========================================================
++   ARCADE ROOM UI V2.0.0
++   Layout unificado: KOF + Neo Geo + CPS-2
++   ========================================================= */
++.arcade-hub-screen,.arcade-online-screen{padding-bottom:40px}
++.arcade-v2-topbar{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:start;gap:18px;margin-bottom:22px}
++.arcade-v2-heading{min-width:0}.arcade-v2-heading h2{margin:2px 0 7px;font-size:clamp(1.5rem,3vw,2.25rem)}.arcade-v2-heading p{margin:0;color:#93a2bf;max-width:760px;line-height:1.55}
++.arcade-v2-capabilities{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end;max-width:330px}.arcade-v2-capabilities span,.arcade-online-help span{display:inline-flex;align-items:center;min-height:30px;padding:6px 9px;border:1px solid rgba(96,226,255,.22);border-radius:999px;background:rgba(15,27,48,.72);color:#b8c8e5;font:700 .68rem 'Orbitron',sans-serif;white-space:nowrap}
++.arcade-v2-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
++.arcade-v2-card{position:relative;overflow:hidden;display:grid;gap:16px;padding:18px;border:1px solid rgba(89,219,255,.16);border-radius:20px;background:linear-gradient(145deg,rgba(14,25,45,.96),rgba(7,12,25,.98));box-shadow:0 18px 48px rgba(0,0,0,.22)}
++.arcade-v2-card::before{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at 100% 0,rgba(66,232,255,.1),transparent 36%)}
++.arcade-v2-card.arcade-v2-featured{grid-column:1/-1;border-color:rgba(252,196,74,.26);background:radial-gradient(circle at 90% 0,rgba(255,185,52,.09),transparent 34%),linear-gradient(145deg,rgba(20,27,47,.98),rgba(8,13,27,.98))}
++.arcade-v2-card-head{position:relative;z-index:1;display:flex;align-items:center;gap:13px}.arcade-v2-icon{display:grid;place-items:center;flex:0 0 52px;width:52px;height:52px;border-radius:16px;border:1px solid rgba(89,219,255,.2);background:rgba(66,232,255,.08);font-size:1.75rem;box-shadow:inset 0 0 22px rgba(66,232,255,.05)}
++.arcade-v2-featured .arcade-v2-icon{border-color:rgba(255,196,74,.25);background:rgba(255,196,74,.08)}
++.arcade-v2-card-head h3{margin:3px 0 3px;font:800 clamp(.92rem,1.8vw,1.16rem) 'Orbitron',sans-serif;color:#f7fbff}.arcade-v2-card-head p{margin:0;color:#8796b3;font-size:.8rem}.arcade-v2-system{display:block;color:#58ddff;font:800 .61rem 'Orbitron',sans-serif;letter-spacing:.07em}.arcade-v2-featured .arcade-v2-system{color:#ffd46e}
++.arcade-v2-modes{position:relative;z-index:1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}.arcade-mode-card{min-width:0;min-height:72px;padding:11px 10px;border:1px solid #2a3858;border-radius:14px;background:linear-gradient(180deg,#121c32,#0c1427);color:#f2f7ff;text-align:left;cursor:pointer;transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease,background .16s ease}.arcade-mode-card:hover{transform:translateY(-2px);border-color:#4ddcff;box-shadow:0 10px 28px rgba(34,207,255,.12);background:linear-gradient(180deg,#16243e,#0e1930)}.arcade-mode-card:active{transform:translateY(0)}.arcade-mode-card b{display:block;font:800 .72rem 'Orbitron',sans-serif}.arcade-mode-card small{display:block;margin-top:5px;color:#8d9ab5;font-size:.68rem;line-height:1.35}.arcade-mode-card.online{border-color:rgba(48,223,172,.32);background:linear-gradient(180deg,rgba(18,50,48,.86),rgba(8,27,29,.94))}.arcade-mode-card.online:hover{border-color:#51efbd;box-shadow:0 10px 28px rgba(49,224,171,.11)}.arcade-mode-card.is-busy{opacity:.72;cursor:wait}
++.arcade-v2-link-btn{position:relative;z-index:1;justify-self:start;border:0;background:transparent;color:#8eb7ff;font-weight:800;cursor:pointer;padding:2px 0;text-decoration:underline;text-underline-offset:3px}.arcade-v2-link-btn:hover{color:#fff}
++.arcade-v2-status{display:grid;grid-template-columns:24px auto minmax(0,1fr);align-items:center;gap:8px;margin-top:16px;padding:12px 14px;border:1px solid #263552;border-radius:14px;background:#0c1427;color:#9aa8c2}.arcade-v2-status-dot{display:grid;place-items:center;width:20px;height:20px;border-radius:50%;background:#1b2a45;color:#6eeaff;font-size:.72rem}.arcade-v2-status b{color:#eef5ff}.arcade-v2-status[data-kind="ok"]{border-color:rgba(76,225,166,.25)}.arcade-v2-status[data-kind="ok"] .arcade-v2-status-dot{background:rgba(76,225,166,.13);color:#62efb8}.arcade-v2-status[data-kind="error"]{border-color:rgba(255,97,116,.33)}.arcade-v2-status[data-kind="error"] .arcade-v2-status-dot{background:rgba(255,97,116,.13);color:#ff7b8b}.arcade-v2-status[data-kind="loading"] .arcade-v2-status-dot{animation:arcadePulse 1s infinite alternate}@keyframes arcadePulse{to{transform:scale(1.18);opacity:.55}}
++
++.arcade-online-screen .online-head{grid-template-columns:auto minmax(0,1fr)}.arcade-online-game-badge{display:flex;align-items:center;gap:13px}.arcade-online-game-badge>span{display:grid;place-items:center;width:56px;height:56px;border-radius:18px;background:rgba(66,232,255,.08);border:1px solid rgba(66,232,255,.2);font-size:1.8rem}.arcade-online-game-badge h2{margin:2px 0 4px}.arcade-online-game-badge p{margin:0;color:#8f9db7}
++.arcade-online-v2{max-width:1040px;margin:0 auto;display:grid;gap:16px}.arcade-online-status{display:flex;align-items:center;gap:9px;padding:13px 15px;border:1px solid #263552;border-radius:14px;background:#0c1427;color:#edf4ff}.arcade-online-status>span{color:#57dcff}.arcade-online-status[data-kind="ok"]{border-color:rgba(73,232,174,.28)}.arcade-online-status[data-kind="ok"]>span{color:#5ff0b8}.arcade-online-status[data-kind="error"]{border-color:rgba(255,95,118,.35)}.arcade-online-status[data-kind="error"]>span{color:#ff7185}.arcade-online-status[data-kind="loading"]>span{animation:arcadePulse 1s infinite alternate}
++.arcade-online-choice-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.arcade-online-choice-card{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;padding:18px;border:1px solid #273653;border-radius:18px;background:linear-gradient(145deg,#101a30,#0a1224)}.arcade-online-choice-icon{display:grid;place-items:center;width:46px;height:46px;border-radius:14px;background:rgba(66,232,255,.08);font-size:1.4rem}.arcade-online-choice-card h3{margin:2px 0 5px}.arcade-online-choice-card p{margin:0;color:#8e9bb5;line-height:1.45;font-size:.8rem}.arcade-online-big-btn,.arcade-online-code-row{grid-column:1/-1}.arcade-online-big-btn{min-height:48px}.arcade-online-code-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}.arcade-online-code-row input{min-width:0;width:100%;border:1px solid #344462;border-radius:12px;background:#091225;color:#fff;padding:13px 14px;text-align:center;text-transform:uppercase;letter-spacing:.18em;font:800 1rem 'Orbitron',sans-serif;outline:none}.arcade-online-code-row input:focus{border-color:#4bdcff;box-shadow:0 0 0 3px rgba(75,220,255,.08)}
++.arcade-room-v2{display:grid;gap:14px;padding:18px;border:1px solid rgba(69,229,176,.24);border-radius:19px;background:radial-gradient(circle at 100% 0,rgba(51,222,171,.08),transparent 34%),#0a1425}.arcade-room-v2-code{display:flex;align-items:center;gap:10px}.arcade-room-v2-code>span{color:#8d9ab4;font:800 .67rem 'Orbitron',sans-serif}.arcade-room-v2-code strong{font:900 clamp(1.45rem,4vw,2rem) 'Orbitron',sans-serif;letter-spacing:.13em;color:#fff}.arcade-room-v2-code .icon-btn{margin-left:auto}.arcade-room-v2-game{color:#7fe7ff;font-weight:800}.arcade-room-steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.arcade-room-steps>div{display:grid;grid-template-columns:auto 1fr;gap:2px 8px;align-items:center;padding:10px;border:1px solid #263650;border-radius:12px;background:#0d172a}.arcade-room-steps>div>span{grid-row:1/3;display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:#182844;color:#62e5ff;font:900 .69rem 'Orbitron'}.arcade-room-steps b{font-size:.73rem}.arcade-room-steps small{color:#8190aa;font-size:.63rem}.arcade-room-v2-players{display:grid;gap:8px}.arcade-player-row-v2{border:1px solid #263650;border-radius:12px;background:#0c1629;padding:10px 12px}.arcade-room-v2-status{padding:12px 14px;border-radius:12px;background:#0e1b2f;color:#dbe7f9;font-weight:800}.arcade-room-v2-buttons{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px}.arcade-room-v2-buttons .primary-btn{min-height:50px}.arcade-online-help{display:flex;justify-content:center;gap:7px;flex-wrap:wrap;margin-top:2px}
++.arcade-play-v2-head{grid-template-columns:auto minmax(0,1fr) auto}.arcade-play-v2-state{align-self:center;justify-self:end;max-width:360px;padding:8px 11px;border-radius:999px;border:1px solid #2a3958;background:#0b1426;color:#9daac1;font-size:.72rem;font-weight:800}.arcade-play-v2-state[data-kind="ok"]{border-color:rgba(77,231,176,.28);color:#75edbd}.arcade-play-v2-state[data-kind="error"]{border-color:rgba(255,100,120,.32);color:#ff8797}.arcade-play-v2-state[data-kind="loading"]{color:#71e5ff}
++
++@media(max-width:900px){.arcade-v2-topbar{grid-template-columns:auto minmax(0,1fr)}.arcade-v2-capabilities{grid-column:1/-1;justify-content:flex-start}.arcade-v2-grid{grid-template-columns:1fr}.arcade-v2-card.arcade-v2-featured{grid-column:auto}.arcade-online-choice-grid{grid-template-columns:1fr}.arcade-room-steps{grid-template-columns:repeat(2,minmax(0,1fr))}.arcade-play-v2-head{grid-template-columns:auto minmax(0,1fr)}.arcade-play-v2-state{grid-column:1/-1;justify-self:stretch;max-width:none;border-radius:12px}}
++@media(max-width:620px){.arcade-v2-topbar{grid-template-columns:1fr}.arcade-v2-topbar>.back-link{justify-self:start}.arcade-v2-modes{grid-template-columns:1fr}.arcade-v2-card{padding:14px;border-radius:16px}.arcade-v2-card-head{align-items:flex-start}.arcade-v2-status{grid-template-columns:24px 1fr}.arcade-v2-status>span:last-child{grid-column:2}.arcade-online-screen .online-head{grid-template-columns:1fr}.arcade-online-game-badge{align-items:flex-start}.arcade-online-code-row{grid-template-columns:1fr}.arcade-room-steps{grid-template-columns:1fr}.arcade-room-v2-buttons{grid-template-columns:1fr}.arcade-room-v2-code{flex-wrap:wrap}.arcade-play-v2-head{grid-template-columns:1fr}.arcade-play-v2-state{grid-column:auto}.arcade-emulator-shell,.arcade-emulator-shell iframe{min-height:80dvh}}

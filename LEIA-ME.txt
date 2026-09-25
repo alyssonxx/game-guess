@@ -1,0 +1,28 @@
+GAME GUESS ARCADE ROOM UI V2.0.0
+
+CORREÇÕES:
+- Novo layout do lobby Arcade/KOF.
+- KOF 2002 agora tem 1 Player, 2 Players Local e Online X1 no mesmo sistema dos demais jogos.
+- Todos os 15 botões de modo usam delegação de eventos e dão feedback visual imediato.
+- O modo local abre o player imediatamente; a ROM é validada dentro do player.
+- O player tenta iniciar o emulador automaticamente. Se autoplay for bloqueado, o botão TENTAR/INICIAR continua disponível.
+- Nova sala online com fluxo Criar Sala / Entrar / 2 jogadores / ROM pronta / Iniciar.
+- Suporte preservado a teclado, gamepad/joystick e touchscreen.
+- Corrigido o tamanho esperado da ROM samsh5spho para o arquivo enviado pelo usuário: 83295234 bytes.
+- Incluídas no pacote as ROMs enviadas pelo usuário: samsh5spho.zip, mvsc.zip e xmvsfur1.zip.
+
+INSTALAÇÃO MAIS SIMPLES:
+1. Extraia este pacote na raiz do projeto game-guess-improved.
+2. Confirme a substituição de index.html, styles.css, arcade-x1.js, arcade-player.js e arcade-player.html.
+3. Mantenha roms/neogeo/neobombe.zip e roms/v178/kf2k2mp2.zip que já existem.
+4. No terminal:
+   git add .
+   git commit -m "fix: refaz lobby Arcade e KOF V2"
+   git push
+5. Aguarde o deploy da Vercel e pressione Ctrl+F5.
+
+ALTERNATIVA POR PATCH:
+git apply --check arcade-room-ui-v2.0.0.patch
+git apply arcade-room-ui-v2.0.0.patch
+
+OBS.: O patch altera apenas texto/código. As três ROMs novas precisam permanecer em roms/arcade/.
