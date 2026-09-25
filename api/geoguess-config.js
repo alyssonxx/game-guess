@@ -72,8 +72,10 @@ export default async function handler(req, res) {
           message: 'Latitude deve estar entre -90 e 90; longitude, entre -180 e 180.'
         });
       }
-      const latPad = Math.min(0.045, Math.max(0.012, 0.04));
-      const lngPad = Math.min(0.045, Math.max(0.012, 0.04));
+      const radiusKm = 1.5;
+      const latPad = Math.min(0.02, Math.max(0.006, radiusKm / 111.32));
+      const rawLng = radiusKm / (111.32 * Math.max(0.35, Math.abs(Math.cos(latNum * Math.PI / 180))));
+      const lngPad = Math.min(0.02, Math.max(0.006, rawLng));
 
       const bbox = [
         lngNum - lngPad,
@@ -85,11 +87,11 @@ export default async function handler(req, res) {
       const url = new URL('https://graph.mapillary.com/images');
       url.searchParams.set('access_token', token);
       url.searchParams.set('bbox', bbox);
-      url.searchParams.set('limit', '100');
+      url.searchParams.set('limit', '30');
       url.searchParams.set('fields', 'id,computed_geometry,geometry,computed_compass_angle,compass_angle,camera_type,sequence,captured_at');
 
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      const timeout = setTimeout(() => controller.abort(), 20000); // 20 second timeout
 
       try {
         const response = await fetch(url.toString(), {

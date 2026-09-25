@@ -1,7 +1,7 @@
 (() => {
 'use strict';
 const $=id=>document.getElementById(id), CORE=()=>window.GameGuessCore, FB=()=>window.GameGuessFirebase;
-const GEO_VERSION='20.2.0';
+const GEO_VERSION='20.3.0';
 const REGIONS={world:['🌍','Mundo todo'],americas:['🌎','Américas'],europe:['🏰','Europa'],asia:['🌏','Ásia'],africa:['🦁','África'],oceania:['🌊','Oceania']};
 const GEO_DIFFICULTIES={easy:{icon:'🌱',timerSec:120,scoreMultiplier:0.85},normal:{icon:'🎯',timerSec:60,scoreMultiplier:1},hard:{icon:'🔥',timerSec:45,scoreMultiplier:1.35},insane:{icon:'💀',timerSec:30,scoreMultiplier:1.8}};
 let config={region:'world',rounds:5,maxPlayers:2,difficulty:'normal'};
@@ -150,12 +150,11 @@ function mlyGeometry(img){
   const g=img?.computed_geometry||img?.geometry,c=g?.coordinates;
   return Array.isArray(c)&&c.length>=2?{lng:Number(c[0]),lat:Number(c[1])}:null;
 }
-function mlyBbox(lat,lng,km=4.5){
-  // O endpoint /images do Mapillary trabalha melhor com caixas pequenas. Mantemos a área
-  // abaixo de ~0,01 grau² e procuramos várias cidades em paralelo em vez de caixas gigantes.
-  const latPad=Math.min(.045,Math.max(.012,km/111.32));
+function mlyBbox(lat,lng,km=1.5){
+  // Mantém a caixa pequena para evitar consultas pesadas no endpoint /images.
+  const latPad=Math.min(.02,Math.max(.006,km/111.32));
   const rawLng=km/(111.32*Math.max(.35,Math.abs(Math.cos(lat*Math.PI/180))));
-  const lngPad=Math.min(.045,Math.max(.012,rawLng));
+  const lngPad=Math.min(.02,Math.max(.006,rawLng));
   return [lng-lngPad,lat-latPad,lng+lngPad,lat+latPad].map(n=>Number(n.toFixed(6))).join(',');
 }
 function pickMlyImage(items){
@@ -167,19 +166,46 @@ function pickMlyImage(items){
   const pool=pools.find(a=>a.length)||usable;
   return pool[Math.floor(Math.random()*pool.length)]||null;
 }
-async function browserMapillaryImages(lat,lng){
-  await ensureMapillaryToken();
-  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),10000);
+async function mapillaryGraphImages(params,timeoutMs=18000){
+  const token=await ensureMapillaryToken();
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
   try{
-    const u=`/api/geoguess-config?lat=${encodeURIComponent(lat)}&lng=${encodeURIComponent(lng)}`;
-    const r=await fetch(u,{signal:controller.signal,headers:{Accept:'application/json'}});
+    const u=new URL('https://graph.mapillary.com/images');
+    u.searchParams.set('access_token',token);
+    u.searchParams.set('fields','id,computed_geometry,geometry,computed_compass_angle,compass_angle,camera_type,sequence,captured_at');
+    for(const [k,v] of Object.entries(params||{}))if(v!==undefined&&v!==null)u.searchParams.set(k,String(v));
+    const r=await fetch(u.toString(),{signal:controller.signal,headers:{Accept:'application/json'}});
     const d=await r.json().catch(()=>({}));
-    if(!r.ok){const msg=d?.message||d?.error||`HTTP ${r.status}`;const e=new Error(msg);e.status=r.status;throw e;}
+    if(!r.ok){
+      const msg=d?.error?.message||d?.message||d?.error||`Mapillary HTTP ${r.status}`;
+      const e=new Error(msg);e.status=r.status;throw e;
+    }
     return Array.isArray(d.data)?d.data:[];
   }catch(e){
-    if(e?.name==='AbortError'){const x=new Error('Tempo esgotado ao consultar a cobertura do Mapillary.');x.status=408;throw x;}
+    if(e?.name==='AbortError'){
+      const x=new Error('Tempo esgotado ao consultar a cobertura do Mapillary.');
+      x.status=408;throw x;
+    }
     throw e;
   }finally{clearTimeout(timer)}
+}
+async function browserMapillaryImages(lat,lng){
+  // Primeiro usa a busca por raio (mais leve e rápida, disponível na API atual).
+  // Se não houver imagem a até 50 m do centro, cai para uma bbox pequena ao redor da cidade.
+  let firstError=null;
+  try{
+    const nearby=await mapillaryGraphImages({lat,lng,radius:50,limit:20},12000);
+    if(nearby.length)return nearby;
+  }catch(e){
+    firstError=e;
+    if([400,401,403,429].includes(Number(e?.status)))throw e;
+  }
+  try{
+    return await mapillaryGraphImages({bbox:mlyBbox(lat,lng,1.5),limit:30},20000);
+  }catch(e){
+    if(firstError&&!e?.status)e.status=firstError.status;
+    throw e;
+  }
 }
 async function resolveSeedInBrowser(seed){
   const items=await browserMapillaryImages(seed.lat,seed.lng),img=pickMlyImage(items),g=mlyGeometry(img);
@@ -207,8 +233,8 @@ async function fetchRounds(){
   if(!seeds.length)throw new Error('O servidor não retornou locais candidatos para esta região.');
   const resolved=[];let firstError=null,checked=0;
   // Busca paralela no navegador: evita o timeout de funções serverless do Vercel.
-  for(let i=0;i<seeds.length&&resolved.length<wanted;i+=12){
-    const batch=seeds.slice(i,i+12);
+  for(let i=0;i<seeds.length&&resolved.length<wanted;i+=4){
+    const batch=seeds.slice(i,i+4);
     const results=await Promise.all(batch.map(async seed=>{
       try{return {q:await resolveSeedInBrowser(seed)}}catch(e){return {e}}
     }));
@@ -254,7 +280,7 @@ async function loadStreetRound(q){
   const v=await ensureViewer();if(token!==roundToken)return;
   roundStartImageId=String(q.imageId);lastImageId=roundStartImageId;steps=0;$('geoStepLabel').textContent='0';suppressStep=true;
   try{
-    await Promise.race([v.moveTo(roundStartImageId),new Promise((_,reject)=>setTimeout(()=>reject(new Error('A imagem do Mapillary demorou demais para abrir.')),12000))]);if(token!==roundToken)return;
+    await Promise.race([v.moveTo(roundStartImageId),new Promise((_,reject)=>setTimeout(()=>reject(new Error('A imagem do Mapillary demorou demais para abrir.')),20000))]);if(token!==roundToken)return;
     try{await v.setFieldOfView?.(90)}catch{}
     v.resize?.();loading.classList.add('hidden');view.classList.add('ready');
   }catch(e){
