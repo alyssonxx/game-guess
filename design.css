@@ -1,0 +1,247 @@
+/* Game Guess / 21 — shared visual system. Loaded after legacy mode layouts.
+   Layout and gameplay state classes remain owned by styles.css. */
+:root {
+  color-scheme: dark;
+  --bg: #101211;
+  --panel: #191c19;
+  --panel2: #222622;
+  --line: #343b34;
+  --muted: #a3ada2;
+  --text: #f4f6ef;
+  --cyan: #c4f36b;
+  --pink: #b6a0ed;
+  --green: #8edea3;
+  --amber: #efc77c;
+  --red: #ff8b95;
+  --radius: 20px;
+  --shadow: 0 20px 60px #0003;
+  --gradient-cyan: linear-gradient(115deg,#c4f36b,#d9fa9d);
+  --gradient-card: linear-gradient(145deg,#222822,#191c19);
+  --font-ui: 'Manrope',system-ui,-apple-system,'Segoe UI',sans-serif;
+}
+body.redesign {background: var(--bg);font: 500 14px/1.6 var(--font-ui);color:var(--text)}
+body.redesign :is(button,input,select,textarea,h1,h2,h3,h4,h5,b,strong,small,.eyebrow) {font-family:var(--font-ui)}
+body.redesign :is([class$="-badge"],[class$="-score"],[class$="-label"],[class$="-title"],[class$="-code"],.summary-icon) {font-family:var(--font-ui)}
+body.redesign :is(h1,h2,h3,h4) {letter-spacing:-.035em;line-height:1.18}
+body.redesign :is(button,a,input,select,textarea):focus-visible {outline:3px solid var(--cyan);outline-offset:4px}
+body.redesign :is(button,a) {-webkit-tap-highlight-color:transparent}
+body.redesign button {transition:background .18s,border-color .18s,transform .18s,box-shadow .18s}
+body.redesign button:disabled {cursor:not-allowed;opacity:.48;transform:none;box-shadow:none}
+body.redesign ::selection {background:#c4f36b;color:#182011}
+body.redesign .bg-grid,body.redesign .particles {display:none}
+body.redesign .shell {width:min(1320px,calc(100% - 80px));padding:0 0 36px}
+body.redesign .topbar {min-height:94px;padding:20px 0!important;border-bottom:1px solid #ffffff12;background:var(--bg);gap:20px}
+body.redesign .brand {gap:12px}
+body.redesign .brand-icon {width:46px;height:46px;background:var(--cyan);color:#17200e;border:0;border-radius:14px;box-shadow:none;font:bold 25px var(--font-ui);letter-spacing:-3px;position:relative;display:flex;justify-content:center;align-items:center}
+body.redesign .brand-icon>span {font-size:13px;position:absolute;right:4px;top:0;letter-spacing:0}
+body.redesign .brand b {font-size:23px;letter-spacing:-1.1px;font-weight:800}
+body.redesign .brand small {font:700 8px var(--font-ui);letter-spacing:.18em;color:var(--muted);margin-top:4px}
+.brand-dot {color:var(--cyan)}
+body.redesign .top-actions {gap:8px}
+body.redesign :is(.mini-pill,.icon-btn,.status-pill) {border:1px solid var(--line);background:#1b1f1b;color:var(--text);min-height:42px;border-radius:12px;font-size:12px;box-shadow:none}
+body.redesign .icon-btn {width:42px}
+body.redesign .account-pill {background:#c4f36b14;border-color:#c4f36b42;color:var(--cyan)}
+body.redesign .eyebrow {font-size:10px;font-weight:800;letter-spacing:.16em;color:var(--cyan);line-height:1.5}
+body.redesign :is(.primary-btn,.secondary-btn,.danger-btn,.skip-btn) {min-height:46px;padding:13px 20px;font-size:12px;font-weight:800;letter-spacing:.01em;border-radius:12px;line-height:1.4;box-shadow:none}
+body.redesign .primary-btn {background:var(--cyan);color:#1b2512;border:1px solid var(--cyan)}
+body.redesign .primary-btn:hover:not(:disabled) {background:#d7fa9c;box-shadow:0 5px 20px #c4f36b18;transform:translateY(-2px)}
+body.redesign :is(.secondary-btn,.skip-btn) {background:#ffffff05;border:1px solid #ffffff29;color:#e2e8dc}
+body.redesign :is(.secondary-btn,.skip-btn):hover:not(:disabled) {background:#ffffff0d;border-color:#9eae91}
+body.redesign .danger-btn {background:#8c3942;color:white}
+body.redesign .back-link {font-size:12px;color:#b1bbad;min-height:44px;padding:10px 0}
+body.redesign .huge {min-height:52px}
+
+/* Home: editorial hero, playful graphic, then a scannable game library. */
+body.redesign #homeScreen {padding:32px 0 0!important;gap:56px!important;overflow:visible}
+body.redesign #homeScreen .hero {position:relative;display:grid!important;grid-template-columns:1.1fr 1fr!important;max-width:none;gap:0 20px;padding:44px 44px 0!important;border:1px solid #ffffff0e;border-radius:28px!important;background:#1a2019;box-shadow:none;overflow:hidden}
+body.redesign #homeScreen .hero-copy {gap:0;padding:8px 0 38px;position:relative;z-index:2}
+body.redesign #homeScreen .hero h1 {font:800 clamp(3.3rem,6vw,5.8rem)/.99 var(--font-ui)!important;letter-spacing:-.065em!important;margin:21px 0 23px}
+body.redesign #homeScreen .hero h1 span {color:var(--cyan);background:none}
+body.redesign #homeScreen .hero-copy>p:not(.eyebrow) {font-size:15px;line-height:1.8;color:#bbc4b4;max-width:370px;margin:0}
+body.redesign #homeScreen .home-focus-note {padding:0;margin:17px 0 0;background:none;border:none;color:#8f9b86;font-size:11px}
+body.redesign #homeScreen .hero-quick-actions {gap:10px;margin-top:24px}
+body.redesign #homeScreen .hero-quick-actions .primary-btn {display:flex;align-items:center;gap:30px}
+.live-dot {display:inline-block;width:6px;height:6px;background:var(--cyan);border-radius:50%;margin-right:7px;vertical-align:2px}
+body.redesign #homeScreen .hero-stats {grid-column:1/-1;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:0!important;margin:0;border-top:1px solid #ffffff14;padding:22px 0}
+body.redesign #homeScreen .hero-stats>div {border:0;border-right:1px solid #ffffff12;border-radius:0;background:none;min-width:0;min-height:62px!important;padding:0 24px!important}
+body.redesign #homeScreen .hero-stats>div:first-child {padding-left:0!important}
+body.redesign #homeScreen .hero-stats>div:last-child {border-right:0}
+body.redesign #homeScreen .hero-stats b {font-size:24px!important;font-weight:800;letter-spacing:-1px;line-height:1.3;margin-bottom:5px}
+body.redesign #homeScreen .hero-stats span {font-size:11px!important;color:#a8b39f;opacity:1}
+.hero-art {position:relative;min-height:350px;align-self:center;isolation:isolate}
+.hero-orbit {position:absolute;border:1px solid #b8ce9a20;width:370px;height:370px;border-radius:50%;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-25deg)}
+.orbit-two {width:460px;height:250px;transform:translate(-50%,-50%) rotate(-40deg)}
+.art-tile {position:absolute;display:flex;align-items:center;justify-content:center;flex-direction:column;border-radius:30px;box-shadow:0 22px 35px #0004;border:1px solid #ffffff35}
+.art-tile small {font-size:8px;font-weight:800;letter-spacing:.14em}
+.tile-play {width:215px;height:215px;left:25%;top:23%;background:#c4f36b;color:#23331a;transform:rotate(-12deg);z-index:2}
+.tile-play svg {width:155px;height:120px;margin-bottom:10px}
+.tile-quiz {width:144px;height:150px;right:3%;top:0;background:#b8a2ee;color:#302441;transform:rotate(12deg)}
+.tile-quiz>span {font-size:88px;font-weight:800;line-height:1.2}
+.tile-geo {width:126px;height:126px;right:2%;bottom:7%;background:#edc782;color:#4d3c23;transform:rotate(15deg);z-index:3}
+.tile-geo>span {font-size:65px;font-weight:500;line-height:1.2}
+.art-coordinate,.art-caption {position:absolute;color:#85917d;font:700 8px var(--font-ui);letter-spacing:.18em}
+.art-coordinate {top:7%;left:0;writing-mode:vertical-rl}
+.art-caption {bottom:0;left:18%}
+.art-spark {position:absolute;color:#c4f36b;font-size:42px;font-weight:400}
+.spark-one {left:10%;bottom:5%}.spark-two {right:29%;top:1%;font-size:32px}
+body.redesign #homeScreen .mini-glance-row {display:none}
+body.redesign #homeScreen .home-section {padding:0!important;background:none;border:0;border-radius:0!important;box-shadow:none}
+body.redesign #homeScreen .section-copy {gap:8px;margin-bottom:25px}
+body.redesign #homeScreen .section-copy .eyebrow {margin-bottom:0}
+body.redesign #homeScreen .section-copy h2 {font-size:clamp(1.6rem,2.8vw,2.15rem);font-weight:800}
+body.redesign #homeScreen .section-copy p:last-child {color:var(--muted);opacity:1;font-size:13px;line-height:1.7;max-width:620px}
+body.redesign #homeScreen .home-feature-grid {grid-template-columns:repeat(5,minmax(0,1fr));gap:14px}
+body.redesign #homeScreen .feature-card {--card-accent:#c4f36b;position:relative;padding:20px!important;gap:20px;min-height:310px!important;border:1px solid #ffffff12;border-radius:20px!important;background:#1b1f1b!important;box-shadow:none;overflow:hidden;transition:transform .22s,border-color .22s}
+body.redesign #homeScreen .feature-card:hover {transform:translateY(-5px);border-color:var(--card-accent)!important}
+body.redesign #homeScreen .feature-card:nth-child(2) {--card-accent:#baa7ed}
+body.redesign #homeScreen .feature-card:nth-child(3) {--card-accent:#efb68e}
+body.redesign #homeScreen .feature-card:nth-child(4) {--card-accent:#eccd7e}
+body.redesign #homeScreen .feature-card:nth-child(5) {--card-accent:#95d9cc}
+body.redesign #homeScreen .feature-card::before {content:'↗';position:absolute;top:20px;right:20px;color:var(--card-accent);font-size:20px}
+body.redesign #homeScreen .feature-card .feature-icon {width:58px;height:58px;border-radius:18px;font-size:26px;background:color-mix(in srgb,var(--card-accent) 13%,transparent);filter:none}
+body.redesign #homeScreen .feature-card h3 {font-size:17px;line-height:1.3;margin-bottom:10px}
+body.redesign #homeScreen .feature-card p {font-size:12px;line-height:1.75;color:var(--muted);opacity:1}
+body.redesign #homeScreen .feature-card .feature-actions {gap:8px}
+body.redesign #homeScreen .feature-card .primary-btn {background:var(--card-accent);border-color:var(--card-accent);font-size:10px;padding:11px 8px;min-height:42px;color:#172016}
+body.redesign #homeScreen .feature-card .secondary-btn {font-size:9px;padding:10px 6px;min-height:38px;border-color:#ffffff1c}
+body.redesign #homeScreen .mode-grid {grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+body.redesign :is(.mode-card,.universe-card) {background:#191c19;border:1px solid #ffffff13;border-radius:18px;box-shadow:none;padding:23px;min-height:205px}
+body.redesign :is(.mode-card,.universe-card):hover {background:#222821;border-color:#889a72;box-shadow:none;transform:translateY(-4px)}
+body.redesign .mode-card::before {display:none}
+body.redesign .mode-card h3 {font-size:16px;margin-top:18px}
+body.redesign :is(.mode-card,.universe-card) p {font-size:12px;color:var(--muted);line-height:1.7}
+body.redesign .mode-card small {font-size:11px;color:var(--cyan)}
+body.redesign #homeScreen .arena-callout {background:#c4f36b;padding:36px!important;border-radius:24px!important;align-items:center;gap:28px;color:#1d2917}
+body.redesign #homeScreen .arena-callout .eyebrow {color:#506936}
+body.redesign #homeScreen .arena-callout .section-copy {margin:0}
+body.redesign #homeScreen .arena-callout .section-copy p:last-child {color:#435536;max-width:470px}
+body.redesign #homeScreen .arena-actions {display:grid;gap:10px;min-width:220px}
+body.redesign #homeScreen .arena-actions .primary-btn {background:#1d2917;border-color:#1d2917;color:#e8f6d9}
+body.redesign #homeScreen .arena-actions .secondary-btn {border-color:#526d3966;color:#24341a}
+body.redesign #homeScreen .home-bottom-note {display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap;padding:28px 0;margin-top:0;border:0;border-top:1px solid #ffffff14;border-radius:0;background:none;opacity:1;font-size:11px;color:#939e8d}
+body.redesign #homeScreen .home-bottom-note b {font-size:21px;color:#e7eede;letter-spacing:-1px}
+
+/* Shared surfaces across setup, gameplay, ranking, account and social screens. */
+body.redesign .section-heading {padding:40px 0 28px;gap:28px}
+body.redesign .section-heading h2 {font-size:clamp(1.9rem,4vw,3rem);font-weight:800}
+body.redesign .section-heading p:not(.eyebrow) {font-size:14px;line-height:1.7}
+body.redesign :is(.setup-card,.setup-summary,.loading-card,.duel-panel,.duel-waiting,.kof-card,.geo-setup-card,.geo-waiting,.geo-scoreboard,.quiz-question-card,.ranking-side,.ranking-podium-section,.stat-card,.season-info-bar,.achievement-category,.challenge-card,.cosmetic-card,.tournament-card,.social-section,.friends-panel,.profile-v15-card,.avatar-v15-card,.bracket-container) {border:1px solid var(--line);border-radius:20px;background:var(--panel);box-shadow:none}
+body.redesign :is(.setup-card,.setup-summary,.duel-panel,.kof-card,.geo-setup-card) {padding:26px}
+body.redesign :is(.setup-card-title span,.setup-summary h3,.duel-panel h3,.geo-setup-card h3,.kof-card h3,.stat-card h3) {font-size:16px;font-weight:800;color:var(--text)}
+body.redesign :is(.choice-btn,.select-btn,.quiz-choice-btn,.quiz-choice,.hint-btn,.assist-btn,.ranking-filter-btn) {background:#232823;border-color:#394136;color:#dce5d6;border-radius:12px}
+body.redesign :is(.choice-btn,.select-btn,.quiz-choice-btn,.quiz-choice,.ranking-filter-btn).active {background:#c4f36b17;border-color:var(--cyan);color:var(--cyan);box-shadow:inset 3px 0 var(--cyan)}
+body.redesign :is(.choice-btn,.select-btn) small {color:#a4af9c}
+body.redesign :is(input:not([type=checkbox]):not(.termo-native-input),select,textarea) {background:#111610;color:var(--text);border:1px solid #3b4437;border-radius:11px;min-height:46px;padding:12px 14px;font:500 14px var(--font-ui)}
+body.redesign input::placeholder {color:#85917e}
+body.redesign :is(.summary-list div,.result-info div,.info-row) {border-color:var(--line);color:var(--muted)}
+body.redesign :is(.hint-display,.attempt-panel,.hotcold,.assist-panel,.reward-line,.suggestions,.duel-player,.duel-feedback,.quiz-feedback,.quiz-option,.duel-quiz-option,.ranking-row,.leaderboard-row,.friend-card,.friend-request-card,.activity-item,.search-result-card) {background:#1c211b;border-color:var(--line);border-radius:14px;color:var(--text);box-shadow:none}
+body.redesign :is(.quiz-option,.duel-quiz-option):hover:not(:disabled) {border-color:var(--cyan);background:#26301f}
+body.redesign :is(.quiz-option,.duel-quiz-option).correct {background:#254d34;border-color:#8edea3}
+body.redesign :is(.quiz-option,.duel-quiz-option).wrong {background:#592d35;border-color:#ff8b95}
+body.redesign :is(.quiz-option,.duel-quiz-option)>span {background:#303b28;color:var(--cyan)}
+body.redesign :is(.game-metrics,.quiz-game-metrics,.geo-game-metrics) span,body.redesign :is(.mode-badge,.source-badge,.combo-chip) {background:#20271d;border-color:#3c4735;color:#dce9d0;font-family:var(--font-ui);font-size:11px}
+body.redesign :is(.image-shell,.duel-image-shell,.geo-stage) {border-color:#3b4536;background:#121610;box-shadow:none}
+body.redesign .round-headline h2 {font-size:28px}
+body.redesign .overlay {background:#080c09c9;backdrop-filter:blur(14px)}
+body.redesign :is(.panel-modal,.result-modal,.kof-catalog-modal) {background:#1b2119;border:1px solid #49523e;border-radius:24px;box-shadow:0 30px 100px #0008;padding:32px}
+body.redesign :is(.panel-modal,.result-modal) h2 {font-size:30px;line-height:1.15}
+body.redesign .modal-close {background:#30382b;color:#d4dfca;width:40px;height:40px}
+body.redesign .toast {background:#252e20;border-color:#4e6040;color:#f2f7eb;box-shadow:0 12px 30px #0004}
+body.redesign .toast span {color:#bdc9b4}
+body.redesign .toast.error {border-color:var(--red)}
+body.redesign :is(.tutorial-grid div,.achievement-card,.cosmetic-card,.bracket-match) {background:#242b20;border-color:#3f4a37}
+body.redesign .tutorial-grid b {background:var(--cyan);color:#26341b;font-family:var(--font-ui)}
+body.redesign :is(.achievement-card.unlocked,.cosmetic-card.owned) {border-color:#788b48;background:#303722;box-shadow:none}
+body.redesign :is(.ranking-rating,.leaderboard-rating,.podium-rating) {color:var(--cyan);font-family:var(--font-ui)}
+body.redesign .ranking-sidebar {display:grid}
+body.redesign :is(.auth-tabs,.auth-tabs button,.signed-in-panel,.account-stats,.kof-catalog-tools,.kof-catalog-detail) {background:transparent;color:var(--text);border-color:var(--line)}
+body.redesign .auth-tabs button.active {background:#c4f36b18;color:var(--cyan);border-color:var(--cyan)}
+body.redesign .kof-catalog-head {border-color:var(--line)}
+body.redesign .kof-fighter-card {background:#242b20;border-color:#3f4a37;color:var(--text)}
+
+/* The map and letter state colors remain recognizable in the new theme. */
+body.redesign .geo-card-kicker {font-family:var(--font-ui);background:#c4f36b10;border-color:#c4f36b38;color:var(--cyan)}
+body.redesign .geo-setup-card:before {display:none}
+body.redesign .geo-map-card {background:#171e15f5;border-color:#8ba56766;box-shadow:0 15px 50px #0005}
+body.redesign .geo-map-head b {color:#e5efdc}
+body.redesign .geo-map-toggle {background:#2c3822;color:var(--cyan);border-color:#52633f}
+body.redesign .termo-screen {background:none!important;border-radius:24px}
+body.redesign .termo-title-wrap h2 {font-family:var(--font-ui)!important;letter-spacing:-.04em!important}
+body.redesign :is(.termo-mode-btn,.termo-stats span) {background:#232b1e!important;border-color:#435137!important;font-family:var(--font-ui)!important}
+body.redesign .termo-mode-btn.active {background:#c4f36b18!important;border-color:var(--cyan)!important;box-shadow:none!important}
+body.redesign :is(.termo-mode-btn b,.termo-board-head b,.termo-message,.termo-legend,.termo-edit-help) {font-family:var(--font-ui)!important}
+body.redesign .termo-tile {border-radius:10px!important;font-family:var(--font-ui)!important}
+body.redesign .termo-tile:not(.correct):not(.present):not(.absent) {background:#21281c!important;border-color:#48543d!important}
+body.redesign .termo-tile.selected {border-color:var(--cyan)!important;box-shadow:0 0 0 3px #c4f36b20!important}
+body.redesign .termo-key {font-family:var(--font-ui)!important;border-radius:8px!important}
+body.redesign .termo-key:not(.correct):not(.present):not(.absent) {background:#333d2b!important;border-color:#48543d!important}
+
+@media (max-width:1100px) {
+  body.redesign .shell {width:calc(100% - 40px)}
+  body.redesign #homeScreen .home-feature-grid {grid-template-columns:repeat(3,minmax(0,1fr))}
+  body.redesign #homeScreen .feature-card {min-height:280px!important}
+  body.redesign #homeScreen .hero {padding:32px 30px 0!important}
+  .hero-art {transform:scale(.85);transform-origin:center}
+  body.redesign #homeScreen .mode-grid {grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media (max-width:760px) {
+  body.redesign .shell {width:calc(100% - 32px)}
+  body.redesign .topbar {min-height:78px;position:static;padding:15px 0!important}
+  body.redesign .brand b {font-size:20px}
+  body.redesign .brand-icon {width:38px;height:38px;border-radius:11px;font-size:22px}
+  body.redesign .brand small {display:none!important}
+  body.redesign #coinsTop b {display:inline!important}
+  body.redesign #coinsTop {width:auto}
+  body.redesign #homeScreen {gap:36px!important;padding-top:20px!important;padding-bottom:90px!important}
+  body.redesign #homeScreen .hero {grid-template-columns:1fr!important;padding:28px 24px 0!important}
+  body.redesign #homeScreen .hero h1 {font-size:clamp(3.7rem,11vw,5rem)!important}
+  body.redesign #homeScreen .hero-copy {padding-bottom:0}
+  body.redesign #homeScreen .hero-copy>p:not(.eyebrow) {max-width:440px;font-size:14px}
+  .hero-art {min-height:280px;width:350px;max-width:100%;margin:auto;transform:scale(.83);margin-top:-10px;margin-bottom:0}
+  .tile-play {left:18%;top:17%}.tile-quiz {right:-2%;top:0}.tile-geo {right:-3%;bottom:-5%}
+  .art-caption {display:none}.hero-orbit {width:320px;height:320px}.orbit-two {width:380px;height:200px}
+  body.redesign #homeScreen .hero-stats {grid-template-columns:repeat(4,minmax(0,1fr))!important;padding:20px 0;gap:8px!important}
+  body.redesign #homeScreen .hero-stats>div {padding:0 6px!important;min-height:54px!important}
+  body.redesign #homeScreen .hero-stats b {font-size:20px!important}
+  body.redesign #homeScreen .hero-stats span {font-size:9px!important;line-height:1.5}
+  body.redesign #homeScreen .home-feature-grid {grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:12px!important}
+  body.redesign #homeScreen .feature-card {padding:18px!important;min-height:275px!important}
+  body.redesign #homeScreen .feature-card:last-child {grid-column:1/-1;min-height:0!important;display:grid;grid-template-columns:58px 1fr;align-items:start}
+  body.redesign #homeScreen .feature-card:last-child .feature-actions {grid-column:1/-1;display:grid!important;grid-template-columns:1fr 1fr!important}
+  body.redesign #homeScreen .mode-grid,body.redesign #homeScreen .universe-grid {grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:12px!important}
+  body.redesign .mode-card {padding:18px!important;min-height:190px!important}
+  body.redesign #homeScreen .arena-callout {padding:28px!important}
+  body.redesign #homeScreen .arena-actions {width:100%}
+  body.redesign #homeScreen .home-mobile-nav {display:grid!important;background:#1c231af5;border-color:#52643b77;border-radius:18px!important;backdrop-filter:blur(16px);box-shadow:0 10px 40px #0007}
+  body.redesign #homeScreen .home-mobile-nav button {background:transparent;color:#dae7cc;min-height:48px;font:700 16px var(--font-ui)}
+  body.redesign #homeScreen .home-mobile-nav button:hover {background:#c4f36b18;color:var(--cyan)}
+  body.redesign #homeScreen .home-mobile-nav span {font-size:10px;opacity:1}
+  body.redesign .section-heading {padding:25px 0 20px!important}
+  body.redesign .section-heading h2 {font-size:28px!important}
+  body.redesign .panel-modal,body.redesign .result-modal {padding:28px 20px!important}
+  body.redesign .ranking-sidebar {grid-template-columns:1fr}
+  body.redesign .top-actions .mini-pill,body.redesign .top-actions .icon-btn {min-width:36px;height:38px;min-height:38px}
+}
+@media (max-width:400px) {
+  body.redesign .shell {width:calc(100% - 24px)}
+  body.redesign .brand b {font-size:17px!important;letter-spacing:-.8px!important}
+  body.redesign .brand {gap:7px}
+  body.redesign .brand-icon {width:31px;height:34px;font-size:19px}
+  body.redesign .top-actions {gap:4px!important}
+  body.redesign .top-actions .mini-pill,body.redesign .top-actions .icon-btn {min-width:32px;width:32px;padding:0 6px!important}
+  body.redesign #coinsTop {width:auto}
+  body.redesign #homeScreen .hero {padding:24px 18px 0!important}
+  body.redesign #homeScreen .hero h1 {font-size:3.5rem!important}
+  body.redesign #homeScreen .hero-quick-actions {display:flex!important;flex-wrap:wrap}
+  body.redesign #homeScreen .hero-quick-actions>* {width:auto!important;font-size:11px;padding:12px}
+  body.redesign #homeScreen .hero-quick-actions .primary-btn {gap:12px}
+  body.redesign #homeScreen .feature-card {padding:15px!important;gap:15px}
+  body.redesign #homeScreen .feature-card h3 {font-size:15px}
+  body.redesign #homeScreen .feature-card p {font-size:11px}
+  body.redesign #homeScreen .hero-stats {grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:16px!important}
+  body.redesign #homeScreen .hero-stats>div:nth-child(2) {border-right:0}
+}
+@media (prefers-reduced-motion:reduce) {
+  html {scroll-behavior:auto}
+  body.redesign *,body.redesign *::before,body.redesign *::after {animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+}

@@ -3,12 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="theme-color" content="#090b18">
-  <title>Game Guess V20.6.0 — GeoGuess Jogabilidade Melhorada</title>
+  <meta name="theme-color" content="#101211">
+  <meta name="description" content="Seu próximo desafio começa aqui. Descubra jogos, explore o mundo e desafie seus amigos no Game Guess.">
+  <title>Game Guess — Seu próximo desafio</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/styles.css?v=19.11.1">
 
   <style id="portrait-fix-style">
@@ -108,8 +109,9 @@
       .topbar .brand small{display:none}
     }
   </style>
+  <link rel="stylesheet" href="/design.css?v=21.0.0">
 </head>
-<body>
+<body class="redesign">
   <div class="bg-grid"></div>
   <div class="particles" id="particles"></div>
   <div class="confetti-container" id="confettiContainer"></div>
@@ -118,8 +120,8 @@
   <main class="shell">
     <header class="topbar">
       <button class="brand" id="brandButton" aria-label="Voltar ao menu principal">
-        <span class="brand-icon">🎮</span>
-        <span><b>GAME GUESS</b><small>NAVEGAÇÃO CORRIGIDA • RESPONSIVO V19.11.2</small></span>
+        <span class="brand-icon" aria-hidden="true">gg<span>↗</span></span>
+        <span><b>game guess<span class="brand-dot">.</span></b><small>PLAY. DISCOVER. REPEAT.</small></span>
       </button>
       <div class="top-actions">
         <span class="status-pill" id="apiStatus"><i></i> Pronto</span>
@@ -136,14 +138,23 @@
     <section class="screen active" id="homeScreen">
       <div class="hero hero-compact">
         <div class="hero-copy">
-          <p class="eyebrow">🎮 PLATAFORMA ARCADE</p>
-          <h1>O que vamos <span>jogar hoje?</span></h1>
-          <p>Agora a Home está mais direta: escolha um modo principal, entre na Arena online ou continue sua evolução sem precisar decifrar uma tela lotada.</p>
-          <span class="home-focus-note">✨ Foco no que importa: jogar rápido, achar os modos e entender para onde ir.</span>
+          <p class="eyebrow"><span class="live-dot" aria-hidden="true"></span> UM UNIVERSO DE DESAFIOS</p>
+          <h1>Só mais uma<br><span>partida.</span></h1>
+          <p>Reconheça o jogo. Descubra o lugar. Supere seus amigos. Seu próximo desafio favorito está aqui.</p>
+          <span class="home-focus-note">Sem instalação. Só escolher e jogar.</span>
           <div class="hero-quick-actions">
-            <button class="primary-btn" data-home-action="scroll-modes">🎮 JOGAR AGORA</button>
-            <button class="secondary-btn" id="homeDuelButton">⚔️ ARENA ONLINE</button>
+            <button class="primary-btn" data-home-action="scroll-modes">Explorar jogos <span aria-hidden="true">↗</span></button>
+            <button class="secondary-btn" id="homeDuelButton">Desafiar amigos</button>
           </div>
+        </div>
+        <div class="hero-art" aria-hidden="true">
+          <div class="hero-orbit orbit-one"></div><div class="hero-orbit orbit-two"></div>
+          <span class="art-coordinate">LEVEL UP YOUR CURIOSITY</span>
+          <div class="art-tile tile-quiz"><span>?</span><small>CURIOSIDADE ON</small></div>
+          <div class="art-tile tile-play"><svg viewBox="0 0 160 110" fill="none"><path d="M48 25h64c17 0 23 12 28 31l6 23c4 17-12 25-23 13l-16-17H53L37 92C26 104 10 96 14 79l6-23c5-19 11-31 28-31Z" stroke="currentColor" stroke-width="7"/><path d="M44 42v26M31 55h26" stroke="currentColor" stroke-width="7" stroke-linecap="round"/><circle cx="111" cy="47" r="5" fill="currentColor"/><circle cx="124" cy="61" r="5" fill="currentColor"/><path d="M67 26V15c0-7 7-9 13-9" stroke="currentColor" stroke-width="6" stroke-linecap="round"/></svg><small>PRESS PLAY</small></div>
+          <div class="art-tile tile-geo"><span>↗</span><small>EXPLORE MAIS</small></div>
+          <span class="art-spark spark-one">✳</span><span class="art-spark spark-two">+</span>
+          <span class="art-caption">BOAS PARTIDAS. NOVAS DESCOBERTAS.</span>
         </div>
         <div class="hero-stats">
           <div><b id="homeBestStreak">0</b><span>Melhor sequência</span></div>
@@ -161,9 +172,9 @@
 
       <section class="home-section">
         <div class="section-copy">
-          <p class="eyebrow">🔥 POPULARES</p>
-          <h2>Quatro caminhos principais</h2>
-          <p>Os modos mais usados ficam em destaque para você entrar mais rápido no que realmente quer jogar.</p>
+          <p class="eyebrow">ESCOLHA SEU PRÓXIMO DESAFIO</p>
+          <h2>Cada jogo, uma descoberta<span class="brand-dot">.</span></h2>
+          <p>Do primeiro palpite à última rodada. Encontre o seu estilo.</p>
         </div>
         <div class="home-feature-grid">
           <article class="feature-card">
@@ -224,7 +235,7 @@
       <section class="home-section">
         <div class="section-copy">
           <p class="eyebrow">🎲 TODOS OS MODOS</p>
-          <h2>Game Guess principal</h2>
+          <h2>Um jogo. Muitas possibilidades.</h2>
           <p>Escolha o estilo de partida, configure a dificuldade e entre direto no modo que quiser.</p>
         </div>
         <div class="mode-grid mode-grid-home" id="modeGrid"></div>
@@ -233,8 +244,8 @@
       <section class="home-section arena-callout">
         <div class="section-copy">
           <p class="eyebrow">⚔️ JOGAR COM AMIGOS</p>
-          <h2>Arena online, ranking e conta</h2>
-          <p>Crie salas, entre no 1x1, acompanhe a classificação global e mantenha o progresso sincronizado.</p>
+          <h2>Bom sozinho.<br>Melhor com os amigos.</h2>
+          <p>Crie uma sala, compartilhe o código e descubra quem manda no próximo desafio.</p>
         </div>
         <div class="arena-actions">
           <button class="primary-btn" data-home-action="open-duel">CRIAR / ENTRAR NA ARENA</button>
@@ -247,12 +258,12 @@
         <div class="section-copy">
           <p class="eyebrow">🌌 MAIS JOGOS</p>
           <h2>Universos extras</h2>
-          <p>Pokémon, Naruto, Dragon Ball, Yu-Gi-Oh!, Cavaleiros, Digimon, desenhos e outros temas continuam aqui, só que agora em uma área mais organizada.</p>
+          <p>Pokémon, Naruto, Dragon Ball e muito mais. Quanto você sabe sobre seus universos favoritos?</p>
         </div>
         <div class="universe-grid universe-grid-secondary" id="universeGrid"></div>
       </section>
 
-      <div class="home-bottom-note">⚙️ Informações técnicas, APIs e diagnósticos foram tirados da Home para deixar o início mais limpo. Esses detalhes continuam nas telas internas, onde fazem mais sentido.</div>
+      <footer class="home-bottom-note"><b>game guess.</b><span>Feito para quem nunca perde a curiosidade.</span><span>Jogue. Descubra. Repita. ↗</span></footer>
 
       <nav class="home-mobile-nav" aria-label="Atalhos rápidos da Home">
         <button type="button" data-home-action="scroll-top">🏠<span>Início</span></button>
