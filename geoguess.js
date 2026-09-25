@@ -1,7 +1,7 @@
 (() => {
 'use strict';
 const $=id=>document.getElementById(id), CORE=()=>window.GameGuessCore, FB=()=>window.GameGuessFirebase;
-const GEO_VERSION='20.4.0';
+const GEO_VERSION='20.4.1';
 const REGIONS={world:['🌍','Mundo todo'],americas:['🌎','Américas'],europe:['🏰','Europa'],asia:['🌏','Ásia'],africa:['🦁','África'],oceania:['🌊','Oceania']};
 const GEO_DIFFICULTIES={easy:{icon:'🌱',timerSec:120,scoreMultiplier:0.85},normal:{icon:'🎯',timerSec:60,scoreMultiplier:1},hard:{icon:'🔥',timerSec:45,scoreMultiplier:1.35},insane:{icon:'💀',timerSec:30,scoreMultiplier:1.8}};
 let config={region:'world',rounds:5,maxPlayers:2,difficulty:'normal'};
@@ -267,7 +267,7 @@ function mapillaryProxyUrl(url){
   try{
     const u=new URL(String(url||''),location.href),h=u.hostname.toLowerCase();
     const needsProxy=h==='fbcdn.net'||h.endsWith('.fbcdn.net')||h==='cdninstagram.com'||h.endsWith('.cdninstagram.com')||h==='fbsbx.com'||h.endsWith('.fbsbx.com');
-    return needsProxy?`${location.origin}/api/mapillary-asset?url=${encodeURIComponent(u.href)}`:u.href;
+    return needsProxy?`${location.origin}/api/asset?src=mapillary&url=${encodeURIComponent(u.href)}`:u.href;
   }catch{return url;}
 }
 function createMapillaryDataProvider(mly){
@@ -309,7 +309,7 @@ async function loadStreetRound(q){
     v.resize?.();loading.classList.add('hidden');view.classList.add('ready');
   }catch(e){
     if(token!==roundToken)return;
-    loading.innerHTML='<b>Não foi possível abrir esta imagem do Mapillary.</b><span>O navegador não conseguiu carregar a mídia do CDN da Meta. O modo proxy v20.4 tentará evitar bloqueios de fbcdn.net; se persistir, teste sem bloqueador/VPN.</span>';
+    loading.innerHTML='<b>Não foi possível abrir esta imagem do Mapillary.</b><span>O navegador não conseguiu carregar a mídia do CDN da Meta. O modo proxy v20.4.1 usa a função /api/asset existente para evitar bloqueios de fbcdn.net; se persistir, teste sem bloqueador/VPN.</span>';
     throw e;
   }
 }
