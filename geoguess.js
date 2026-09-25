@@ -1,13 +1,15 @@
 (() => {
 'use strict';
 const $=id=>document.getElementById(id), CORE=()=>window.GameGuessCore, FB=()=>window.GameGuessFirebase;
-const GEO_VERSION='20.4.1';
+const GEO_VERSION='20.5.0';
 const REGIONS={world:['🌍','Mundo todo'],americas:['🌎','Américas'],europe:['🏰','Europa'],asia:['🌏','Ásia'],africa:['🦁','África'],oceania:['🌊','Oceania']};
 const GEO_DIFFICULTIES={easy:{icon:'🌱',timerSec:120,scoreMultiplier:0.85},normal:{icon:'🎯',timerSec:60,scoreMultiplier:1},hard:{icon:'🔥',timerSec:45,scoreMultiplier:1.35},insane:{icon:'💀',timerSec:30,scoreMultiplier:1.8}};
 let config={region:'world',rounds:5,maxPlayers:2,difficulty:'normal'};
 let solo=null, map=null, guessMarker=null, targetMarker=null, line=null, selected=null;
 let roomCode='',room=null,unsub=null,mode='solo',lastRenderedRound=-1,advanceScheduled=-1,tick=null,soloTick=null;
 let mapillaryPromise=null,leafletPromise=null,mapillaryToken='',viewer=null,roundStartImageId='',lastImageId='',steps=0,suppressStep=false,roundToken=0;
+let activeSequenceIds=[],activeSequenceIndex=-1,sequenceMoveBusy=false;
+const sequenceCache=new Map();
 
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));}
 function show(id){if(!$(id)?.classList.contains('active'))CORE()?.showScreen?.(id);setTimeout(()=>map?.invalidateSize?.(),120)}
@@ -157,6 +159,53 @@ function mlyBbox(lat,lng,km=1.5){
   const lngPad=Math.min(.02,Math.max(.006,rawLng));
   return [lng-lngPad,lat-latPad,lng+lngPad,lat+latPad].map(n=>Number(n.toFixed(6))).join(',');
 }
+function mlySequenceId(img){
+  const raw=img?.sequence?.id??img?.sequence??'';
+  return String(raw||'').trim();
+}
+function shuffled(list){
+  const a=[...(list||[])];
+  for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
+  return a;
+}
+async function mapillarySequenceIds(sequenceId,timeoutMs=14000){
+  const sid=String(sequenceId||'').trim();
+  if(!sid)return [];
+  const cached=sequenceCache.get(sid);
+  if(cached?.length)return cached;
+  const token=await ensureMapillaryToken();
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
+  try{
+    const u=new URL('https://graph.mapillary.com/image_ids');
+    u.searchParams.set('access_token',token);
+    u.searchParams.set('sequence_id',sid);
+    const r=await fetch(u.toString(),{signal:controller.signal,headers:{Accept:'application/json'}});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok){
+      const msg=d?.error?.message||d?.message||d?.error||`Mapillary sequence HTTP ${r.status}`;
+      const e=new Error(msg);e.status=r.status;throw e;
+    }
+    const ids=[...new Set((Array.isArray(d.data)?d.data:[]).map(x=>String(x?.id||'')).filter(Boolean))];
+    if(ids.length)sequenceCache.set(sid,ids);
+    return ids;
+  }catch(e){
+    if(e?.name==='AbortError'){const x=new Error('A sequência do Mapillary demorou demais para responder.');x.status=408;throw x;}
+    throw e;
+  }finally{clearTimeout(timer)}
+}
+async function mapillaryImageSequenceId(imageId,timeoutMs=10000){
+  const id=String(imageId||'').trim();if(!id)return '';
+  const token=await ensureMapillaryToken();
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
+  try{
+    const u=new URL(`https://graph.mapillary.com/${encodeURIComponent(id)}`);
+    u.searchParams.set('access_token',token);u.searchParams.set('fields','id,sequence');
+    const r=await fetch(u.toString(),{signal:controller.signal,headers:{Accept:'application/json'}});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok)return '';
+    return mlySequenceId(d);
+  }catch{return ''}finally{clearTimeout(timer)}
+}
 function pickMlyImage(items){
   const usable=(items||[]).filter(x=>x?.id&&mlyGeometry(x));
   if(!usable.length)return null;
@@ -208,10 +257,28 @@ async function browserMapillaryImages(lat,lng){
   }
 }
 async function resolveSeedInBrowser(seed){
-  const items=await browserMapillaryImages(seed.lat,seed.lng),img=pickMlyImage(items),g=mlyGeometry(img);
-  if(!img||!g)return null;
-  const heading=Number(img.computed_compass_angle??img.compass_angle??0);
-  return {id:`mly:${img.id}`,imageId:String(img.id),lat:g.lat,lng:g.lng,country:seed.country,city:seed.city,region:seed.region,heading:Number.isFinite(heading)?heading:0,cameraType:String(img.camera_type||''),provider:'mapillary'};
+  const items=await browserMapillaryImages(seed.lat,seed.lng);
+  const usable=(items||[]).filter(x=>x?.id&&mlyGeometry(x)&&mlySequenceId(x));
+  if(!usable.length)return null;
+  const seqFrequency=new Map();
+  for(const x of usable){const sid=mlySequenceId(x);seqFrequency.set(sid,(seqFrequency.get(sid)||0)+1);}
+  const candidates=shuffled(usable).sort((a,b)=>{
+    const sa=(String(a.camera_type||'').toLowerCase()==='spherical'?100:0)+(seqFrequency.get(mlySequenceId(a))||0);
+    const sb=(String(b.camera_type||'').toLowerCase()==='spherical'?100:0)+(seqFrequency.get(mlySequenceId(b))||0);
+    return sb-sa;
+  }).slice(0,4);
+  let firstError=null;
+  for(const img of candidates){
+    const sid=mlySequenceId(img),g=mlyGeometry(img);if(!sid||!g)continue;
+    try{
+      const ids=await mapillarySequenceIds(sid,12000);
+      if(ids.length<3||!ids.includes(String(img.id)))continue;
+      const heading=Number(img.computed_compass_angle??img.compass_angle??0);
+      return {id:`mly:${img.id}`,imageId:String(img.id),sequenceId:sid,sequenceLength:ids.length,lat:g.lat,lng:g.lng,country:seed.country,city:seed.city,region:seed.region,heading:Number.isFinite(heading)?heading:0,cameraType:String(img.camera_type||''),provider:'mapillary'};
+    }catch(e){if(!firstError)firstError=e;}
+  }
+  if(firstError&&[400,401,403].includes(Number(firstError.status)))throw firstError;
+  return null;
 }
 function updatePrepareProgress(found,wanted,checked,total){
   const label=`BUSCANDO RUAS ${found}/${wanted} • ${checked}/${total}`;
@@ -263,6 +330,76 @@ async function fetchRounds(){
 function currentQ(){return mode==='solo'?solo?.questions?.[solo.index]:room?.questions?.[Number(room.roundIndex||0)]}
 function isLocked(){if(mode==='solo')return Boolean(solo?.answered);const me=myPlayer();return !room||room.status!=='playing'||Number(me?.submittedRound)===Number(room.roundIndex);}
 
+function ensureSequenceControls(){
+  if($('geoSequenceNav'))return;
+  const card=document.querySelector('.geo-street-card');if(!card)return;
+  const style=document.createElement('style');style.id='geoSequenceNavStyle';style.textContent=`
+    .geo-sequence-nav{position:absolute;left:50%;bottom:56px;transform:translateX(-50%);z-index:20;display:flex;align-items:center;gap:8px;padding:7px 9px;border:1px solid rgba(122,230,255,.35);border-radius:14px;background:rgba(7,18,34,.88);backdrop-filter:blur(8px);box-shadow:0 10px 30px rgba(0,0,0,.28)}
+    .geo-sequence-nav button{min-width:48px;height:40px;border:1px solid rgba(122,230,255,.35);border-radius:10px;background:#10243a;color:#fff;font-size:21px;font-weight:800;cursor:pointer}
+    .geo-sequence-nav button:hover:not(:disabled){background:#173a57;transform:translateY(-1px)}
+    .geo-sequence-nav button:disabled{opacity:.35;cursor:not-allowed}
+    .geo-sequence-pos{min-width:112px;text-align:center;color:#d8f7ff;font:700 12px/1.2 inherit;white-space:nowrap}
+    .geo-sequence-pos small{display:block;color:#8ca5bc;font-weight:600;margin-top:2px}
+    @media(max-width:760px){.geo-sequence-nav{bottom:52px}.geo-sequence-pos{min-width:88px}.geo-sequence-nav button{min-width:44px}}
+  `;document.head.appendChild(style);
+  card.insertAdjacentHTML('beforeend',`<div class="geo-sequence-nav" id="geoSequenceNav" aria-label="Navegação da rua"><button id="geoSeqPrev" type="button" title="Imagem anterior (A ou ←)">◀</button><span class="geo-sequence-pos" id="geoSeqPosition">CARREGANDO<small>A/D ou ←/→</small></span><button id="geoSeqNext" type="button" title="Próxima imagem (D ou →)">▶</button></div>`);
+  $('geoSeqPrev')?.addEventListener('click',()=>moveSequence(-1));
+  $('geoSeqNext')?.addEventListener('click',()=>moveSequence(1));
+}
+function updateSequenceControls(){
+  ensureSequenceControls();
+  const prev=$('geoSeqPrev'),next=$('geoSeqNext'),label=$('geoSeqPosition');
+  const q=currentQ(),locked=isLocked();
+  let idx=activeSequenceIds.indexOf(String(lastImageId||roundStartImageId||''));
+  if(idx<0)idx=activeSequenceIndex;
+  if(idx>=0)activeSequenceIndex=idx;
+  const total=activeSequenceIds.length;
+  if(label)label.innerHTML=total&&idx>=0?`🚶 ${idx+1}/${total}<small>A/D ou ←/→</small>`:`SEM ROTA<small>tente outra rodada</small>`;
+  if(prev)prev.disabled=locked||sequenceMoveBusy||idx<=0||total<2;
+  if(next)next.disabled=locked||sequenceMoveBusy||idx<0||idx>=total-1||total<2;
+}
+async function prepareRoundSequence(q){
+  activeSequenceIds=[];activeSequenceIndex=-1;sequenceMoveBusy=false;updateSequenceControls();
+  let sid=String(q?.sequenceId||'').trim();
+  if(!sid)sid=await mapillaryImageSequenceId(q?.imageId);
+  if(sid&&!q.sequenceId)q.sequenceId=sid;
+  if(!sid)return [];
+  const ids=await mapillarySequenceIds(sid,14000);
+  if(ids.length<2)return [];
+  const start=ids.indexOf(String(q.imageId));
+  if(start<0)return [];
+  activeSequenceIds=ids;activeSequenceIndex=start;updateSequenceControls();return ids;
+}
+async function moveSequence(delta){
+  if(sequenceMoveBusy||!viewer||isLocked()||!activeSequenceIds.length)return;
+  let idx=activeSequenceIds.indexOf(String(lastImageId||roundStartImageId||''));
+  if(idx<0)idx=activeSequenceIndex;
+  if(idx<0)return;
+  const dir=delta<0?-1:1;
+  sequenceMoveBusy=true;updateSequenceControls();
+  let lastError=null;
+  try{
+    for(let hop=1;hop<=3;hop++){
+      const nextIndex=idx+(dir*hop);if(nextIndex<0||nextIndex>=activeSequenceIds.length)break;
+      const target=activeSequenceIds[nextIndex];
+      try{
+        await Promise.race([viewer.moveTo(target),new Promise((_,reject)=>setTimeout(()=>reject(new Error('Movimento demorou demais.')),15000))]);
+        activeSequenceIndex=nextIndex;lastImageId=String(target);updateSequenceControls();return;
+      }catch(e){lastError=e;}
+    }
+    if(lastError)throw lastError;
+  }catch(e){toast('Movimento',e?.message||'Não consegui abrir a próxima imagem desta rua.','error');}
+  finally{sequenceMoveBusy=false;updateSequenceControls();}
+}
+function bindSequenceKeyboard(){
+  if(window.__geoSequenceKeyboard)return;window.__geoSequenceKeyboard=true;
+  document.addEventListener('keydown',e=>{
+    if(!$('geoGameScreen')?.classList.contains('active')||isLocked())return;
+    const tag=String(e.target?.tagName||'').toLowerCase();if(['input','select','textarea','button'].includes(tag))return;
+    if(['ArrowLeft','a','A'].includes(e.key)){e.preventDefault();moveSequence(-1);}
+    else if(['ArrowRight','d','D'].includes(e.key)){e.preventDefault();moveSequence(1);}
+  });
+}
 function mapillaryProxyUrl(url){
   try{
     const u=new URL(String(url||''),location.href),h=u.hostname.toLowerCase();
@@ -286,15 +423,15 @@ async function ensureViewer(){
     accessToken:mapillaryToken,
     container:'geoStreetView',
     imageTiling:false,
-    component:{cover:false,fallback:{image:true,navigation:true},sequence:{visible:true,playing:false},zoom:true}
+    component:{cover:false,direction:true,fallback:{image:true,navigation:true},sequence:false,zoom:true}
   };
   if(dataProvider)options.dataProvider=dataProvider;
   viewer=new mly.Viewer(options);
   viewer.on('image',event=>{
     const image=event?.image,id=String(image?.id||'');if(!id)return;
-    if(suppressStep){suppressStep=false;lastImageId=id;return;}
+    if(suppressStep){suppressStep=false;lastImageId=id;activeSequenceIndex=activeSequenceIds.indexOf(id);updateSequenceControls();return;}
     if(lastImageId&&id!==lastImageId&&!isLocked()){steps++;$('geoStepLabel').textContent=steps;}
-    lastImageId=id;
+    lastImageId=id;activeSequenceIndex=activeSequenceIds.indexOf(id);updateSequenceControls();
   });
   return viewer;
 }
@@ -304,16 +441,17 @@ async function loadStreetRound(q){
   const v=await ensureViewer();if(token!==roundToken)return;
   roundStartImageId=String(q.imageId);lastImageId=roundStartImageId;steps=0;$('geoStepLabel').textContent='0';suppressStep=true;
   try{
+    await prepareRoundSequence(q).catch(()=>[]);if(token!==roundToken)return;
     await Promise.race([v.moveTo(roundStartImageId),new Promise((_,reject)=>setTimeout(()=>reject(new Error('A imagem do Mapillary demorou demais para abrir.')),20000))]);if(token!==roundToken)return;
     try{await v.setFieldOfView?.(90)}catch{}
-    v.resize?.();loading.classList.add('hidden');view.classList.add('ready');
+    v.resize?.();loading.classList.add('hidden');view.classList.add('ready');updateSequenceControls();
   }catch(e){
     if(token!==roundToken)return;
     loading.innerHTML='<b>Não foi possível abrir esta imagem do Mapillary.</b><span>O navegador não conseguiu carregar a mídia do CDN da Meta. O modo proxy v20.4.1 usa a função /api/asset existente para evitar bloqueios de fbcdn.net; se persistir, teste sem bloqueador/VPN.</span>';
     throw e;
   }
 }
-async function returnToStart(){const q=currentQ();if(!viewer||!q||isLocked())return;suppressStep=true;lastImageId=String(q.imageId);try{await viewer.moveTo(String(q.imageId));await viewer.setFieldOfView?.(90)}catch(e){toast('Mapillary','Não consegui voltar ao ponto inicial.','error')}}
+async function returnToStart(){const q=currentQ();if(!viewer||!q||isLocked())return;suppressStep=true;lastImageId=String(q.imageId);try{await viewer.moveTo(String(q.imageId));activeSequenceIndex=activeSequenceIds.indexOf(String(q.imageId));updateSequenceControls();await viewer.setFieldOfView?.(90)}catch(e){toast('Mapillary','Não consegui voltar ao ponto inicial.','error')}}
 
 function difficultyFor(value=config.difficulty){return GEO_DIFFICULTIES[value]||GEO_DIFFICULTIES.normal;}
 function clearSoloTimer(){if(soloTick){clearInterval(soloTick);soloTick=null;}if(solo)solo.deadline=0;}
@@ -358,7 +496,7 @@ async function displayRound(){
   const difficulty=difficultyFor(mode==='arena'?room?.config?.difficulty:config.difficulty);
   $('geoRoundLabel').textContent=`${idx+1}/${total}`;$('geoScoreLabel').textContent=mode==='solo'?solo.score:Number(myPlayer()?.score||0);$('geoModeBadge').textContent=mode==='solo'?`🌍 SOLO • ${difficulty.icon}`:`⚔️ SALA ${roomCode}`;
   $('geoTimerLabel').classList.remove('hidden');$('geoTimerLabel').classList.remove('geo-timer-warning');$('geoTimerLabel').textContent=`⏱️ ${difficulty.timerSec}`;
-  $('geoMoveHint').textContent=q.cameraType==='spherical'?'🌀 360° • avance pelas setas e procure pistas • © Mapillary':'🚶 Sequência de rua • avance pelas imagens e procure pistas • © Mapillary';$('geoFeedback').textContent='Clique no mapa para colocar seu palpite.';$('geoSubmitGuess').classList.remove('hidden');$('geoSubmitGuess').disabled=true;$('geoNextRound').textContent='PRÓXIMA RODADA ▶';$('geoNextRound').classList.add('hidden');$('geoReturnStart').disabled=false;selected=null;
+  $('geoMoveHint').textContent=q.cameraType==='spherical'?'🌀 360° • use ◀ ▶, A/D ou setas do teclado • © Mapillary':'🚶 Sequência de rua • use ◀ ▶, A/D ou setas do teclado • © Mapillary';$('geoFeedback').textContent='Clique no mapa para colocar seu palpite.';$('geoSubmitGuess').classList.remove('hidden');$('geoSubmitGuess').disabled=true;$('geoNextRound').textContent='PRÓXIMA RODADA ▶';$('geoNextRound').classList.add('hidden');$('geoReturnStart').disabled=false;selected=null;
   $('geoScoreboard')?.classList.toggle('hidden',mode!=='arena');if(mode==='arena')renderScoreboard();setTimeout(()=>map?.invalidateSize?.(),100);
   try{
     await loadStreetRound(q);
@@ -370,7 +508,7 @@ function reveal(q,guess,km,pts){
   if(!map)return;const target=[Number(q.lat),Number(q.lng)],g=[Number(guess.lat),Number(guess.lng)];
   targetMarker=L.marker(target).addTo(map).bindPopup(`🎯 Local correto: ${esc(q.city)} • ${esc(q.country)}`).openPopup();
   line=L.polyline([g,target],{weight:4,opacity:.82,dashArray:'9 9'}).addTo(map);map.fitBounds(L.latLngBounds([g,target]).pad(.32),{maxZoom:8});
-  $('geoMapCard').classList.add('geo-result-mode','geo-map-expanded');$('geoReturnStart').disabled=true;
+  $('geoMapCard').classList.add('geo-result-mode','geo-map-expanded');$('geoReturnStart').disabled=true;updateSequenceControls();
   $('geoMoveHint').innerHTML=`🎯 <b>${esc(q.city)}</b> • ${esc(q.country)}`;
   $('geoFeedback').innerHTML=`<div class="geo-result-stats"><span><small>DISTÂNCIA</small><b>${fmtDistance(km)}</b></span><span><small>PONTOS</small><b>+${pts.toLocaleString('pt-BR')}</b></span><span><small>PASSOS</small><b>${steps}</b></span></div>`;
   setTimeout(()=>map.invalidateSize(),180);
@@ -428,6 +566,6 @@ async function leaveRoom(){clearSoloTimer();if(roomCode)await FB()?.leaveGeoRoom
 function quit(){roundToken++;clearSoloTimer();if(mode==='arena'&&roomCode)return leaveRoom();solo=null;show('geoSetupScreen')}
 function toggleMap(){const c=$('geoMapCard');if(!c)return;c.classList.toggle('geo-map-expanded');setTimeout(()=>map?.invalidateSize?.(),180)}
 function open(arena=false){show('geoSetupScreen');if(arena)setTimeout(()=>$('geoCreateRoom')?.scrollIntoView({behavior:'smooth',block:'center'}),100)}
-function bind(){inject();const openSolo=()=>open(false),openArena=()=>open(true);$('homeGeoButton')?.addEventListener('click',openSolo);$('homeGeoguessButton')?.addEventListener('click',openSolo);$('homeGeoArenaButton')?.addEventListener('click',openArena);$('homeGeoguessArenaButton')?.addEventListener('click',openArena);$('geoBack')?.addEventListener('click',()=>show('homeScreen'));$('geoSoloStart')?.addEventListener('click',startSolo);$('geoSubmitGuess')?.addEventListener('click',()=>mode==='solo'?submitSolo():submitArena());$('geoNextRound')?.addEventListener('click',nextSolo);$('geoCreateRoom')?.addEventListener('click',createRoom);$('geoJoinRoom')?.addEventListener('click',joinRoom);$('geoStartRoom')?.addEventListener('click',startRoom);$('geoLeaveRoom')?.addEventListener('click',leaveRoom);$('geoQuit')?.addEventListener('click',quit);$('geoReturnStart')?.addEventListener('click',returnToStart);$('geoMapToggle')?.addEventListener('click',toggleMap);$('geoCopyCode')?.addEventListener('click',()=>navigator.clipboard?.writeText(roomCode).then(()=>toast('Código copiado',roomCode)));window.addEventListener('gameguess:authchange',e=>{if(!e.detail?.user&&roomCode)leaveRoom()});}
+function bind(){inject();ensureSequenceControls();bindSequenceKeyboard();const openSolo=()=>open(false),openArena=()=>open(true);$('homeGeoButton')?.addEventListener('click',openSolo);$('homeGeoguessButton')?.addEventListener('click',openSolo);$('homeGeoArenaButton')?.addEventListener('click',openArena);$('homeGeoguessArenaButton')?.addEventListener('click',openArena);$('geoBack')?.addEventListener('click',()=>show('homeScreen'));$('geoSoloStart')?.addEventListener('click',startSolo);$('geoSubmitGuess')?.addEventListener('click',()=>mode==='solo'?submitSolo():submitArena());$('geoNextRound')?.addEventListener('click',nextSolo);$('geoCreateRoom')?.addEventListener('click',createRoom);$('geoJoinRoom')?.addEventListener('click',joinRoom);$('geoStartRoom')?.addEventListener('click',startRoom);$('geoLeaveRoom')?.addEventListener('click',leaveRoom);$('geoQuit')?.addEventListener('click',quit);$('geoReturnStart')?.addEventListener('click',returnToStart);$('geoMapToggle')?.addEventListener('click',toggleMap);$('geoCopyCode')?.addEventListener('click',()=>navigator.clipboard?.writeText(roomCode).then(()=>toast('Código copiado',roomCode)));window.addEventListener('gameguess:authchange',e=>{if(!e.detail?.user&&roomCode)leaveRoom()});}
 window.GameGuessGeo={open,version:GEO_VERSION};if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind);else bind();
 })();
