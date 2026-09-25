@@ -1,7 +1,8 @@
 (() => {
 'use strict';
 const $=id=>document.getElementById(id), CORE=()=>window.GameGuessCore, FB=()=>window.GameGuessFirebase;
-const GEO_VERSION='20.6.0';
+const GEO_VERSION='20.7.0';
+const CAMERA_FOV=55;
 const REGIONS={world:['🌍','Mundo todo'],americas:['🌎','Américas'],europe:['🏰','Europa'],asia:['🌏','Ásia'],africa:['🦁','África'],oceania:['🌊','Oceania']};
 const GEO_DIFFICULTIES={easy:{icon:'🌱',timerSec:120,scoreMultiplier:0.85},normal:{icon:'🎯',timerSec:60,scoreMultiplier:1},hard:{icon:'🔥',timerSec:45,scoreMultiplier:1.35},insane:{icon:'💀',timerSec:30,scoreMultiplier:1.8}};
 let config={region:'world',rounds:5,maxPlayers:2,difficulty:'normal'};
@@ -390,11 +391,14 @@ function ensureSequenceControls(){
   card.insertAdjacentHTML('beforeend',`<div class="geo-play-tools" id="geoPlayTools"><button id="geoMapHotkey" type="button" title="Abrir/recolher mapa (M)">🗺️</button><button id="geoFullscreen" type="button" title="Tela cheia (F)">⛶</button></div><div class="geo-sequence-nav" id="geoSequenceNav" aria-label="Navegação da rua"><button id="geoSeqPrev" type="button" title="Voltar (S, A, ↓ ou ←)">◀ VOLTAR</button><span class="geo-sequence-pos" id="geoSeqPosition">CARREGANDO<small>W/S • setas • espaço avança</small></span><button id="geoSeqNext" type="button" title="Avançar (W, D, ↑, → ou Espaço)">AVANÇAR ▶</button></div>`);
   $('geoSeqPrev')?.addEventListener('click',()=>moveSequence(-1));
   $('geoSeqNext')?.addEventListener('click',()=>moveSequence(1));
+  $('geoSeqPrev').title='Imagem anterior (S ou ↓)';
+  $('geoSeqNext').title='Próxima imagem (W ou ↑)';
   $('geoMapHotkey')?.addEventListener('click',toggleMap);
   $('geoFullscreen')?.addEventListener('click',toggleGeoFullscreen);
-  let lastTap=0;
-  $('geoStreetView')?.addEventListener('dblclick',e=>{if(!isLocked()){e.preventDefault();moveSequence(1);}});
-  $('geoStreetView')?.addEventListener('pointerup',e=>{if(e.pointerType!=='touch'||isLocked())return;const now=Date.now();if(now-lastTap<320){lastTap=0;moveSequence(1)}else lastTap=now;},{passive:true});
+  const tools=$('geoPlayTools');
+  tools.insertAdjacentHTML('beforeend','<button id="geoResetCamera" type="button" title="Centralizar câmera" aria-label="Centralizar câmera">◎</button>');
+  $('geoResetCamera').addEventListener('click',resetCamera);
+  document.addEventListener('fullscreenchange',()=>{viewer?.resize?.();map?.invalidateSize?.();});
 }
 function updateSequenceControls(){
   ensureSequenceControls();
@@ -402,11 +406,11 @@ function updateSequenceControls(){
   if(label&&!sequenceMoveBusy&&!continuationSearchBusy&&!navStatusTimer){
     const edge=total&&idx>=0&&((idx===0)||(idx===total-1));
     label.dataset.kind=edge?'route':'';
-    label.innerHTML=total&&idx>=0?`🚶 ${idx+1}/${total}<small>${edge?'fim da sequência: tenta conectar outra rua':'W/S • setas • espaço avança'}</small>`:`ROTA LIVRE<small>W/S tenta achar a continuação</small>`;
+    label.innerHTML=total&&idx>=0?`🚶 ${idx+1}/${total}<small>${edge?'Fim do trecho • use as setas da rua':'W/S • ↑/↓ para caminhar'}</small>`:`EXPLORAR<small>Use as setas na imagem</small>`;
   }
   const disabled=locked||sequenceMoveBusy||continuationSearchBusy;
-  if(prev)prev.disabled=disabled;
-  if(next)next.disabled=disabled;
+  if(prev)prev.disabled=disabled||idx<=0;
+  if(next)next.disabled=disabled||idx<0||idx>=total-1;
 }
 async function activateSequenceForImage(imageId,sequenceId=''){
   const id=String(imageId||'').trim();if(!id)return [];
@@ -456,27 +460,21 @@ async function moveNearbyContinuation(direction){
 async function moveSequence(delta){
   if(sequenceMoveBusy||continuationSearchBusy||!viewer||isLocked())return;
   let idx=navIndex();const dir=delta<0?-1:1;
-  if(idx<0||!activeSequenceIds.length)return moveNearbyContinuation(dir);
+  if(idx<0||!activeSequenceIds.length)return;
   const immediate=idx+dir;
-  if(immediate<0||immediate>=activeSequenceIds.length)return moveNearbyContinuation(dir);
+  if(immediate<0||immediate>=activeSequenceIds.length)return;
   sequenceMoveBusy=true;setNavStatus(dir>0?'AVANÇANDO...<small>carregando próxima imagem</small>':'VOLTANDO...<small>carregando imagem anterior</small>','busy');updateSequenceControls();
-  let lastError=null;
+  const token=roundToken;
   try{
-    for(let hop=1;hop<=5;hop++){
-      const nextIndex=idx+(dir*hop);if(nextIndex<0||nextIndex>=activeSequenceIds.length)break;
-      const target=activeSequenceIds[nextIndex];
-      try{
-        await Promise.race([viewer.moveTo(target),new Promise((_,reject)=>setTimeout(()=>reject(new Error('Movimento demorou demais.')),15000))]);
-        activeSequenceIndex=nextIndex;lastImageId=String(target);updateSequenceControls();return true;
-      }catch(e){lastError=e;}
-    }
-    if(lastError)throw lastError;
-    return moveNearbyContinuation(dir);
+    const target=activeSequenceIds[immediate];
+    await viewer.moveTo(target);
+    if(token!==roundToken)return false;
+    activeSequenceIndex=immediate;lastImageId=String(target);return true;
   }catch(e){toast('Movimento',e?.message||'Não consegui abrir a próxima imagem desta rua.','error');return false;}
   finally{sequenceMoveBusy=false;updateSequenceControls();}
 }
 function toggleGeoFullscreen(){
-  const card=document.querySelector('.geo-street-card');if(!card)return;
+  const card=$('geoStage');if(!card)return;
   if(document.fullscreenElement){document.exitFullscreen?.().catch(()=>{});return;}
   card.requestFullscreen?.().catch(()=>toast('Tela cheia','Seu navegador bloqueou o modo tela cheia.','error'));
 }
@@ -486,8 +484,9 @@ function bindSequenceKeyboard(){
     if(!$('geoGameScreen')?.classList.contains('active')||isLocked())return;
     const tag=String(e.target?.tagName||'').toLowerCase();if(['input','select','textarea','button'].includes(tag))return;
     const k=e.key;
-    if(['ArrowUp','ArrowRight','w','W','d','D',' '].includes(k)){e.preventDefault();moveSequence(1);}
-    else if(['ArrowDown','ArrowLeft','s','S','a','A'].includes(k)){e.preventDefault();moveSequence(-1);}
+    if(e.repeat||e.ctrlKey||e.altKey||e.metaKey||e.target?.isContentEditable||e.target?.closest?.('.leaflet-container'))return;
+    if(['ArrowUp','w','W'].includes(k)){e.preventDefault();moveSequence(1);}
+    else if(['ArrowDown','s','S'].includes(k)){e.preventDefault();moveSequence(-1);}
     else if(['r','R'].includes(k)){e.preventDefault();returnToStart();}
     else if(['m','M'].includes(k)){e.preventDefault();toggleMap();}
     else if(['f','F'].includes(k)){e.preventDefault();toggleGeoFullscreen();}
@@ -516,7 +515,8 @@ async function ensureViewer(){
     accessToken:mapillaryToken,
     container:'geoStreetView',
     imageTiling:false,
-    component:{cover:false,direction:true,fallback:{image:true,navigation:true},sequence:false,zoom:true,cache:true}
+    combinedPanning:false,
+    component:{cover:false,direction:true,keyboard:false,fallback:{image:true,navigation:true},sequence:false,zoom:true,cache:true}
   };
   if(dataProvider)options.dataProvider=dataProvider;
   viewer=new mly.Viewer(options);
@@ -538,7 +538,7 @@ async function loadStreetRound(q){
   try{
     await prepareRoundSequence(q).catch(()=>[]);if(token!==roundToken)return;
     await Promise.race([v.moveTo(roundStartImageId),new Promise((_,reject)=>setTimeout(()=>reject(new Error('A imagem do Mapillary demorou demais para abrir.')),20000))]);if(token!==roundToken)return;
-    try{await v.setFieldOfView?.(90)}catch{}
+    resetCamera();
     v.resize?.();loading.classList.add('hidden');view.classList.add('ready');updateSequenceControls();
   }catch(e){
     if(token!==roundToken)return;
@@ -546,7 +546,8 @@ async function loadStreetRound(q){
     throw e;
   }
 }
-async function returnToStart(){const q=currentQ();if(!viewer||!q||isLocked())return;suppressStep=true;lastImageId=String(q.imageId);try{await viewer.moveTo(String(q.imageId));await prepareRoundSequence(q).catch(()=>[]);activeSequenceIndex=activeSequenceIds.indexOf(String(q.imageId));updateSequenceControls();await viewer.setFieldOfView?.(90)}catch(e){toast('Mapillary','Não consegui voltar ao ponto inicial.','error')}}
+function resetCamera(){if(!viewer)return;try{viewer.setCenter([.5,.5]);viewer.setFieldOfView(CAMERA_FOV);}catch{}}
+async function returnToStart(){const q=currentQ();if(!viewer||!q||isLocked()||sequenceMoveBusy)return;sequenceMoveBusy=true;updateSequenceControls();suppressStep=true;try{await viewer.moveTo(String(q.imageId));await prepareRoundSequence(q).catch(()=>[]);activeSequenceIndex=activeSequenceIds.indexOf(String(q.imageId));resetCamera();}catch(e){toast('Mapillary','Não consegui voltar ao ponto inicial.','error')}finally{sequenceMoveBusy=false;updateSequenceControls();}}
 
 function difficultyFor(value=config.difficulty){return GEO_DIFFICULTIES[value]||GEO_DIFFICULTIES.normal;}
 function clearSoloTimer(){if(soloTick){clearInterval(soloTick);soloTick=null;}if(solo)solo.deadline=0;}
@@ -659,7 +660,7 @@ function ensureArenaTicker(){if(tick)return;tick=setInterval(async()=>{if(!room|
 function finishArena(){if(tick){clearInterval(tick);tick=null}const u=user();if(!u||!room)return;const key=`ggGeoRecorded:${room.code}:${u.uid}`;if(!localStorage.getItem(key)){localStorage.setItem(key,'1');const p=CORE()?.getProfile?.()||{},won=room.winnerUid===u.uid,myScore=Number(myPlayer()?.score||0),difficulty=room.config?.difficulty||'normal';p.geoPlayed=Number(p.geoPlayed||0)+1;p.geoWins=Number(p.geoWins||0)+(won?1:0);p.gamesPlayed=Number(p.gamesPlayed||0)+1;if(won)p.gamesWon=Number(p.gamesWon||0)+1;p.geoBestScore=Math.max(Number(p.geoBestScore||0),myScore);const coinsEarned=window.GameGuessScoring?.pointsToCoinReward?.(myScore,difficulty)||(won?12:4);p.coins=Number(p.coins||0)+coinsEarned;window.GameGuessRanked?.record?.(p,{kind:'geoguess-arena',score:myScore,mode:`${players().length}-players`,universe:'geoguess',challenge:room.config?.region||'world',difficulty:difficulty,correct:Number(room.config?.rounds||0),wrong:0,won,players:players().length});CORE()?.replaceProfile?.(p);CORE()?.saveProfile?.();FB()?.syncLocalProfile?.(p);if(won)CORE()?.spawnConfetti?.();toast(won?'🏆 Você venceu o GeoGuess!':'GeoGuess finalizado',`${myScore.toLocaleString('pt-BR')} pontos • +${coinsEarned} moedas`);}const winner=room.players?.[room.winnerUid];$('geoFeedback').innerHTML=`🏆 Vencedor: <b>${esc(winner?.name||'Jogador')}</b> • ${Number(winner?.score||0).toLocaleString('pt-BR')} pontos`;}
 async function leaveRoom(){clearSoloTimer();if(roomCode)await FB()?.leaveGeoRoom?.(roomCode).catch(()=>{});unsub?.();unsub=null;room=null;roomCode='';localStorage.removeItem('gameGuessLastGeoRoom');lastRenderedRound=-1;advanceScheduled=-1;$('geoWaiting')?.classList.add('hidden');if(tick){clearInterval(tick);tick=null}show('geoSetupScreen')}
 function quit(){roundToken++;clearSoloTimer();if(mode==='arena'&&roomCode)return leaveRoom();solo=null;show('geoSetupScreen')}
-function toggleMap(){const c=$('geoMapCard');if(!c)return;c.classList.toggle('geo-map-expanded');setTimeout(()=>map?.invalidateSize?.(),180)}
+function toggleMap(){const c=$('geoMapCard');if(!c)return;const expanded=c.classList.toggle('geo-map-expanded');$('geoMapToggle')?.setAttribute('aria-expanded',String(expanded));setTimeout(()=>map?.invalidateSize?.(),220)}
 function open(arena=false){show('geoSetupScreen');if(arena)setTimeout(()=>$('geoCreateRoom')?.scrollIntoView({behavior:'smooth',block:'center'}),100)}
 function bind(){inject();ensureSequenceControls();bindSequenceKeyboard();const openSolo=()=>open(false),openArena=()=>open(true);$('homeGeoButton')?.addEventListener('click',openSolo);$('homeGeoguessButton')?.addEventListener('click',openSolo);$('homeGeoArenaButton')?.addEventListener('click',openArena);$('homeGeoguessArenaButton')?.addEventListener('click',openArena);$('geoBack')?.addEventListener('click',()=>show('homeScreen'));$('geoSoloStart')?.addEventListener('click',startSolo);$('geoSubmitGuess')?.addEventListener('click',()=>mode==='solo'?submitSolo():submitArena());$('geoNextRound')?.addEventListener('click',nextSolo);$('geoCreateRoom')?.addEventListener('click',createRoom);$('geoJoinRoom')?.addEventListener('click',joinRoom);$('geoStartRoom')?.addEventListener('click',startRoom);$('geoLeaveRoom')?.addEventListener('click',leaveRoom);$('geoQuit')?.addEventListener('click',quit);$('geoReturnStart')?.addEventListener('click',returnToStart);$('geoMapToggle')?.addEventListener('click',toggleMap);$('geoCopyCode')?.addEventListener('click',()=>navigator.clipboard?.writeText(roomCode).then(()=>toast('Código copiado',roomCode)));window.addEventListener('gameguess:authchange',e=>{if(!e.detail?.user&&roomCode)leaveRoom()});}
 window.GameGuessGeo={open,version:GEO_VERSION};if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind);else bind();
