@@ -1,0 +1,451 @@
+diff --git a/index.html b/index.html
+index 09ce53c..42b0b33 100644
+--- a/index.html
++++ b/index.html
+@@ -199,13 +199,13 @@
+             </div>
+           </article>
+           <article class="feature-card">
+-            <div class="feature-icon">🥊</div>
++            <div class="feature-icon">🎮</div>
+             <div>
+-              <h3>KOF 2002 Magic Plus II</h3>
+-              <p>Arcade no navegador com treino local, sala 1x1 e catálogo de especiais do Magic Plus II.</p>
++              <h3>Arcade Neo Geo</h3>
++              <p>KOF 2002 Magic Plus II e Neo Bomberman no navegador, incluindo multiplayer local para 2 jogadores.</p>
+             </div>
+             <div class="feature-actions">
+-              <button class="primary-btn" id="homeKofButton">🥊 ABRIR KOF</button>
++              <button class="primary-btn" id="homeKofButton">🎮 ABRIR ARCADE</button>
+             </div>
+           </article>
+           <article class="feature-card">
+@@ -301,10 +301,11 @@
+     </section>
+ 
+     <section class="screen kof-screen" id="kofScreen">
+-      <div class="section-heading kof-heading"><button class="back-link" id="kofBackButton">← Voltar</button><div><p class="eyebrow">🥊 ARCADE ONLINE • V19.10.4</p><h2>KOF 2002 MAGIC PLUS II</h2><p>Loader V19.10.4 usando <b>FBNeo explícito + kf2k2mp2.zip Full Non-Merged</b>: Magic Plus II, KOF 2002 parent e BIOS Neo Geo em um único arquivo para evitar a falha de montagem do EmulatorJS.</p></div></div>
++      <div class="section-heading kof-heading"><button class="back-link" id="kofBackButton">← Voltar</button><div><p class="eyebrow">🎮 ARCADE NEO GEO</p><h2>KOF 2002 + NEO BOMBERMAN</h2><p>FBNeo no navegador: mantenha o KOF 2002 Magic Plus II com treino/netplay e jogue Neo Bomberman com multiplayer local para 2 jogadores.</p></div></div>
+       <div class="kof-layout">
+         <div class="kof-main">
+           <section class="kof-card kof-web-card"><div class="kof-web-title"><h3>🌐 Arcade Web integrado</h3><span class="kof-web-badge">SEM IMPORTAR ROM</span></div><div class="kof-file-grid"><div id="kofCloneState" class="kof-file-state"></div><div id="kofParentState" class="kof-file-state"></div><div id="kofBiosState" class="kof-file-state"></div></div><p id="kofFilesReady" class="kof-note"></p><div class="kof-web-actions"><button id="kofTrainingButton" class="primary-btn huge">🎮 INICIAR TREINO LOCAL</button><button id="kofRecheckFiles" class="secondary-btn">🔎 REVALIDAR ARQUIVOS</button><button id="kofCatalogButton" class="secondary-btn">📚 CATÁLOGO DE LUTADORES</button></div></section>
++          <section class="kof-card kof-web-card" id="neoBombermanCard"><div class="kof-web-title"><h3>💣 Neo Bomberman</h3><span class="kof-web-badge">2 JOGADORES LOCAL</span></div><p>Neo Geo / FBNeo usando a ROM Full Non-Merged enviada por você. Jogue no mesmo PC com dois teclados/controles, ou com dois gamepads USB/Bluetooth.</p><div class="kof-web-actions"><button id="neoBombermanLocalButton" class="primary-btn huge">💣 JOGAR NEO BOMBERMAN • 2P LOCAL</button></div><p class="kof-note"><b>P1:</b> WASD + F/G • R moeda • T start &nbsp; | &nbsp; <b>P2:</b> setas + K/L • O moeda • P start. Dois gamepads também são detectados automaticamente.</p></section>
+           <section class="kof-card"><h3>⚔️ Duelo 1x1 sincronizado</h3><p>O Firebase cria a sala, verifica os dois aparelhos e o HOST dispara o carregamento simultâneo. O EmulatorJS recebe o mesmo Game ID e servidor Netplay nos dois lados.</p><div class="kof-room-actions"><button class="primary-btn" id="kofCreateRoom">CRIAR SALA</button><div class="kof-join"><input id="kofJoinCode" maxlength="6" placeholder="ABC123" autocomplete="off"><button class="secondary-btn" id="kofJoinRoom">ENTRAR</button></div></div><label class="kof-server-field">Servidor Netplay (automático)<input id="kofNetplayServer" value="Carregando configuração…" autocomplete="off" readonly></label></section>
+           <section class="kof-card hidden" id="kofRoomPanel"><div class="kof-room-code"><span>SALA</span><b id="kofRoomCode">------</b><button class="icon-btn" id="kofCopyRoom">📋</button></div><div id="kofRoomRole" class="kof-note"></div><div id="kofRoomPlayers" class="kof-players"></div><div id="kofRoomStatus" class="kof-room-status">Aguardando...</div><div class="kof-room-buttons"><button class="primary-btn" id="kofLaunchButton">🚀 INICIAR KOF ONLINE</button><button class="secondary-btn" id="kofLeaveRoom">SAIR DA SALA</button></div><div id="kofResultControls" class="kof-result-controls hidden"><p id="kofVoteStatus">Depois da luta, os dois jogadores confirmam o vencedor.</p><button class="primary-btn" id="kofVoteMe">🏆 EU VENCI</button><button class="secondary-btn" id="kofVoteRival">🥊 O RIVAL VENCEU</button></div></section>
+         </div>
+@@ -313,7 +314,7 @@
+     </section>
+ 
+     <section class="screen kof-play-screen" id="kofPlayScreen">
+-      <div class="kof-play-top"><button class="back-link" id="kofPlayBackButton">← Lobby KOF</button><div><p class="eyebrow">🥊 KOF 2002 MAGIC PLUS II</p><b id="kofPlayRoom">TREINO LOCAL</b></div></div>
++      <div class="kof-play-top"><button class="back-link" id="kofPlayBackButton">← Lobby Arcade</button><div><p class="eyebrow" id="kofPlayTitle">🥊 KOF 2002 MAGIC PLUS II</p><b id="kofPlayRoom">TREINO LOCAL</b></div></div>
+       <div id="kofNetplayHelp" class="kof-netplay-help hidden"><b>⚔️ Netplay</b><span>Os dois jogadores carregam o mesmo Game ID. No menu do EmulatorJS, abra <strong>Netplay</strong>: o HOST cria a sessão e o CONVIDADO entra. O servidor configurado no lobby já foi aplicado.</span></div>
+       <div class="kof-emulator-shell"><iframe id="kofEmulatorFrame" title="KOF 2002 Magic Plus II" allow="fullscreen" allowfullscreen referrerpolicy="same-origin"></iframe></div>
+     </section>
+@@ -801,7 +802,7 @@
+   <script src="/duel.js?v=17.0.0" defer></script>
+   <script src="/kof-catalog.js?v=19.10.4" defer></script>
+   <script src="/kof-catalog-ui.js?v=19.10.4" defer></script>
+-  <script src="/kof.js?v=19.10.4" defer></script>
++  <script src="/kof.js?v=19.12.0" defer></script>
+     <script src="/friends.js?v=19.11.1" defer></script>
+ 
+   <script data-portrait-fix-v19>
+diff --git a/kof.js b/kof.js
+index bd5b72f..e204404 100644
+--- a/kof.js
++++ b/kof.js
+@@ -4,6 +4,9 @@
+   const WEB_GAME='/roms/v178/kf2k2mp2.zip';
+   const EXPECTED_GAME_BYTES=86694745;
+   const KOF_WEB_VERSION='19.10.4';
++  const NEO_BOMBERMAN_VERSION='1.0.0';
++  const NEO_BOMBERMAN_URL='/roms/neogeo/neobombe.zip';
++  const NEO_BOMBERMAN_BYTES=7431142;
+   const KOF_TRAINING_EMULATOR_VERSION='4.2.3';
+   const KOF_ONLINE_EMULATOR_VERSION='4.3.0-pre';
+   const FBN_BUILD='FBNeo • treino 4.2.3 • online 4.3.0-pre';
+@@ -163,6 +166,30 @@
+       console.error('KOF online launch:',e);
+     }
+   }
++  async function launchNeoBomberman(){
++    const btn=$('neoBombermanLocalButton');
++    if(btn){btn.disabled=true;btn.textContent='⏳ VALIDANDO ROM…'}
++    try{
++      const rom=await head(NEO_BOMBERMAN_URL,9000);
++      if(!rom.ok)throw new Error('A ROM /roms/neogeo/neobombe.zip não foi encontrada neste deploy.');
++      if(rom.size&&rom.size!==NEO_BOMBERMAN_BYTES)throw new Error(`A ROM Neo Bomberman tem ${rom.size} bytes; esperado ${NEO_BOMBERMAN_BYTES} bytes.`);
++      stopEmulator();
++      show('kofPlayScreen');
++      const frame=$('kofEmulatorFrame');
++      if(!frame)throw new Error('Iframe do Arcade não foi encontrado.');
++      if($('kofPlayTitle'))$('kofPlayTitle').textContent='💣 NEO BOMBERMAN • NEO GEO';
++      if($('kofPlayRoom'))$('kofPlayRoom').textContent='MULTIPLAYER LOCAL • 2 JOGADORES';
++      if($('kofNetplayHelp'))$('kofNetplayHelp').classList.add('hidden');
++      frame.title='Neo Bomberman • multiplayer local';
++      frame.src=`/neobombe-player.html?v=${NEO_BOMBERMAN_VERSION}`;
++      toast('Neo Bomberman','Multiplayer local pronto: P1 + P2 no mesmo aparelho.');
++    }catch(e){
++      toast('Neo Bomberman',e?.message||String(e),'error');
++    }finally{
++      if(btn){btn.disabled=false;btn.textContent='💣 JOGAR NEO BOMBERMAN • 2P LOCAL'}
++    }
++  }
++
+   async function launch(training=false,fromRoom=false,launchAt=0){
+     if(!training&&launched)return true;
+     if(!training&&!fromRoom)return requestOnlineLaunch();
+@@ -173,6 +200,8 @@
+     const frame=$('kofEmulatorFrame');if(!frame){launchInFlight=false;return toast('KOF Web','Iframe do emulador não foi encontrado. Atualize a página.','error')}
+     if(!training){launched=true;launchInFlight=false;stopLaunchPolling()}
+     show('kofPlayScreen');
++    if($('kofPlayTitle'))$('kofPlayTitle').textContent='🥊 KOF 2002 MAGIC PLUS II';
++    frame.title='KOF 2002 Magic Plus II';
+     const token=training?0:Number(launchAt||room?.launchAt||Date.now());const name=playerName();frame.src=`/kof-player.html?v=${KOF_WEB_VERSION}&gameId=${encodeURIComponent(gameId)}&room=${encodeURIComponent(code)}&role=${encodeURIComponent(roleParam)}&launch=${encodeURIComponent(token)}&name=${encodeURIComponent(name)}`;
+     if($('kofPlayRoom'))$('kofPlayRoom').textContent=training?'TREINO LOCAL':`SALA ${roomCode} • ${role()}`;
+     if($('kofNetplayHelp')){
+@@ -223,11 +252,11 @@
+     $('homeKofButton')?.addEventListener('click',open);$('kofBackButton')?.addEventListener('click',()=>show('homeScreen'));
+     $('kofPlayBackButton')?.addEventListener('click',()=>{stopEmulator();launched=false;show('kofScreen')});
+     $('kofRecheckFiles')?.addEventListener('click',()=>Promise.all([refreshFiles(true),checkServices()]).then(([ok])=>toast(ok?'KOF Web pronto':'ROM inválida',ok?'Full Non-Merged V17.8 confirmado no deploy.':'Confira /roms/v178/kf2k2mp2.zip e faça novo deploy.','error')));
+-    $('kofTrainingButton')?.addEventListener('click',()=>launch(true));$('kofCreateRoom')?.addEventListener('click',createRoom);$('kofJoinRoom')?.addEventListener('click',joinRoom);$('kofLeaveRoom')?.addEventListener('click',leaveRoom);$('kofLaunchButton')?.addEventListener('click',requestOnlineLaunch);
++    $('kofTrainingButton')?.addEventListener('click',()=>launch(true));$('neoBombermanLocalButton')?.addEventListener('click',launchNeoBomberman);$('kofCreateRoom')?.addEventListener('click',createRoom);$('kofJoinRoom')?.addEventListener('click',joinRoom);$('kofLeaveRoom')?.addEventListener('click',leaveRoom);$('kofLaunchButton')?.addEventListener('click',requestOnlineLaunch);
+     $('kofCopyRoom')?.addEventListener('click',()=>navigator.clipboard?.writeText(roomCode).then(()=>toast('Código copiado',roomCode)));
+     $('kofVoteMe')?.addEventListener('click',()=>vote(user()?.uid));$('kofVoteRival')?.addEventListener('click',()=>vote(opponent()?.uid));
+     window.addEventListener('gameguess:authchange',e=>{if(!e.detail?.user&&roomCode)leaveRoom()});
+-    window.addEventListener('message',e=>{if(e.origin!==location.origin)return;const d=e.data||{};if(d.type==='kof-player-error')toast('Emulador KOF',d.message||'Falha ao iniciar.','error');if(d.type==='kof-player-ready')toast('KOF pronto',d.message||'Emulador carregado.');if(d.type==='kof-netplay-status'){if($('kofNetplayHelp'))$('kofNetplayHelp').innerHTML=`<b>⚔️ PVP Web • ${esc(role())}</b><span>${esc(d.message||'Conectando Netplay…')}</span>`;if(d.state==='connected')toast('PVP conectado','Player 1 e Player 2 estão ligados pelo WebRTC.');}if(d.type==='kof-fullscreen-status')toast('Tela do KOF',d.message||'Visualização alterada.');if(d.type==='kof-player-slow')toast('KOF carregando','O primeiro carregamento pode demorar porque o navegador está baixando e preparando ~83 MB do romset.')});
++    window.addEventListener('message',e=>{if(e.origin!==location.origin)return;const d=e.data||{};if(d.type==='kof-player-error')toast('Emulador KOF',d.message||'Falha ao iniciar.','error');if(d.type==='kof-player-ready')toast('KOF pronto',d.message||'Emulador carregado.');if(d.type==='neobombe-player-error')toast('Neo Bomberman',d.message||'Falha ao iniciar.','error');if(d.type==='neobombe-player-ready')toast('Neo Bomberman pronto',d.message||'P1 e P2 liberados.');if(d.type==='kof-netplay-status'){if($('kofNetplayHelp'))$('kofNetplayHelp').innerHTML=`<b>⚔️ PVP Web • ${esc(role())}</b><span>${esc(d.message||'Conectando Netplay…')}</span>`;if(d.state==='connected')toast('PVP conectado','Player 1 e Player 2 estão ligados pelo WebRTC.');}if(d.type==='kof-fullscreen-status')toast('Tela do KOF',d.message||'Visualização alterada.');if(d.type==='kof-player-slow')toast('KOF carregando','O primeiro carregamento pode demorar porque o navegador está baixando e preparando ~83 MB do romset.')});
+   }
+   window.GameGuessKOF={open};if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind);else bind();
+ })();
+diff --git a/neobombe-player.html b/neobombe-player.html
+new file mode 100644
+index 0000000..36babaa
+--- /dev/null
++++ b/neobombe-player.html
+@@ -0,0 +1,86 @@
++<!doctype html>
++<html lang="pt-BR">
++<head>
++  <meta charset="utf-8">
++  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
++  <meta name="theme-color" content="#050913">
++  <title>Neo Bomberman • 2P Local</title>
++  <style>
++    *{box-sizing:border-box}
++    html,body{width:100%;height:100%;margin:0;overflow:hidden;background:#050913;color:#fff;font-family:Inter,Arial,sans-serif;overscroll-behavior:none}
++    body{user-select:none;-webkit-user-select:none}
++    #game{position:fixed;inset:0;background:#050913;overflow:hidden}
++    #game canvas,#game iframe,#game video,#game object{max-width:100%!important;max-height:100%!important;touch-action:none!important}
++    .topbar{position:fixed;z-index:70;top:max(8px,env(safe-area-inset-top));left:max(8px,env(safe-area-inset-left));right:max(8px,env(safe-area-inset-right));display:flex;justify-content:space-between;gap:8px;pointer-events:none}
++    .group{display:flex;gap:6px;flex-wrap:wrap;pointer-events:auto}
++    .tool{border:1px solid rgba(255,215,64,.75);background:rgba(5,9,19,.82);color:#fff;padding:8px 10px;border-radius:12px;font-weight:900;cursor:pointer;backdrop-filter:blur(8px)}
++    .badge{display:flex;align-items:center;border:1px solid rgba(66,232,255,.55);background:rgba(5,9,19,.76);padding:8px 11px;border-radius:12px;font-weight:900;color:#bdf8ff;backdrop-filter:blur(8px)}
++    #boot{position:fixed;inset:0;z-index:90;display:grid;place-items:center;padding:22px;background:radial-gradient(circle at 50% 22%,#382344 0,#11172b 44%,#050913 78%)}
++    .panel{width:min(720px,94vw);padding:24px;border:1px solid rgba(255,215,64,.35);border-radius:20px;background:rgba(5,9,19,.88);box-shadow:0 20px 70px rgba(0,0,0,.45);text-align:center}
++    .panel h1{margin:0 0 8px;font-size:clamp(1.55rem,5vw,2.5rem)}
++    .panel p{color:#bfc9df;line-height:1.5;margin:8px auto;max-width:620px}.panel strong{color:#fff}
++    #startButton{margin-top:14px;border:0;border-radius:14px;padding:14px 22px;background:linear-gradient(135deg,#ffd740,#ff9f1c);color:#251700;font-size:1rem;font-weight:1000;letter-spacing:.04em;cursor:pointer;box-shadow:0 12px 34px rgba(255,183,28,.23)}
++    #startButton:disabled{opacity:.6;cursor:wait}
++    .controls-summary{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;text-align:left}.controls-summary div{padding:12px;border:1px solid rgba(255,255,255,.11);border-radius:12px;background:rgba(255,255,255,.04)}
++    .controls-summary b{display:block;margin-bottom:5px}.controls-summary small{color:#aeb9d2;line-height:1.45}
++    #help{position:fixed;z-index:85;inset:64px 12px auto 12px;margin:auto;max-width:700px;padding:16px;border:1px solid rgba(66,232,255,.35);border-radius:16px;background:rgba(5,9,19,.95);box-shadow:0 18px 55px rgba(0,0,0,.5);display:none}.help-open #help{display:block}#help h2{margin:0 0 8px}#help p{margin:7px 0;color:#c1cce1;line-height:1.45}
++    .touch-wrap{display:none;position:fixed;z-index:64;left:0;right:0;bottom:0;height:min(46vh,360px);pointer-events:none;background:linear-gradient(180deg,transparent,rgba(5,9,19,.45) 16%,rgba(5,9,19,.72))}
++    .touch-player{position:absolute;bottom:max(8px,env(safe-area-inset-bottom));width:50%;height:92%;pointer-events:none}.touch-player.p1{left:0}.touch-player.p2{right:0}
++    .player-label{position:absolute;left:50%;top:1%;transform:translateX(-50%);font-weight:1000;font-size:.8rem;letter-spacing:.08em;opacity:.8}
++    .dpad{position:absolute;left:6%;bottom:10%;width:min(38vw,170px);height:min(38vw,170px);max-width:45%;max-height:78%;pointer-events:auto}.p2 .dpad{left:5%}
++    .dpad button,.actions button,.mini-actions button{position:absolute;border:1px solid rgba(255,255,255,.42);background:rgba(5,9,19,.68);color:#fff;font-weight:1000;touch-action:none;box-shadow:0 5px 18px rgba(0,0,0,.28)}
++    .dpad button{width:34%;height:34%;border-radius:14px;font-size:1.05rem}.dpad .up{left:33%;top:0}.dpad .down{left:33%;bottom:0}.dpad .left{left:0;top:33%}.dpad .right{right:0;top:33%}
++    .actions{position:absolute;right:5%;bottom:18%;width:min(29vw,128px);height:min(29vw,128px);max-width:38%;max-height:65%;pointer-events:auto}.actions button{width:47%;height:47%;border-radius:50%;font-size:1.05rem}.actions .a{left:0;bottom:0;background:rgba(255,215,64,.2);border-color:rgba(255,215,64,.8)}.actions .b{right:0;top:0;background:rgba(66,232,255,.15);border-color:rgba(66,232,255,.7)}
++    .mini-actions{position:absolute;right:3%;top:10%;display:flex;gap:5px;pointer-events:auto}.mini-actions button{position:static;border-radius:10px;padding:7px 8px;font-size:.64rem}
++    button.active{transform:scale(.94);filter:brightness(1.35)}
++    #status{position:fixed;z-index:66;left:50%;bottom:10px;transform:translateX(-50%);max-width:min(680px,90vw);padding:8px 12px;border-radius:999px;background:rgba(5,9,19,.78);border:1px solid rgba(255,255,255,.12);font-size:.78rem;color:#d9e2f2;pointer-events:none;transition:opacity .25s}
++    @media (hover:none) and (pointer:coarse){.touch-wrap{display:block}.badge{display:none}.topbar{opacity:.72}.tool{padding:7px 8px;font-size:.74rem}#status{bottom:calc(min(46vh,360px) + 6px)}}
++    @media (max-width:600px){.controls-summary{grid-template-columns:1fr}.panel{padding:18px}.touch-wrap{height:44vh}.dpad{width:42vw;height:42vw}.actions{width:30vw;height:30vw}}
++  </style>
++</head>
++<body>
++  <div id="game"></div>
++  <div class="topbar">
++    <div class="group"><span class="badge">💣 NEO BOMBERMAN • 2P LOCAL</span></div>
++    <div class="group"><button class="tool" id="helpButton" type="button">❔ CONTROLES</button><button class="tool" id="fullscreenButton" type="button">⛶ CHEIA</button></div>
++  </div>
++
++  <div id="boot">
++    <div class="panel">
++      <div style="font-size:3rem">💣</div>
++      <h1>Neo Bomberman</h1>
++      <p id="bootText">Preparando FBNeo e validando a ROM.</p>
++      <div class="controls-summary">
++        <div><b>🟡 PLAYER 1</b><small>WASD = mover • F = A/Bomba • G = B • R = moeda • T = START</small></div>
++        <div><b>🔵 PLAYER 2</b><small>Setas = mover • K = A/Bomba • L = B • O = moeda • P = START</small></div>
++      </div>
++      <p><strong>Gamepads:</strong> o primeiro controle vira P1 e o segundo vira P2 automaticamente.</p>
++      <button id="startButton" type="button">▶ INICIAR NEO BOMBERMAN</button>
++    </div>
++  </div>
++
++  <div id="help">
++    <h2>Controles locais</h2>
++    <p><b>P1:</b> WASD • F = A/Bomba • G = B • R = moeda • T = START.</p>
++    <p><b>P2:</b> Setas • K = A/Bomba • L = B • O = moeda • P = START.</p>
++    <p><b>Gamepad:</b> direcional/analógico, botão A = Neo Geo A, botão B = Neo Geo B, Select = moeda e Start = iniciar.</p>
++    <p>No celular aparecem dois conjuntos de controles na tela, um para cada jogador.</p>
++  </div>
++
++  <div class="touch-wrap" id="touchWrap">
++    <div class="touch-player p1" data-player="0"><span class="player-label">P1</span>
++      <div class="dpad"><button class="up" data-input="4">▲</button><button class="down" data-input="5">▼</button><button class="left" data-input="6">◀</button><button class="right" data-input="7">▶</button></div>
++      <div class="actions"><button class="a" data-input="0">A</button><button class="b" data-input="8">B</button></div>
++      <div class="mini-actions"><button data-input="2">COIN</button><button data-input="3">START</button></div>
++    </div>
++    <div class="touch-player p2" data-player="1"><span class="player-label">P2</span>
++      <div class="dpad"><button class="up" data-input="4">▲</button><button class="down" data-input="5">▼</button><button class="left" data-input="6">◀</button><button class="right" data-input="7">▶</button></div>
++      <div class="actions"><button class="a" data-input="0">A</button><button class="b" data-input="8">B</button></div>
++      <div class="mini-actions"><button data-input="2">COIN</button><button data-input="3">START</button></div>
++    </div>
++  </div>
++
++  <div id="status">Clique em INICIAR para carregar o jogo.</div>
++  <script src="/neobombe-player.js?v=1.0.0"></script>
++</body>
++</html>
+diff --git a/neobombe-player.js b/neobombe-player.js
+new file mode 100644
+index 0000000..083f66a
+--- /dev/null
++++ b/neobombe-player.js
+@@ -0,0 +1,232 @@
++(() => {
++  'use strict';
++
++  const EJS_VERSION = '4.2.3';
++  const EJS_DATA = `https://cdn.emulatorjs.org/${EJS_VERSION}/data/`;
++  const GAME_URL = '/roms/neogeo/neobombe.zip';
++  const EXPECTED_SIZE = 7431142;
++  const GAME_ID = 19970501;
++  const INPUT = { A:0, B:8, COIN:2, START:3, UP:4, DOWN:5, LEFT:6, RIGHT:7 };
++
++  const boot = document.getElementById('boot');
++  const bootText = document.getElementById('bootText');
++  const startButton = document.getElementById('startButton');
++  const status = document.getElementById('status');
++  const fullscreenButton = document.getElementById('fullscreenButton');
++  const helpButton = document.getElementById('helpButton');
++
++  let loading = false;
++  let started = false;
++  let directReady = false;
++  let padFrame = 0;
++  const held = new Map();
++
++  const keyboard = new Map([
++    ['KeyW',[0,INPUT.UP]], ['KeyS',[0,INPUT.DOWN]], ['KeyA',[0,INPUT.LEFT]], ['KeyD',[0,INPUT.RIGHT]],
++    ['KeyF',[0,INPUT.A]], ['KeyG',[0,INPUT.B]], ['KeyR',[0,INPUT.COIN]], ['KeyT',[0,INPUT.START]],
++    ['ArrowUp',[1,INPUT.UP]], ['ArrowDown',[1,INPUT.DOWN]], ['ArrowLeft',[1,INPUT.LEFT]], ['ArrowRight',[1,INPUT.RIGHT]],
++    ['KeyK',[1,INPUT.A]], ['KeyL',[1,INPUT.B]], ['KeyO',[1,INPUT.COIN]], ['KeyP',[1,INPUT.START]]
++  ]);
++
++  function post(type, message, extra = {}) {
++    try { parent.postMessage({ type, message, ...extra }, location.origin); } catch {}
++  }
++  function setStatus(message) { if (status) status.textContent = message; }
++  function setBoot(message) { if (bootText) bootText.textContent = message; }
++  function fail(message) {
++    const msg = String(message || 'Falha ao iniciar Neo Bomberman.');
++    loading = false; started = false; directReady = false;
++    if (boot) boot.style.display = 'grid';
++    if (startButton) { startButton.disabled = false; startButton.textContent = '↻ TENTAR NOVAMENTE'; }
++    setBoot(msg); setStatus('❌ ' + msg);
++    post('neobombe-player-error', msg);
++  }
++  function mb(n) { return `${(Number(n || 0) / 1024 / 1024).toFixed(1)} MB`; }
++  async function head(url) {
++    try {
++      const r = await fetch(url, { method:'HEAD', cache:'no-store' });
++      return { ok:r.ok, status:r.status, size:Number(r.headers.get('content-length') || 0) };
++    } catch { return { ok:false, status:0, size:0 }; }
++  }
++
++  function gm() { return window.EJS_emulator?.gameManager || null; }
++  function simulate(player, input, value) {
++    const manager = gm();
++    if (!manager || typeof manager.simulateInput !== 'function') return false;
++    try { manager.simulateInput(Number(player), Number(input), Number(value)); return true; }
++    catch { return false; }
++  }
++  function heldKey(player, input) { return `${player}:${input}`; }
++  function setSource(player, input, source, pressed) {
++    if (!directReady || !Number.isFinite(player) || !Number.isFinite(input)) return false;
++    const key = heldKey(player, input);
++    let sources = held.get(key);
++    if (!pressed) {
++      if (!sources || !sources.has(source)) return true;
++      sources.delete(source);
++      if (!sources.size) { simulate(player, input, 0); held.delete(key); }
++      return true;
++    }
++    if (!sources) { sources = new Set(); held.set(key, sources); }
++    if (sources.has(source)) return true;
++    if (!sources.size && !simulate(player, input, 1)) return false;
++    sources.add(source);
++    return true;
++  }
++  function releasePrefix(prefix) {
++    for (const [key,sources] of [...held.entries()]) {
++      const [player,input] = key.split(':').map(Number);
++      for (const src of [...sources]) if (src.startsWith(prefix)) setSource(player,input,src,false);
++    }
++  }
++  function releaseAll() {
++    for (const key of [...held.keys()]) {
++      const [player,input] = key.split(':').map(Number);
++      simulate(player,input,0);
++    }
++    held.clear();
++  }
++
++  async function waitDirect(timeout=5000) {
++    const end = performance.now() + timeout;
++    while (performance.now() < end) {
++      if (typeof gm()?.simulateInput === 'function') { directReady = true; return true; }
++      await new Promise(r => setTimeout(r,30));
++    }
++    return false;
++  }
++
++  function bindKeyboard() {
++    const apply = (e, pressed) => {
++      const map = keyboard.get(e.code);
++      if (!map || !started) return;
++      e.preventDefault(); e.stopPropagation();
++      setSource(map[0], map[1], `key:${e.code}`, pressed);
++    };
++    addEventListener('keydown', e => { if (!e.repeat) apply(e,true); }, { capture:true });
++    addEventListener('keyup', e => apply(e,false), { capture:true });
++    addEventListener('blur', () => releasePrefix('key:'));
++  }
++
++  function bindTouch() {
++    document.querySelectorAll('.touch-player button[data-input]').forEach(button => {
++      const holder = button.closest('.touch-player');
++      const player = Number(holder?.dataset.player || 0);
++      const input = Number(button.dataset.input);
++      const sourceBase = `touch:${player}:${input}:`;
++      const down = e => {
++        if (!started) return;
++        e.preventDefault(); e.stopPropagation();
++        button.classList.add('active');
++        try { button.setPointerCapture?.(e.pointerId); } catch {}
++        setSource(player,input,`${sourceBase}${e.pointerId}`,true);
++      };
++      const up = e => {
++        e.preventDefault(); e.stopPropagation();
++        button.classList.remove('active');
++        setSource(player,input,`${sourceBase}${e.pointerId}`,false);
++      };
++      button.addEventListener('pointerdown',down,{passive:false});
++      ['pointerup','pointercancel','lostpointercapture'].forEach(name => button.addEventListener(name,up,{passive:false}));
++    });
++  }
++
++  function buttonPressed(gp, idx) { return !!gp?.buttons?.[idx]?.pressed; }
++  function updatePad(player, gp) {
++    const prefix = `pad:${player}:`;
++    if (!gp) { releasePrefix(prefix); return; }
++    const x = Math.abs(gp.axes?.[0] || 0) > .32 ? (gp.axes[0] || 0) : 0;
++    const y = Math.abs(gp.axes?.[1] || 0) > .32 ? (gp.axes[1] || 0) : 0;
++    const states = new Map([
++      [INPUT.UP, buttonPressed(gp,12) || y < -.32],
++      [INPUT.DOWN, buttonPressed(gp,13) || y > .32],
++      [INPUT.LEFT, buttonPressed(gp,14) || x < -.32],
++      [INPUT.RIGHT, buttonPressed(gp,15) || x > .32],
++      [INPUT.A, buttonPressed(gp,0)],
++      [INPUT.B, buttonPressed(gp,1)],
++      [INPUT.COIN, buttonPressed(gp,8)],
++      [INPUT.START, buttonPressed(gp,9)]
++    ]);
++    for (const [input,pressed] of states) setSource(player,input,`${prefix}${input}`,pressed);
++  }
++  function padLoop() {
++    const pads = [...(navigator.getGamepads?.() || [])].filter(Boolean).slice(0,2);
++    updatePad(0,pads[0]); updatePad(1,pads[1]);
++    if (started) {
++      const names = pads.map((p,i)=>`P${i+1}: ${p.id.split('(')[0].trim().slice(0,28)}`);
++      if (names.length) setStatus(`🎮 ${names.join(' • ')} • teclado e touch continuam ativos`);
++      padFrame = requestAnimationFrame(padLoop);
++    }
++  }
++
++  function defaultControls() {
++    // Fallback nativo. O caminho principal usa simulateInput para separar P1 e P2 sem duplicar entradas.
++    return { 0:{}, 1:{}, 2:{}, 3:{} };
++  }
++
++  async function bootGame() {
++    if (loading || started) return;
++    loading = true;
++    startButton.disabled = true;
++    startButton.textContent = 'CARREGANDO…';
++    try {
++      setBoot('Validando neobombe.zip…');
++      const rom = await head(GAME_URL);
++      if (!rom.ok) throw new Error('neobombe.zip não foi encontrado em /roms/neogeo/.');
++      if (rom.size && rom.size !== EXPECTED_SIZE) throw new Error(`ROM diferente da validada: ${rom.size} bytes; esperado ${EXPECTED_SIZE}.`);
++      setBoot(`ROM OK (${mb(rom.size || EXPECTED_SIZE)}). Carregando EmulatorJS ${EJS_VERSION} + FBNeo…`);
++
++      window.EJS_player = '#game';
++      window.EJS_core = 'fbneo';
++      window.EJS_gameUrl = GAME_URL;
++      window.EJS_gameID = GAME_ID;
++      window.EJS_pathtodata = EJS_DATA;
++      window.EJS_language = 'pt-BR';
++      window.EJS_disableAutoLang = true;
++      window.EJS_startOnLoaded = true;
++      window.EJS_noAutoFocus = true;
++      window.EJS_threads = !!(window.crossOriginIsolated && typeof SharedArrayBuffer !== 'undefined');
++      window.EJS_color = '#ffd740';
++      window.EJS_backgroundColor = '#050913';
++      window.EJS_backgroundBlur = false;
++      window.EJS_controlScheme = 'arcade';
++      window.EJS_defaultControls = defaultControls();
++      window.EJS_VirtualGamepadSettings = [];
++      window.EJS_Buttons = { playPause:false,restart:false,mute:false,settings:false,fullscreen:false,saveState:false,loadState:false,screenRecord:false,gamepad:false,cheat:false,volume:false,saveSavFiles:false,loadSavFiles:false,quickSave:false,quickLoad:false,screenshot:false,cacheManager:false,exitEmulation:false };
++      window.EJS_AdTimer = -1;
++      window.EJS_CacheLimit = 256 * 1024 * 1024;
++
++      window.EJS_ready = () => setBoot('FBNeo carregado. Preparando Neo Bomberman…');
++      window.EJS_onGameStart = async () => {
++        const ok = await waitDirect();
++        if (!ok) { fail('A entrada direta P1/P2 do FBNeo não ficou disponível.'); return; }
++        started = true; loading = false;
++        boot.style.display = 'none';
++        setStatus('✅ P1 + P2 ativos • pressione COIN e depois START para entrar');
++        cancelAnimationFrame(padFrame); padLoop();
++        post('neobombe-player-ready','Neo Bomberman carregado • multiplayer local P1/P2 ativo.',{game:'neobombe',players:2});
++      };
++
++      const script = document.createElement('script');
++      script.src = `${EJS_DATA}loader.js`;
++      script.onerror = () => fail(`Não foi possível carregar EmulatorJS ${EJS_VERSION}.`);
++      document.body.appendChild(script);
++    } catch (e) {
++      fail(e?.message || String(e));
++    }
++  }
++
++  bindKeyboard();
++  bindTouch();
++  startButton.addEventListener('click',bootGame);
++  helpButton.addEventListener('click',()=>document.body.classList.toggle('help-open'));
++  document.getElementById('help').addEventListener('click',()=>document.body.classList.remove('help-open'));
++  fullscreenButton.addEventListener('click',async()=>{
++    try {
++      if (!document.fullscreenElement) await document.documentElement.requestFullscreen(); else await document.exitFullscreen();
++    } catch {}
++  });
++  document.addEventListener('fullscreenchange',()=>{fullscreenButton.textContent=document.fullscreenElement?'↙ SAIR':'⛶ CHEIA';});
++  addEventListener('unhandledrejection',e=>{ if(!started && e?.reason) fail(e.reason?.message || String(e.reason)); });
++  addEventListener('pagehide',()=>{releaseAll();cancelAnimationFrame(padFrame);});
++})();

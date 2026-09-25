@@ -1,0 +1,161 @@
+diff --git a/firebase.js b/firebase.js
+index dd0b00d..0df0700 100644
+--- a/firebase.js
++++ b/firebase.js
+@@ -352,22 +352,29 @@ async function detachFightPresence(code){
+   if(!currentUser||!db||!code)return;code=String(code).toUpperCase();const key=`${code}:${currentUser.uid}`,h=fightPresence.get(key);if(!h)return;
+   clearInterval(h.timer);await h.dp.cancel().catch(()=>{});await h.dl.cancel().catch(()=>{});if(h.dr)await h.dr.cancel().catch(()=>{});await remove(h.pr).catch(()=>{});if(h.rr)await remove(h.rr).catch(()=>{});fightPresence.delete(key);
+ }
+-async function createFightRoom(){
++async function createFightRoom(options={}){
+   if(!currentUser)throw new Error('Faça login antes de criar uma luta.');
+   if(!await waitFirebaseOnline())throw new Error('Firebase offline. Verifique a internet e tente criar a sala novamente.');
+   for(let tries=0;tries<10;tries++){
+     const code=fightRoomCode(),rr=ref(db,`fightRooms/${code}`);if((await fightGet(rr)).exists())continue;const now=serverNow(),name=cleanName(localProfile()?.nickname||currentUser.displayName||currentUser.email?.split('@')[0]);
+-    const room={code,protocolVersion:FIGHT_PROTOCOL_VERSION,game:'kf2k2mp2',gameId:fightGameId(code),hostUid:currentUser.uid,guestUid:'',status:'waiting',launchState:'waiting',launchAt:0,createdAt:now,updatedAt:now,expiresAt:now+WAITING_TTL_MS,players:{[currentUser.uid]:{uid:currentUser.uid,name,role:'host',joinedAt:now,lastSeen:now}},resultVotes:{},winnerUid:''};
++    const arcadeGame=String(options?.arcadeGame||'kf2k2mp2').trim().toLowerCase().slice(0,32)||'kf2k2mp2';
++    // `game` permanece kf2k2mp2 para compatibilidade com as regras Firebase V17 já publicadas.
++    // `arcadeGame` identifica o título real sem exigir nova função serverless nem mudança imediata das rules.
++    const room={code,protocolVersion:FIGHT_PROTOCOL_VERSION,game:'kf2k2mp2',arcadeGame,gameId:fightGameId(code),hostUid:currentUser.uid,guestUid:'',status:'waiting',launchState:'waiting',launchAt:0,createdAt:now,updatedAt:now,expiresAt:now+WAITING_TTL_MS,players:{[currentUser.uid]:{uid:currentUser.uid,name,role:'host',joinedAt:now,lastSeen:now}},resultVotes:{},winnerUid:''};
+     try{await set(rr,room);}catch(e){if(String(e?.code||e?.message||'').toLowerCase().includes('permission'))throw new Error('O Firebase recusou a sala KOF. Publique as regras V17.');throw e;}
+     attachFightPresence(code).catch(e=>console.warn('KOF presence:',e));return code;
+   }
+   throw new Error('Não consegui gerar a sala KOF. Tente novamente.');
+ }
+-async function joinFightRoom(code){
++async function joinFightRoom(code,expectedGame=''){
+   if(!currentUser)throw new Error('Faça login antes de entrar na luta.');
+   if(!await waitFirebaseOnline())throw new Error('Firebase offline. Verifique a internet antes de entrar na sala.');code=String(code||'').trim().toUpperCase();if(!/^[A-Z2-9]{6}$/.test(code))throw new Error('Código inválido.');
+   const rr=ref(db,`fightRooms/${code}`),snap=await fightGet(rr);if(!snap.exists())throw new Error('Sala KOF não encontrada.');const initial=snap.val(),now=serverNow();
+-  if(Number(initial.protocolVersion)!==FIGHT_PROTOCOL_VERSION)throw new Error('Esta sala KOF usa outra versão do jogo.');if(initial.status==='finished')throw new Error('Esta luta já terminou.');if(Number(initial.expiresAt||0)<=now)throw new Error('Esta sala KOF expirou.');
++  if(Number(initial.protocolVersion)!==FIGHT_PROTOCOL_VERSION)throw new Error('Esta sala KOF usa outra versão do jogo.');
++  const actualGame=String(initial.arcadeGame||'kf2k2mp2').toLowerCase();
++  const wantedGame=String(expectedGame||'').trim().toLowerCase();
++  if(wantedGame&&actualGame!==wantedGame)throw new Error('Este código pertence a outro jogo do Arcade.');
++  if(initial.status==='finished')throw new Error('Esta luta já terminou.');if(Number(initial.expiresAt||0)<=now)throw new Error('Esta sala KOF expirou.');
+   if(initial.players?.[currentUser.uid]){attachFightPresence(code).catch(()=>{});return code;}
+   const guestRef=ref(db,`fightRooms/${code}/guestUid`),claim=await runTransaction(guestRef,current=>{if(current===currentUser.uid)return current;if(current===null||current===undefined||current==='')return currentUser.uid;return;},{applyLocally:false});
+   if(!claim.committed||claim.snapshot?.val()!==currentUser.uid)throw new Error('A sala KOF acabou de ficar cheia.');
+diff --git a/index.html b/index.html
+index 42b0b33..ba95e40 100644
+--- a/index.html
++++ b/index.html
+@@ -10,7 +10,7 @@
+   <link rel="preconnect" href="https://fonts.googleapis.com">
+   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+-    <link rel="stylesheet" href="/styles.css?v=19.11.1">
++    <link rel="stylesheet" href="/styles.css?v=19.11.2">
+ 
+   <style id="portrait-fix-style">
+     .result-body img,#resultImage,#universeResultImage,#duelQuestionImage,.duel-image-shell img,.assist-result img,.portrait-focus{object-fit:cover!important;object-position:center 14%!important;background:#fff}
+@@ -199,13 +199,13 @@
+             </div>
+           </article>
+           <article class="feature-card">
+-            <div class="feature-icon">🎮</div>
++            <div class="feature-icon">🕹️</div>
+             <div>
+-              <h3>Arcade Neo Geo</h3>
+-              <p>KOF 2002 Magic Plus II e Neo Bomberman no navegador, incluindo multiplayer local para 2 jogadores.</p>
++              <h3>Arcade X1</h3>
++              <p>KOF, Neo Geo e CPS-2 com 1P, 2P local e salas online 1x1. Teclado, joystick/gamepad e touchscreen.</p>
+             </div>
+             <div class="feature-actions">
+-              <button class="primary-btn" id="homeKofButton">🎮 ABRIR ARCADE</button>
++              <button class="primary-btn" id="homeKofButton">🕹️ ABRIR ARCADE</button>
+             </div>
+           </article>
+           <article class="feature-card">
+@@ -301,11 +301,33 @@
+     </section>
+ 
+     <section class="screen kof-screen" id="kofScreen">
+-      <div class="section-heading kof-heading"><button class="back-link" id="kofBackButton">← Voltar</button><div><p class="eyebrow">🎮 ARCADE NEO GEO</p><h2>KOF 2002 + NEO BOMBERMAN</h2><p>FBNeo no navegador: mantenha o KOF 2002 Magic Plus II com treino/netplay e jogue Neo Bomberman com multiplayer local para 2 jogadores.</p></div></div>
++      <div class="section-heading kof-heading"><button class="back-link" id="kofBackButton">← Voltar</button><div><p class="eyebrow">🕹️ ARCADE X1 • NEO GEO + CPS-2</p><h2>ARCADE X1</h2><p>Escolha <b>1 jogador</b>, <b>2 jogadores local</b> ou <b>Online 1x1</b>. Os novos títulos aceitam teclado, joystick/gamepad e controles touchscreen.</p></div></div>
+       <div class="kof-layout">
+         <div class="kof-main">
++          <section class="kof-card arcade-library">
++            <div class="kof-web-title"><h3>🎮 Biblioteca Arcade</h3><span class="kof-web-badge">1P • 2P LOCAL • ONLINE X1</span></div>
++            <p class="kof-note">O modo online reutiliza as salas Firebase + Netplay WebRTC já existentes no projeto. Cada jogador remoto usa o próprio aparelho.</p>
++            <div class="arcade-library-grid">
++              <article class="arcade-game-card">
++                <div class="arcade-game-title"><span>💣</span><div><b>Neo Bomberman</b><small>Neo Geo • FBNeo • 2 jogadores</small></div></div>
++                <div class="arcade-game-actions"><button class="secondary-btn" data-arcade-game="neobombe" data-arcade-mode="local1">👤 1 PLAYER</button><button class="secondary-btn" data-arcade-game="neobombe" data-arcade-mode="local2">👥 2P LOCAL</button><button class="primary-btn" data-arcade-game="neobombe" data-arcade-mode="online">🌐 ONLINE X1</button></div>
++              </article>
++              <article class="arcade-game-card">
++                <div class="arcade-game-title"><span>⚔️</span><div><b>Samurai Shodown V Special</b><small>Neo Geo • FBNeo • 2 jogadores</small></div></div>
++                <div class="arcade-game-actions"><button class="secondary-btn" data-arcade-game="samsh5spho" data-arcade-mode="local1">👤 1 PLAYER</button><button class="secondary-btn" data-arcade-game="samsh5spho" data-arcade-mode="local2">👥 2P LOCAL</button><button class="primary-btn" data-arcade-game="samsh5spho" data-arcade-mode="online">🌐 ONLINE X1</button></div>
++              </article>
++              <article class="arcade-game-card">
++                <div class="arcade-game-title"><span>🦸</span><div><b>Marvel vs. Capcom</b><small>CPS-2 • 6 botões • 2 jogadores</small></div></div>
++                <div class="arcade-game-actions"><button class="secondary-btn" data-arcade-game="mvsc" data-arcade-mode="local1">👤 1 PLAYER</button><button class="secondary-btn" data-arcade-game="mvsc" data-arcade-mode="local2">👥 2P LOCAL</button><button class="primary-btn" data-arcade-game="mvsc" data-arcade-mode="online">🌐 ONLINE X1</button></div>
++              </article>
++              <article class="arcade-game-card">
++                <div class="arcade-game-title"><span>✖️</span><div><b>X-Men vs. Street Fighter</b><small>CPS-2 • 6 botões • 2 jogadores</small></div></div>
++                <div class="arcade-game-actions"><button class="secondary-btn" data-arcade-game="xmvsfur1" data-arcade-mode="local1">👤 1 PLAYER</button><button class="secondary-btn" data-arcade-game="xmvsfur1" data-arcade-mode="local2">👥 2P LOCAL</button><button class="primary-btn" data-arcade-game="xmvsfur1" data-arcade-mode="online">🌐 ONLINE X1</button></div>
++              </article>
++            </div>
++          </section>
++          <section class="arcade-kof-divider"><span>KOF 2002 MAGIC PLUS II • SISTEMA EXISTENTE</span></section>
+           <section class="kof-card kof-web-card"><div class="kof-web-title"><h3>🌐 Arcade Web integrado</h3><span class="kof-web-badge">SEM IMPORTAR ROM</span></div><div class="kof-file-grid"><div id="kofCloneState" class="kof-file-state"></div><div id="kofParentState" class="kof-file-state"></div><div id="kofBiosState" class="kof-file-state"></div></div><p id="kofFilesReady" class="kof-note"></p><div class="kof-web-actions"><button id="kofTrainingButton" class="primary-btn huge">🎮 INICIAR TREINO LOCAL</button><button id="kofRecheckFiles" class="secondary-btn">🔎 REVALIDAR ARQUIVOS</button><button id="kofCatalogButton" class="secondary-btn">📚 CATÁLOGO DE LUTADORES</button></div></section>
+-          <section class="kof-card kof-web-card" id="neoBombermanCard"><div class="kof-web-title"><h3>💣 Neo Bomberman</h3><span class="kof-web-badge">2 JOGADORES LOCAL</span></div><p>Neo Geo / FBNeo usando a ROM Full Non-Merged enviada por você. Jogue no mesmo PC com dois teclados/controles, ou com dois gamepads USB/Bluetooth.</p><div class="kof-web-actions"><button id="neoBombermanLocalButton" class="primary-btn huge">💣 JOGAR NEO BOMBERMAN • 2P LOCAL</button></div><p class="kof-note"><b>P1:</b> WASD + F/G • R moeda • T start &nbsp; | &nbsp; <b>P2:</b> setas + K/L • O moeda • P start. Dois gamepads também são detectados automaticamente.</p></section>
+           <section class="kof-card"><h3>⚔️ Duelo 1x1 sincronizado</h3><p>O Firebase cria a sala, verifica os dois aparelhos e o HOST dispara o carregamento simultâneo. O EmulatorJS recebe o mesmo Game ID e servidor Netplay nos dois lados.</p><div class="kof-room-actions"><button class="primary-btn" id="kofCreateRoom">CRIAR SALA</button><div class="kof-join"><input id="kofJoinCode" maxlength="6" placeholder="ABC123" autocomplete="off"><button class="secondary-btn" id="kofJoinRoom">ENTRAR</button></div></div><label class="kof-server-field">Servidor Netplay (automático)<input id="kofNetplayServer" value="Carregando configuração…" autocomplete="off" readonly></label></section>
+           <section class="kof-card hidden" id="kofRoomPanel"><div class="kof-room-code"><span>SALA</span><b id="kofRoomCode">------</b><button class="icon-btn" id="kofCopyRoom">📋</button></div><div id="kofRoomRole" class="kof-note"></div><div id="kofRoomPlayers" class="kof-players"></div><div id="kofRoomStatus" class="kof-room-status">Aguardando...</div><div class="kof-room-buttons"><button class="primary-btn" id="kofLaunchButton">🚀 INICIAR KOF ONLINE</button><button class="secondary-btn" id="kofLeaveRoom">SAIR DA SALA</button></div><div id="kofResultControls" class="kof-result-controls hidden"><p id="kofVoteStatus">Depois da luta, os dois jogadores confirmam o vencedor.</p><button class="primary-btn" id="kofVoteMe">🏆 EU VENCI</button><button class="secondary-btn" id="kofVoteRival">🥊 O RIVAL VENCEU</button></div></section>
+         </div>
+@@ -319,6 +341,22 @@
+       <div class="kof-emulator-shell"><iframe id="kofEmulatorFrame" title="KOF 2002 Magic Plus II" allow="fullscreen" allowfullscreen referrerpolicy="same-origin"></iframe></div>
+     </section>
+ 
++    <section class="screen kof-screen" id="arcadeOnlineScreen">
++      <div class="section-heading kof-heading"><button class="back-link" id="arcadeOnlineBack">← Arcade</button><div><p class="eyebrow">🌐 ARCADE NETPLAY • WEBRTC</p><h2 id="arcadeOnlineTitle">Arcade Online</h2><p id="arcadeOnlineSubtitle">ONLINE 1x1 • cada jogador usa seu próprio aparelho</p></div></div>
++      <div class="kof-layout arcade-online-layout">
++        <div class="kof-main">
++          <section class="kof-card"><h3>⚔️ Criar ou entrar numa sala</h3><p>O HOST cria um código de 6 caracteres. O rival entra com o mesmo código e os dois aparelhos validam a ROM antes de liberar a partida.</p><div class="kof-room-actions"><button class="primary-btn" id="arcadeCreateRoom">CRIAR SALA</button><div class="kof-join"><input id="arcadeJoinCode" maxlength="6" placeholder="ABC123" autocomplete="off"><button class="secondary-btn" id="arcadeJoinRoom">ENTRAR</button></div></div></section>
++          <section class="kof-card hidden" id="arcadeRoomPanel"><div class="kof-room-code"><span>SALA</span><b id="arcadeRoomCode">------</b><button class="icon-btn" id="arcadeCopyRoom">📋</button></div><div id="arcadeRoomGame" class="kof-note"></div><div id="arcadeRoomPlayers" class="kof-players"></div><div id="arcadeRoomStatus" class="kof-room-status">Aguardando...</div><div class="kof-room-buttons"><button class="primary-btn" id="arcadeLaunchButton">🚀 INICIAR ONLINE X1</button><button class="secondary-btn" id="arcadeLeaveRoom">SAIR DA SALA</button></div></section>
++        </div>
++        <aside class="kof-card kof-info"><h3>🎮 Entradas aceitas</h3><div class="kof-diagnostics"><span>✅ Teclado</span><span>✅ Gamepad USB/Bluetooth</span><span>✅ Joystick reconhecido pelo navegador</span><span>✅ Touchscreen em celular/tablet</span><span>✅ Controles simultâneos no 2P local</span><span>✅ Online: um jogador por aparelho</span></div><small>No online, o Netplay do EmulatorJS sincroniza a sessão WebRTC entre HOST e convidado.</small></aside>
++      </div>
++    </section>
++
++    <section class="screen kof-play-screen" id="arcadePlayScreen">
++      <div class="kof-play-top"><button class="back-link" id="arcadePlayBack">← Arcade</button><div><p class="eyebrow" id="arcadePlayTitle">🎮 ARCADE</p><b id="arcadePlayMode">1 PLAYER LOCAL</b></div></div>
++      <div class="kof-emulator-shell arcade-emulator-shell"><iframe id="arcadePlayFrame" title="Arcade" allow="fullscreen; gamepad" allowfullscreen referrerpolicy="same-origin"></iframe></div>
++    </section>
++
+     <section class="screen" id="setupScreen">
+       <div class="section-heading">
+         <button class="back-link" data-go-home>← Voltar</button>
+@@ -798,11 +836,12 @@
+   <script src="/tournaments.js?v=20.1.0" defer></script>
+   <script src="/social.js?v=20.1.0" defer></script>
+   <script src="/ranking.js?v=20.0.0" defer></script>
+-  <script type="module" src="/firebase.js?v=19.11.1"></script>
++  <script type="module" src="/firebase.js?v=19.11.2"></script>
+   <script src="/duel.js?v=17.0.0" defer></script>
+   <script src="/kof-catalog.js?v=19.10.4" defer></script>
+   <script src="/kof-catalog-ui.js?v=19.10.4" defer></script>
+   <script src="/kof.js?v=19.12.0" defer></script>
++  <script src="/arcade-x1.js?v=1.0.1" defer></script>
+     <script src="/friends.js?v=19.11.1" defer></script>
+ 
+   <script data-portrait-fix-v19>
+diff --git a/styles.css b/styles.css
+index 1dc7230..7ceb25f 100644
+--- a/styles.css
++++ b/styles.css
+@@ -885,3 +885,14 @@ input,select,textarea,button{max-width:100%}
+   .geo-setup-layout{gap:14px}.geo-setup-card{padding:18px}.geo-arena-options{grid-template-columns:1fr}.geo-game-top{gap:9px}.geo-game-metrics{width:100%;justify-content:flex-start}.geo-game-metrics span{padding:7px 9px}.geo-game-metrics span:nth-child(4){display:none}
+   .geo-stage{height:max(72dvh,540px);min-height:540px;border-radius:18px}.geo-map-card{right:8px;bottom:8px;width:calc(100% - 16px);padding:8px;border-radius:16px}.geo-map{height:136px}.geo-map-card.geo-map-expanded .geo-map{height:min(44dvh,410px)}.geo-map-actions{margin-top:7px}.geo-map-actions .primary-btn{min-height:45px;padding:11px 10px;font-size:.7rem}.geo-feedback{min-height:35px;margin-top:6px;padding:7px 8px;font-size:.9rem}.geo-map-toggle{width:44px;height:38px}.geo-street-toolbar{left:8px;bottom:230px;max-width:calc(100% - 16px)}.geo-street-toolbar span{display:none}.geo-float-btn{min-height:44px;padding:10px 12px}.geo-result-stats{gap:5px}.geo-result-stats span{padding:5px 3px}.geo-result-stats small{font-size:.58rem}.geo-result-stats b{font-size:.88rem}
+ }
++
++/* ===== Arcade X1 expansion V1.0 ===== */
++.arcade-library{overflow:hidden;background:radial-gradient(circle at 90% 0,rgba(66,232,255,.09),transparent 35%),rgba(12,19,35,.92)}
++.arcade-library-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px}
++.arcade-game-card{display:grid;gap:12px;padding:15px;border:1px solid rgba(66,232,255,.16);border-radius:14px;background:linear-gradient(145deg,rgba(19,31,52,.92),rgba(8,14,27,.94));box-shadow:0 14px 36px rgba(0,0,0,.15)}
++.arcade-game-title{display:flex;align-items:center;gap:12px}.arcade-game-title>span{display:grid;place-items:center;width:44px;height:44px;border-radius:12px;background:rgba(66,232,255,.09);font-size:1.45rem}.arcade-game-title div{display:grid;gap:3px}.arcade-game-title b{font:800 .86rem 'Orbitron';color:#fff;line-height:1.25}.arcade-game-title small{color:#8f9bb7;font-size:.72rem}
++.arcade-game-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.arcade-game-actions button{min-width:0;padding:10px 7px;font-size:.62rem;white-space:normal;line-height:1.25}
++.arcade-kof-divider{display:flex;align-items:center;gap:12px;margin:4px 0;color:#77839d;font:800 .64rem 'Orbitron';letter-spacing:.08em}.arcade-kof-divider:before,.arcade-kof-divider:after{content:"";height:1px;flex:1;background:linear-gradient(90deg,transparent,rgba(66,232,255,.24))}.arcade-kof-divider:after{transform:scaleX(-1)}
++.arcade-online-layout{max-width:1120px;margin:0 auto}.arcade-emulator-shell{min-height:min(76vh,860px)}.arcade-emulator-shell iframe{min-height:min(76vh,860px)}
++@media(max-width:900px){.arcade-library-grid{grid-template-columns:1fr}.arcade-game-actions{grid-template-columns:1fr 1fr}.arcade-game-actions .primary-btn{grid-column:1/-1}}
++@media(max-width:560px){.arcade-game-card{padding:12px}.arcade-game-actions{grid-template-columns:1fr}.arcade-game-actions .primary-btn{grid-column:auto}.arcade-game-actions button{min-height:44px;font-size:.66rem}.arcade-emulator-shell,.arcade-emulator-shell iframe{min-height:78dvh}}

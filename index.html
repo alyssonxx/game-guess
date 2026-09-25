@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/styles.css?v=19.11.1">
+    <link rel="stylesheet" href="/styles.css?v=19.11.2">
 
   <style id="portrait-fix-style">
     .result-body img,#resultImage,#universeResultImage,#duelQuestionImage,.duel-image-shell img,.assist-result img,.portrait-focus{object-fit:cover!important;object-position:center 14%!important;background:#fff}
@@ -199,13 +199,13 @@
             </div>
           </article>
           <article class="feature-card">
-            <div class="feature-icon">🎮</div>
+            <div class="feature-icon">🕹️</div>
             <div>
-              <h3>Arcade Neo Geo</h3>
-              <p>KOF 2002 Magic Plus II e Neo Bomberman no navegador, incluindo multiplayer local para 2 jogadores.</p>
+              <h3>Arcade X1</h3>
+              <p>KOF, Neo Geo e CPS-2 com 1P, 2P local e salas online 1x1. Teclado, joystick/gamepad e touchscreen.</p>
             </div>
             <div class="feature-actions">
-              <button class="primary-btn" id="homeKofButton">🎮 ABRIR ARCADE</button>
+              <button class="primary-btn" id="homeKofButton">🕹️ ABRIR ARCADE</button>
             </div>
           </article>
           <article class="feature-card">
@@ -301,11 +301,33 @@
     </section>
 
     <section class="screen kof-screen" id="kofScreen">
-      <div class="section-heading kof-heading"><button class="back-link" id="kofBackButton">← Voltar</button><div><p class="eyebrow">🎮 ARCADE NEO GEO</p><h2>KOF 2002 + NEO BOMBERMAN</h2><p>FBNeo no navegador: mantenha o KOF 2002 Magic Plus II com treino/netplay e jogue Neo Bomberman com multiplayer local para 2 jogadores.</p></div></div>
+      <div class="section-heading kof-heading"><button class="back-link" id="kofBackButton">← Voltar</button><div><p class="eyebrow">🕹️ ARCADE X1 • NEO GEO + CPS-2</p><h2>ARCADE X1</h2><p>Escolha <b>1 jogador</b>, <b>2 jogadores local</b> ou <b>Online 1x1</b>. Os novos títulos aceitam teclado, joystick/gamepad e controles touchscreen.</p></div></div>
       <div class="kof-layout">
         <div class="kof-main">
+          <section class="kof-card arcade-library">
+            <div class="kof-web-title"><h3>🎮 Biblioteca Arcade</h3><span class="kof-web-badge">1P • 2P LOCAL • ONLINE X1</span></div>
+            <p class="kof-note">O modo online reutiliza as salas Firebase + Netplay WebRTC já existentes no projeto. Cada jogador remoto usa o próprio aparelho.</p>
+            <div class="arcade-library-grid">
+              <article class="arcade-game-card">
+                <div class="arcade-game-title"><span>💣</span><div><b>Neo Bomberman</b><small>Neo Geo • FBNeo • 2 jogadores</small></div></div>
+                <div class="arcade-game-actions"><button class="secondary-btn" data-arcade-game="neobombe" data-arcade-mode="local1">👤 1 PLAYER</button><button class="secondary-btn" data-arcade-game="neobombe" data-arcade-mode="local2">👥 2P LOCAL</button><button class="primary-btn" data-arcade-game="neobombe" data-arcade-mode="online">🌐 ONLINE X1</button></div>
+              </article>
+              <article class="arcade-game-card">
+                <div class="arcade-game-title"><span>⚔️</span><div><b>Samurai Shodown V Special</b><small>Neo Geo • FBNeo • 2 jogadores</small></div></div>
+                <div class="arcade-game-actions"><button class="secondary-btn" data-arcade-game="samsh5spho" data-arcade-mode="local1">👤 1 PLAYER</button><button class="secondary-btn" data-arcade-game="samsh5spho" data-arcade-mode="local2">👥 2P LOCAL</button><button class="primary-btn" data-arcade-game="samsh5spho" data-arcade-mode="online">🌐 ONLINE X1</button></div>
+              </article>
+              <article class="arcade-game-card">
+                <div class="arcade-game-title"><span>🦸</span><div><b>Marvel vs. Capcom</b><small>CPS-2 • 6 botões • 2 jogadores</small></div></div>
+                <div class="arcade-game-actions"><button class="secondary-btn" data-arcade-game="mvsc" data-arcade-mode="local1">👤 1 PLAYER</button><button class="secondary-btn" data-arcade-game="mvsc" data-arcade-mode="local2">👥 2P LOCAL</button><button class="primary-btn" data-arcade-game="mvsc" data-arcade-mode="online">🌐 ONLINE X1</button></div>
+              </article>
+              <article class="arcade-game-card">
+                <div class="arcade-game-title"><span>✖️</span><div><b>X-Men vs. Street Fighter</b><small>CPS-2 • 6 botões • 2 jogadores</small></div></div>
+                <div class="arcade-game-actions"><button class="secondary-btn" data-arcade-game="xmvsfur1" data-arcade-mode="local1">👤 1 PLAYER</button><button class="secondary-btn" data-arcade-game="xmvsfur1" data-arcade-mode="local2">👥 2P LOCAL</button><button class="primary-btn" data-arcade-game="xmvsfur1" data-arcade-mode="online">🌐 ONLINE X1</button></div>
+              </article>
+            </div>
+          </section>
+          <section class="arcade-kof-divider"><span>KOF 2002 MAGIC PLUS II • SISTEMA EXISTENTE</span></section>
           <section class="kof-card kof-web-card"><div class="kof-web-title"><h3>🌐 Arcade Web integrado</h3><span class="kof-web-badge">SEM IMPORTAR ROM</span></div><div class="kof-file-grid"><div id="kofCloneState" class="kof-file-state"></div><div id="kofParentState" class="kof-file-state"></div><div id="kofBiosState" class="kof-file-state"></div></div><p id="kofFilesReady" class="kof-note"></p><div class="kof-web-actions"><button id="kofTrainingButton" class="primary-btn huge">🎮 INICIAR TREINO LOCAL</button><button id="kofRecheckFiles" class="secondary-btn">🔎 REVALIDAR ARQUIVOS</button><button id="kofCatalogButton" class="secondary-btn">📚 CATÁLOGO DE LUTADORES</button></div></section>
-          <section class="kof-card kof-web-card" id="neoBombermanCard"><div class="kof-web-title"><h3>💣 Neo Bomberman</h3><span class="kof-web-badge">2 JOGADORES LOCAL</span></div><p>Neo Geo / FBNeo usando a ROM Full Non-Merged enviada por você. Jogue no mesmo PC com dois teclados/controles, ou com dois gamepads USB/Bluetooth.</p><div class="kof-web-actions"><button id="neoBombermanLocalButton" class="primary-btn huge">💣 JOGAR NEO BOMBERMAN • 2P LOCAL</button></div><p class="kof-note"><b>P1:</b> WASD + F/G • R moeda • T start &nbsp; | &nbsp; <b>P2:</b> setas + K/L • O moeda • P start. Dois gamepads também são detectados automaticamente.</p></section>
           <section class="kof-card"><h3>⚔️ Duelo 1x1 sincronizado</h3><p>O Firebase cria a sala, verifica os dois aparelhos e o HOST dispara o carregamento simultâneo. O EmulatorJS recebe o mesmo Game ID e servidor Netplay nos dois lados.</p><div class="kof-room-actions"><button class="primary-btn" id="kofCreateRoom">CRIAR SALA</button><div class="kof-join"><input id="kofJoinCode" maxlength="6" placeholder="ABC123" autocomplete="off"><button class="secondary-btn" id="kofJoinRoom">ENTRAR</button></div></div><label class="kof-server-field">Servidor Netplay (automático)<input id="kofNetplayServer" value="Carregando configuração…" autocomplete="off" readonly></label></section>
           <section class="kof-card hidden" id="kofRoomPanel"><div class="kof-room-code"><span>SALA</span><b id="kofRoomCode">------</b><button class="icon-btn" id="kofCopyRoom">📋</button></div><div id="kofRoomRole" class="kof-note"></div><div id="kofRoomPlayers" class="kof-players"></div><div id="kofRoomStatus" class="kof-room-status">Aguardando...</div><div class="kof-room-buttons"><button class="primary-btn" id="kofLaunchButton">🚀 INICIAR KOF ONLINE</button><button class="secondary-btn" id="kofLeaveRoom">SAIR DA SALA</button></div><div id="kofResultControls" class="kof-result-controls hidden"><p id="kofVoteStatus">Depois da luta, os dois jogadores confirmam o vencedor.</p><button class="primary-btn" id="kofVoteMe">🏆 EU VENCI</button><button class="secondary-btn" id="kofVoteRival">🥊 O RIVAL VENCEU</button></div></section>
         </div>
@@ -317,6 +339,22 @@
       <div class="kof-play-top"><button class="back-link" id="kofPlayBackButton">← Lobby Arcade</button><div><p class="eyebrow" id="kofPlayTitle">🥊 KOF 2002 MAGIC PLUS II</p><b id="kofPlayRoom">TREINO LOCAL</b></div></div>
       <div id="kofNetplayHelp" class="kof-netplay-help hidden"><b>⚔️ Netplay</b><span>Os dois jogadores carregam o mesmo Game ID. No menu do EmulatorJS, abra <strong>Netplay</strong>: o HOST cria a sessão e o CONVIDADO entra. O servidor configurado no lobby já foi aplicado.</span></div>
       <div class="kof-emulator-shell"><iframe id="kofEmulatorFrame" title="KOF 2002 Magic Plus II" allow="fullscreen" allowfullscreen referrerpolicy="same-origin"></iframe></div>
+    </section>
+
+    <section class="screen kof-screen" id="arcadeOnlineScreen">
+      <div class="section-heading kof-heading"><button class="back-link" id="arcadeOnlineBack">← Arcade</button><div><p class="eyebrow">🌐 ARCADE NETPLAY • WEBRTC</p><h2 id="arcadeOnlineTitle">Arcade Online</h2><p id="arcadeOnlineSubtitle">ONLINE 1x1 • cada jogador usa seu próprio aparelho</p></div></div>
+      <div class="kof-layout arcade-online-layout">
+        <div class="kof-main">
+          <section class="kof-card"><h3>⚔️ Criar ou entrar numa sala</h3><p>O HOST cria um código de 6 caracteres. O rival entra com o mesmo código e os dois aparelhos validam a ROM antes de liberar a partida.</p><div class="kof-room-actions"><button class="primary-btn" id="arcadeCreateRoom">CRIAR SALA</button><div class="kof-join"><input id="arcadeJoinCode" maxlength="6" placeholder="ABC123" autocomplete="off"><button class="secondary-btn" id="arcadeJoinRoom">ENTRAR</button></div></div></section>
+          <section class="kof-card hidden" id="arcadeRoomPanel"><div class="kof-room-code"><span>SALA</span><b id="arcadeRoomCode">------</b><button class="icon-btn" id="arcadeCopyRoom">📋</button></div><div id="arcadeRoomGame" class="kof-note"></div><div id="arcadeRoomPlayers" class="kof-players"></div><div id="arcadeRoomStatus" class="kof-room-status">Aguardando...</div><div class="kof-room-buttons"><button class="primary-btn" id="arcadeLaunchButton">🚀 INICIAR ONLINE X1</button><button class="secondary-btn" id="arcadeLeaveRoom">SAIR DA SALA</button></div></section>
+        </div>
+        <aside class="kof-card kof-info"><h3>🎮 Entradas aceitas</h3><div class="kof-diagnostics"><span>✅ Teclado</span><span>✅ Gamepad USB/Bluetooth</span><span>✅ Joystick reconhecido pelo navegador</span><span>✅ Touchscreen em celular/tablet</span><span>✅ Controles simultâneos no 2P local</span><span>✅ Online: um jogador por aparelho</span></div><small>No online, o Netplay do EmulatorJS sincroniza a sessão WebRTC entre HOST e convidado.</small></aside>
+      </div>
+    </section>
+
+    <section class="screen kof-play-screen" id="arcadePlayScreen">
+      <div class="kof-play-top"><button class="back-link" id="arcadePlayBack">← Arcade</button><div><p class="eyebrow" id="arcadePlayTitle">🎮 ARCADE</p><b id="arcadePlayMode">1 PLAYER LOCAL</b></div></div>
+      <div class="kof-emulator-shell arcade-emulator-shell"><iframe id="arcadePlayFrame" title="Arcade" allow="fullscreen; gamepad" allowfullscreen referrerpolicy="same-origin"></iframe></div>
     </section>
 
     <section class="screen" id="setupScreen">
@@ -798,11 +836,12 @@
   <script src="/tournaments.js?v=20.1.0" defer></script>
   <script src="/social.js?v=20.1.0" defer></script>
   <script src="/ranking.js?v=20.0.0" defer></script>
-  <script type="module" src="/firebase.js?v=19.11.1"></script>
+  <script type="module" src="/firebase.js?v=19.11.2"></script>
   <script src="/duel.js?v=17.0.0" defer></script>
   <script src="/kof-catalog.js?v=19.10.4" defer></script>
   <script src="/kof-catalog-ui.js?v=19.10.4" defer></script>
   <script src="/kof.js?v=19.12.0" defer></script>
+  <script src="/arcade-x1.js?v=1.0.1" defer></script>
     <script src="/friends.js?v=19.11.1" defer></script>
 
   <script data-portrait-fix-v19>

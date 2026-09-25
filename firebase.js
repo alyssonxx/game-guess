@@ -352,22 +352,29 @@ async function detachFightPresence(code){
   if(!currentUser||!db||!code)return;code=String(code).toUpperCase();const key=`${code}:${currentUser.uid}`,h=fightPresence.get(key);if(!h)return;
   clearInterval(h.timer);await h.dp.cancel().catch(()=>{});await h.dl.cancel().catch(()=>{});if(h.dr)await h.dr.cancel().catch(()=>{});await remove(h.pr).catch(()=>{});if(h.rr)await remove(h.rr).catch(()=>{});fightPresence.delete(key);
 }
-async function createFightRoom(){
+async function createFightRoom(options={}){
   if(!currentUser)throw new Error('Faça login antes de criar uma luta.');
   if(!await waitFirebaseOnline())throw new Error('Firebase offline. Verifique a internet e tente criar a sala novamente.');
   for(let tries=0;tries<10;tries++){
     const code=fightRoomCode(),rr=ref(db,`fightRooms/${code}`);if((await fightGet(rr)).exists())continue;const now=serverNow(),name=cleanName(localProfile()?.nickname||currentUser.displayName||currentUser.email?.split('@')[0]);
-    const room={code,protocolVersion:FIGHT_PROTOCOL_VERSION,game:'kf2k2mp2',gameId:fightGameId(code),hostUid:currentUser.uid,guestUid:'',status:'waiting',launchState:'waiting',launchAt:0,createdAt:now,updatedAt:now,expiresAt:now+WAITING_TTL_MS,players:{[currentUser.uid]:{uid:currentUser.uid,name,role:'host',joinedAt:now,lastSeen:now}},resultVotes:{},winnerUid:''};
+    const arcadeGame=String(options?.arcadeGame||'kf2k2mp2').trim().toLowerCase().slice(0,32)||'kf2k2mp2';
+    // `game` permanece kf2k2mp2 para compatibilidade com as regras Firebase V17 já publicadas.
+    // `arcadeGame` identifica o título real sem exigir nova função serverless nem mudança imediata das rules.
+    const room={code,protocolVersion:FIGHT_PROTOCOL_VERSION,game:'kf2k2mp2',arcadeGame,gameId:fightGameId(code),hostUid:currentUser.uid,guestUid:'',status:'waiting',launchState:'waiting',launchAt:0,createdAt:now,updatedAt:now,expiresAt:now+WAITING_TTL_MS,players:{[currentUser.uid]:{uid:currentUser.uid,name,role:'host',joinedAt:now,lastSeen:now}},resultVotes:{},winnerUid:''};
     try{await set(rr,room);}catch(e){if(String(e?.code||e?.message||'').toLowerCase().includes('permission'))throw new Error('O Firebase recusou a sala KOF. Publique as regras V17.');throw e;}
     attachFightPresence(code).catch(e=>console.warn('KOF presence:',e));return code;
   }
   throw new Error('Não consegui gerar a sala KOF. Tente novamente.');
 }
-async function joinFightRoom(code){
+async function joinFightRoom(code,expectedGame=''){
   if(!currentUser)throw new Error('Faça login antes de entrar na luta.');
   if(!await waitFirebaseOnline())throw new Error('Firebase offline. Verifique a internet antes de entrar na sala.');code=String(code||'').trim().toUpperCase();if(!/^[A-Z2-9]{6}$/.test(code))throw new Error('Código inválido.');
   const rr=ref(db,`fightRooms/${code}`),snap=await fightGet(rr);if(!snap.exists())throw new Error('Sala KOF não encontrada.');const initial=snap.val(),now=serverNow();
-  if(Number(initial.protocolVersion)!==FIGHT_PROTOCOL_VERSION)throw new Error('Esta sala KOF usa outra versão do jogo.');if(initial.status==='finished')throw new Error('Esta luta já terminou.');if(Number(initial.expiresAt||0)<=now)throw new Error('Esta sala KOF expirou.');
+  if(Number(initial.protocolVersion)!==FIGHT_PROTOCOL_VERSION)throw new Error('Esta sala KOF usa outra versão do jogo.');
+  const actualGame=String(initial.arcadeGame||'kf2k2mp2').toLowerCase();
+  const wantedGame=String(expectedGame||'').trim().toLowerCase();
+  if(wantedGame&&actualGame!==wantedGame)throw new Error('Este código pertence a outro jogo do Arcade.');
+  if(initial.status==='finished')throw new Error('Esta luta já terminou.');if(Number(initial.expiresAt||0)<=now)throw new Error('Esta sala KOF expirou.');
   if(initial.players?.[currentUser.uid]){attachFightPresence(code).catch(()=>{});return code;}
   const guestRef=ref(db,`fightRooms/${code}/guestUid`),claim=await runTransaction(guestRef,current=>{if(current===currentUser.uid)return current;if(current===null||current===undefined||current==='')return currentUser.uid;return;},{applyLocally:false});
   if(!claim.committed||claim.snapshot?.val()!==currentUser.uid)throw new Error('A sala KOF acabou de ficar cheia.');
