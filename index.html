@@ -199,13 +199,13 @@
             </div>
           </article>
           <article class="feature-card">
-            <div class="feature-icon">🥊</div>
+            <div class="feature-icon">🎮</div>
             <div>
-              <h3>KOF 2002 Magic Plus II</h3>
-              <p>Arcade no navegador com treino local, sala 1x1 e catálogo de especiais do Magic Plus II.</p>
+              <h3>Arcade Neo Geo</h3>
+              <p>KOF 2002 Magic Plus II e Neo Bomberman no navegador, incluindo multiplayer local para 2 jogadores.</p>
             </div>
             <div class="feature-actions">
-              <button class="primary-btn" id="homeKofButton">🥊 ABRIR KOF</button>
+              <button class="primary-btn" id="homeKofButton">🎮 ABRIR ARCADE</button>
             </div>
           </article>
           <article class="feature-card">
@@ -301,10 +301,11 @@
     </section>
 
     <section class="screen kof-screen" id="kofScreen">
-      <div class="section-heading kof-heading"><button class="back-link" id="kofBackButton">← Voltar</button><div><p class="eyebrow">🥊 ARCADE ONLINE • V19.10.4</p><h2>KOF 2002 MAGIC PLUS II</h2><p>Loader V19.10.4 usando <b>FBNeo explícito + kf2k2mp2.zip Full Non-Merged</b>: Magic Plus II, KOF 2002 parent e BIOS Neo Geo em um único arquivo para evitar a falha de montagem do EmulatorJS.</p></div></div>
+      <div class="section-heading kof-heading"><button class="back-link" id="kofBackButton">← Voltar</button><div><p class="eyebrow">🎮 ARCADE NEO GEO</p><h2>KOF 2002 + NEO BOMBERMAN</h2><p>FBNeo no navegador: mantenha o KOF 2002 Magic Plus II com treino/netplay e jogue Neo Bomberman com multiplayer local para 2 jogadores.</p></div></div>
       <div class="kof-layout">
         <div class="kof-main">
           <section class="kof-card kof-web-card"><div class="kof-web-title"><h3>🌐 Arcade Web integrado</h3><span class="kof-web-badge">SEM IMPORTAR ROM</span></div><div class="kof-file-grid"><div id="kofCloneState" class="kof-file-state"></div><div id="kofParentState" class="kof-file-state"></div><div id="kofBiosState" class="kof-file-state"></div></div><p id="kofFilesReady" class="kof-note"></p><div class="kof-web-actions"><button id="kofTrainingButton" class="primary-btn huge">🎮 INICIAR TREINO LOCAL</button><button id="kofRecheckFiles" class="secondary-btn">🔎 REVALIDAR ARQUIVOS</button><button id="kofCatalogButton" class="secondary-btn">📚 CATÁLOGO DE LUTADORES</button></div></section>
+          <section class="kof-card kof-web-card" id="neoBombermanCard"><div class="kof-web-title"><h3>💣 Neo Bomberman</h3><span class="kof-web-badge">2 JOGADORES LOCAL</span></div><p>Neo Geo / FBNeo usando a ROM Full Non-Merged enviada por você. Jogue no mesmo PC com dois teclados/controles, ou com dois gamepads USB/Bluetooth.</p><div class="kof-web-actions"><button id="neoBombermanLocalButton" class="primary-btn huge">💣 JOGAR NEO BOMBERMAN • 2P LOCAL</button></div><p class="kof-note"><b>P1:</b> WASD + F/G • R moeda • T start &nbsp; | &nbsp; <b>P2:</b> setas + K/L • O moeda • P start. Dois gamepads também são detectados automaticamente.</p></section>
           <section class="kof-card"><h3>⚔️ Duelo 1x1 sincronizado</h3><p>O Firebase cria a sala, verifica os dois aparelhos e o HOST dispara o carregamento simultâneo. O EmulatorJS recebe o mesmo Game ID e servidor Netplay nos dois lados.</p><div class="kof-room-actions"><button class="primary-btn" id="kofCreateRoom">CRIAR SALA</button><div class="kof-join"><input id="kofJoinCode" maxlength="6" placeholder="ABC123" autocomplete="off"><button class="secondary-btn" id="kofJoinRoom">ENTRAR</button></div></div><label class="kof-server-field">Servidor Netplay (automático)<input id="kofNetplayServer" value="Carregando configuração…" autocomplete="off" readonly></label></section>
           <section class="kof-card hidden" id="kofRoomPanel"><div class="kof-room-code"><span>SALA</span><b id="kofRoomCode">------</b><button class="icon-btn" id="kofCopyRoom">📋</button></div><div id="kofRoomRole" class="kof-note"></div><div id="kofRoomPlayers" class="kof-players"></div><div id="kofRoomStatus" class="kof-room-status">Aguardando...</div><div class="kof-room-buttons"><button class="primary-btn" id="kofLaunchButton">🚀 INICIAR KOF ONLINE</button><button class="secondary-btn" id="kofLeaveRoom">SAIR DA SALA</button></div><div id="kofResultControls" class="kof-result-controls hidden"><p id="kofVoteStatus">Depois da luta, os dois jogadores confirmam o vencedor.</p><button class="primary-btn" id="kofVoteMe">🏆 EU VENCI</button><button class="secondary-btn" id="kofVoteRival">🥊 O RIVAL VENCEU</button></div></section>
         </div>
@@ -313,7 +314,7 @@
     </section>
 
     <section class="screen kof-play-screen" id="kofPlayScreen">
-      <div class="kof-play-top"><button class="back-link" id="kofPlayBackButton">← Lobby KOF</button><div><p class="eyebrow">🥊 KOF 2002 MAGIC PLUS II</p><b id="kofPlayRoom">TREINO LOCAL</b></div></div>
+      <div class="kof-play-top"><button class="back-link" id="kofPlayBackButton">← Lobby Arcade</button><div><p class="eyebrow" id="kofPlayTitle">🥊 KOF 2002 MAGIC PLUS II</p><b id="kofPlayRoom">TREINO LOCAL</b></div></div>
       <div id="kofNetplayHelp" class="kof-netplay-help hidden"><b>⚔️ Netplay</b><span>Os dois jogadores carregam o mesmo Game ID. No menu do EmulatorJS, abra <strong>Netplay</strong>: o HOST cria a sessão e o CONVIDADO entra. O servidor configurado no lobby já foi aplicado.</span></div>
       <div class="kof-emulator-shell"><iframe id="kofEmulatorFrame" title="KOF 2002 Magic Plus II" allow="fullscreen" allowfullscreen referrerpolicy="same-origin"></iframe></div>
     </section>
@@ -801,7 +802,7 @@
   <script src="/duel.js?v=17.0.0" defer></script>
   <script src="/kof-catalog.js?v=19.10.4" defer></script>
   <script src="/kof-catalog-ui.js?v=19.10.4" defer></script>
-  <script src="/kof.js?v=19.10.4" defer></script>
+  <script src="/kof.js?v=19.12.0" defer></script>
     <script src="/friends.js?v=19.11.1" defer></script>
 
   <script data-portrait-fix-v19>

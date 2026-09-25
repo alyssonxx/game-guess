@@ -4,6 +4,9 @@
   const WEB_GAME='/roms/v178/kf2k2mp2.zip';
   const EXPECTED_GAME_BYTES=86694745;
   const KOF_WEB_VERSION='19.10.4';
+  const NEO_BOMBERMAN_VERSION='1.0.0';
+  const NEO_BOMBERMAN_URL='/roms/neogeo/neobombe.zip';
+  const NEO_BOMBERMAN_BYTES=7431142;
   const KOF_TRAINING_EMULATOR_VERSION='4.2.3';
   const KOF_ONLINE_EMULATOR_VERSION='4.3.0-pre';
   const FBN_BUILD='FBNeo • treino 4.2.3 • online 4.3.0-pre';
@@ -163,6 +166,30 @@
       console.error('KOF online launch:',e);
     }
   }
+  async function launchNeoBomberman(){
+    const btn=$('neoBombermanLocalButton');
+    if(btn){btn.disabled=true;btn.textContent='⏳ VALIDANDO ROM…'}
+    try{
+      const rom=await head(NEO_BOMBERMAN_URL,9000);
+      if(!rom.ok)throw new Error('A ROM /roms/neogeo/neobombe.zip não foi encontrada neste deploy.');
+      if(rom.size&&rom.size!==NEO_BOMBERMAN_BYTES)throw new Error(`A ROM Neo Bomberman tem ${rom.size} bytes; esperado ${NEO_BOMBERMAN_BYTES} bytes.`);
+      stopEmulator();
+      show('kofPlayScreen');
+      const frame=$('kofEmulatorFrame');
+      if(!frame)throw new Error('Iframe do Arcade não foi encontrado.');
+      if($('kofPlayTitle'))$('kofPlayTitle').textContent='💣 NEO BOMBERMAN • NEO GEO';
+      if($('kofPlayRoom'))$('kofPlayRoom').textContent='MULTIPLAYER LOCAL • 2 JOGADORES';
+      if($('kofNetplayHelp'))$('kofNetplayHelp').classList.add('hidden');
+      frame.title='Neo Bomberman • multiplayer local';
+      frame.src=`/neobombe-player.html?v=${NEO_BOMBERMAN_VERSION}`;
+      toast('Neo Bomberman','Multiplayer local pronto: P1 + P2 no mesmo aparelho.');
+    }catch(e){
+      toast('Neo Bomberman',e?.message||String(e),'error');
+    }finally{
+      if(btn){btn.disabled=false;btn.textContent='💣 JOGAR NEO BOMBERMAN • 2P LOCAL'}
+    }
+  }
+
   async function launch(training=false,fromRoom=false,launchAt=0){
     if(!training&&launched)return true;
     if(!training&&!fromRoom)return requestOnlineLaunch();
@@ -173,6 +200,8 @@
     const frame=$('kofEmulatorFrame');if(!frame){launchInFlight=false;return toast('KOF Web','Iframe do emulador não foi encontrado. Atualize a página.','error')}
     if(!training){launched=true;launchInFlight=false;stopLaunchPolling()}
     show('kofPlayScreen');
+    if($('kofPlayTitle'))$('kofPlayTitle').textContent='🥊 KOF 2002 MAGIC PLUS II';
+    frame.title='KOF 2002 Magic Plus II';
     const token=training?0:Number(launchAt||room?.launchAt||Date.now());const name=playerName();frame.src=`/kof-player.html?v=${KOF_WEB_VERSION}&gameId=${encodeURIComponent(gameId)}&room=${encodeURIComponent(code)}&role=${encodeURIComponent(roleParam)}&launch=${encodeURIComponent(token)}&name=${encodeURIComponent(name)}`;
     if($('kofPlayRoom'))$('kofPlayRoom').textContent=training?'TREINO LOCAL':`SALA ${roomCode} • ${role()}`;
     if($('kofNetplayHelp')){
@@ -223,11 +252,11 @@
     $('homeKofButton')?.addEventListener('click',open);$('kofBackButton')?.addEventListener('click',()=>show('homeScreen'));
     $('kofPlayBackButton')?.addEventListener('click',()=>{stopEmulator();launched=false;show('kofScreen')});
     $('kofRecheckFiles')?.addEventListener('click',()=>Promise.all([refreshFiles(true),checkServices()]).then(([ok])=>toast(ok?'KOF Web pronto':'ROM inválida',ok?'Full Non-Merged V17.8 confirmado no deploy.':'Confira /roms/v178/kf2k2mp2.zip e faça novo deploy.','error')));
-    $('kofTrainingButton')?.addEventListener('click',()=>launch(true));$('kofCreateRoom')?.addEventListener('click',createRoom);$('kofJoinRoom')?.addEventListener('click',joinRoom);$('kofLeaveRoom')?.addEventListener('click',leaveRoom);$('kofLaunchButton')?.addEventListener('click',requestOnlineLaunch);
+    $('kofTrainingButton')?.addEventListener('click',()=>launch(true));$('neoBombermanLocalButton')?.addEventListener('click',launchNeoBomberman);$('kofCreateRoom')?.addEventListener('click',createRoom);$('kofJoinRoom')?.addEventListener('click',joinRoom);$('kofLeaveRoom')?.addEventListener('click',leaveRoom);$('kofLaunchButton')?.addEventListener('click',requestOnlineLaunch);
     $('kofCopyRoom')?.addEventListener('click',()=>navigator.clipboard?.writeText(roomCode).then(()=>toast('Código copiado',roomCode)));
     $('kofVoteMe')?.addEventListener('click',()=>vote(user()?.uid));$('kofVoteRival')?.addEventListener('click',()=>vote(opponent()?.uid));
     window.addEventListener('gameguess:authchange',e=>{if(!e.detail?.user&&roomCode)leaveRoom()});
-    window.addEventListener('message',e=>{if(e.origin!==location.origin)return;const d=e.data||{};if(d.type==='kof-player-error')toast('Emulador KOF',d.message||'Falha ao iniciar.','error');if(d.type==='kof-player-ready')toast('KOF pronto',d.message||'Emulador carregado.');if(d.type==='kof-netplay-status'){if($('kofNetplayHelp'))$('kofNetplayHelp').innerHTML=`<b>⚔️ PVP Web • ${esc(role())}</b><span>${esc(d.message||'Conectando Netplay…')}</span>`;if(d.state==='connected')toast('PVP conectado','Player 1 e Player 2 estão ligados pelo WebRTC.');}if(d.type==='kof-fullscreen-status')toast('Tela do KOF',d.message||'Visualização alterada.');if(d.type==='kof-player-slow')toast('KOF carregando','O primeiro carregamento pode demorar porque o navegador está baixando e preparando ~83 MB do romset.')});
+    window.addEventListener('message',e=>{if(e.origin!==location.origin)return;const d=e.data||{};if(d.type==='kof-player-error')toast('Emulador KOF',d.message||'Falha ao iniciar.','error');if(d.type==='kof-player-ready')toast('KOF pronto',d.message||'Emulador carregado.');if(d.type==='neobombe-player-error')toast('Neo Bomberman',d.message||'Falha ao iniciar.','error');if(d.type==='neobombe-player-ready')toast('Neo Bomberman pronto',d.message||'P1 e P2 liberados.');if(d.type==='kof-netplay-status'){if($('kofNetplayHelp'))$('kofNetplayHelp').innerHTML=`<b>⚔️ PVP Web • ${esc(role())}</b><span>${esc(d.message||'Conectando Netplay…')}</span>`;if(d.state==='connected')toast('PVP conectado','Player 1 e Player 2 estão ligados pelo WebRTC.');}if(d.type==='kof-fullscreen-status')toast('Tela do KOF',d.message||'Visualização alterada.');if(d.type==='kof-player-slow')toast('KOF carregando','O primeiro carregamento pode demorar porque o navegador está baixando e preparando ~83 MB do romset.')});
   }
   window.GameGuessKOF={open};if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind);else bind();
 })();
