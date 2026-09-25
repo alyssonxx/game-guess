@@ -1,0 +1,308 @@
+diff --git a/geoguess.js b/geoguess.js
+index dc5f944..2d5cc6a 100644
+--- a/geoguess.js
++++ b/geoguess.js
+@@ -1,15 +1,16 @@
+ (() => {
+ 'use strict';
+ const $=id=>document.getElementById(id), CORE=()=>window.GameGuessCore, FB=()=>window.GameGuessFirebase;
+-const GEO_VERSION='20.5.0';
++const GEO_VERSION='20.6.0';
+ const REGIONS={world:['🌍','Mundo todo'],americas:['🌎','Américas'],europe:['🏰','Europa'],asia:['🌏','Ásia'],africa:['🦁','África'],oceania:['🌊','Oceania']};
+ const GEO_DIFFICULTIES={easy:{icon:'🌱',timerSec:120,scoreMultiplier:0.85},normal:{icon:'🎯',timerSec:60,scoreMultiplier:1},hard:{icon:'🔥',timerSec:45,scoreMultiplier:1.35},insane:{icon:'💀',timerSec:30,scoreMultiplier:1.8}};
+ let config={region:'world',rounds:5,maxPlayers:2,difficulty:'normal'};
+ let solo=null, map=null, guessMarker=null, targetMarker=null, line=null, selected=null;
+ let roomCode='',room=null,unsub=null,mode='solo',lastRenderedRound=-1,advanceScheduled=-1,tick=null,soloTick=null;
+ let mapillaryPromise=null,leafletPromise=null,mapillaryToken='',viewer=null,roundStartImageId='',lastImageId='',steps=0,suppressStep=false,roundToken=0;
+-let activeSequenceIds=[],activeSequenceIndex=-1,sequenceMoveBusy=false;
+-const sequenceCache=new Map();
++let activeSequenceIds=[],activeSequenceIndex=-1,activeSequenceId='',sequenceMoveBusy=false;
++let continuationSearchBusy=false,navStatusTimer=null;
++const sequenceCache=new Map(),imageMetaCache=new Map(),continuationCache=new Map();
+ 
+ function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));}
+ function show(id){if(!$(id)?.classList.contains('active'))CORE()?.showScreen?.(id);setTimeout(()=>map?.invalidateSize?.(),120)}
+@@ -163,6 +164,30 @@ function mlySequenceId(img){
+   const raw=img?.sequence?.id??img?.sequence??'';
+   return String(raw||'').trim();
+ }
++function rememberMlyMeta(img){
++  const id=String(img?.id||'').trim();if(!id)return img;
++  const merged={...(imageMetaCache.get(id)||{})};
++  for(const [k,v] of Object.entries(img||{}))if(v!==undefined&&v!==null&&v!=='')merged[k]=v;
++  merged.id=id;imageMetaCache.set(id,merged);return merged;
++}
++function angleDelta(a,b){return ((Number(b)-Number(a)+540)%360)-180;}
++function geoBearing(lat1,lng1,lat2,lng2){
++  const to=x=>x*Math.PI/180,y=Math.sin(to(lng2-lng1))*Math.cos(to(lat2)),x=Math.cos(to(lat1))*Math.sin(to(lat2))-Math.sin(to(lat1))*Math.cos(to(lat2))*Math.cos(to(lng2-lng1));
++  return (Math.atan2(y,x)*180/Math.PI+360)%360;
++}
++async function mapillaryImageMeta(imageId,timeoutMs=9000){
++  const id=String(imageId||'').trim();if(!id)return null;
++  const cached=imageMetaCache.get(id);if(cached&&mlyGeometry(cached)&&mlySequenceId(cached))return cached;
++  const token=await ensureMapillaryToken(),controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
++  try{
++    const u=new URL(`https://graph.mapillary.com/${encodeURIComponent(id)}`);
++    u.searchParams.set('access_token',token);
++    u.searchParams.set('fields','id,computed_geometry,geometry,computed_compass_angle,compass_angle,camera_type,sequence,captured_at');
++    const r=await fetch(u.toString(),{signal:controller.signal,headers:{Accept:'application/json'}}),d=await r.json().catch(()=>({}));
++    if(!r.ok)return null;
++    return rememberMlyMeta(d);
++  }catch{return null}finally{clearTimeout(timer)}
++}
+ function shuffled(list){
+   const a=[...(list||[])];
+   for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
+@@ -229,7 +254,9 @@ async function mapillaryGraphImages(params,timeoutMs=18000){
+       const msg=d?.error?.message||d?.message||d?.error||`Mapillary HTTP ${r.status}`;
+       const e=new Error(msg);e.status=r.status;throw e;
+     }
+-    return Array.isArray(d.data)?d.data:[];
++    const rows=Array.isArray(d.data)?d.data:[];
++    rows.forEach(rememberMlyMeta);
++    return rows;
+   }catch(e){
+     if(e?.name==='AbortError'){
+       const x=new Error('Tempo esgotado ao consultar a cobertura do Mapillary.');
+@@ -330,74 +357,140 @@ async function fetchRounds(){
+ function currentQ(){return mode==='solo'?solo?.questions?.[solo.index]:room?.questions?.[Number(room.roundIndex||0)]}
+ function isLocked(){if(mode==='solo')return Boolean(solo?.answered);const me=myPlayer();return !room||room.status!=='playing'||Number(me?.submittedRound)===Number(room.roundIndex);}
+ 
++function setNavStatus(text,kind=''){
++  const el=$('geoSeqPosition');if(!el)return;
++  el.dataset.kind=kind||'';
++  if(text)el.innerHTML=text;
++  if(navStatusTimer){clearTimeout(navStatusTimer);navStatusTimer=null;}
++}
++function navIndex(){
++  let idx=activeSequenceIds.indexOf(String(lastImageId||roundStartImageId||''));
++  if(idx<0)idx=activeSequenceIndex;
++  if(idx>=0)activeSequenceIndex=idx;
++  return idx;
++}
+ function ensureSequenceControls(){
+   if($('geoSequenceNav'))return;
+   const card=document.querySelector('.geo-street-card');if(!card)return;
+   const style=document.createElement('style');style.id='geoSequenceNavStyle';style.textContent=`
+-    .geo-sequence-nav{position:absolute;left:50%;bottom:56px;transform:translateX(-50%);z-index:20;display:flex;align-items:center;gap:8px;padding:7px 9px;border:1px solid rgba(122,230,255,.35);border-radius:14px;background:rgba(7,18,34,.88);backdrop-filter:blur(8px);box-shadow:0 10px 30px rgba(0,0,0,.28)}
+-    .geo-sequence-nav button{min-width:48px;height:40px;border:1px solid rgba(122,230,255,.35);border-radius:10px;background:#10243a;color:#fff;font-size:21px;font-weight:800;cursor:pointer}
++    .geo-sequence-nav{position:absolute;left:50%;bottom:54px;transform:translateX(-50%);z-index:24;display:grid;grid-template-columns:minmax(94px,auto) minmax(142px,auto) minmax(94px,auto);align-items:center;gap:8px;padding:8px;border:1px solid rgba(122,230,255,.34);border-radius:16px;background:rgba(7,18,34,.9);backdrop-filter:blur(10px);box-shadow:0 12px 34px rgba(0,0,0,.34);user-select:none}
++    .geo-sequence-nav button{height:42px;border:1px solid rgba(122,230,255,.32);border-radius:11px;background:#10243a;color:#fff;font:800 12px/1 inherit;letter-spacing:.02em;cursor:pointer;transition:.14s ease}
+     .geo-sequence-nav button:hover:not(:disabled){background:#173a57;transform:translateY(-1px)}
++    .geo-sequence-nav button:active:not(:disabled){transform:translateY(1px) scale(.98)}
+     .geo-sequence-nav button:disabled{opacity:.35;cursor:not-allowed}
+-    .geo-sequence-pos{min-width:112px;text-align:center;color:#d8f7ff;font:700 12px/1.2 inherit;white-space:nowrap}
+-    .geo-sequence-pos small{display:block;color:#8ca5bc;font-weight:600;margin-top:2px}
+-    @media(max-width:760px){.geo-sequence-nav{bottom:52px}.geo-sequence-pos{min-width:88px}.geo-sequence-nav button{min-width:44px}}
++    .geo-sequence-pos{min-width:142px;text-align:center;color:#d8f7ff;font:800 12px/1.18 inherit;white-space:nowrap}
++    .geo-sequence-pos small{display:block;color:#8ca5bc;font-weight:600;margin-top:3px}
++    .geo-sequence-pos[data-kind="busy"]{color:#7ae6ff}.geo-sequence-pos[data-kind="route"]{color:#9fffae}.geo-sequence-pos[data-kind="warn"]{color:#ffd37a}
++    .geo-play-tools{position:absolute;left:14px;top:14px;z-index:25;display:flex;gap:7px}
++    .geo-play-tools button{width:38px;height:38px;border:1px solid rgba(122,230,255,.3);border-radius:10px;background:rgba(7,18,34,.82);color:#fff;cursor:pointer;font-size:16px;backdrop-filter:blur(8px)}
++    .geo-play-tools button:hover{background:#173a57}
++    .geo-street-card:fullscreen{background:#050b13}.geo-street-card:fullscreen .geo-street-view{height:100vh!important;border-radius:0}.geo-street-card:fullscreen .geo-street-toolbar{z-index:25}
++    @media(max-width:760px){.geo-sequence-nav{bottom:50px;grid-template-columns:76px minmax(112px,1fr) 76px;max-width:calc(100% - 22px);width:auto}.geo-sequence-nav button{font-size:10px}.geo-sequence-pos{min-width:108px}.geo-play-tools{left:10px;top:10px}}
+   `;document.head.appendChild(style);
+-  card.insertAdjacentHTML('beforeend',`<div class="geo-sequence-nav" id="geoSequenceNav" aria-label="Navegação da rua"><button id="geoSeqPrev" type="button" title="Imagem anterior (A ou ←)">◀</button><span class="geo-sequence-pos" id="geoSeqPosition">CARREGANDO<small>A/D ou ←/→</small></span><button id="geoSeqNext" type="button" title="Próxima imagem (D ou →)">▶</button></div>`);
++  card.insertAdjacentHTML('beforeend',`<div class="geo-play-tools" id="geoPlayTools"><button id="geoMapHotkey" type="button" title="Abrir/recolher mapa (M)">🗺️</button><button id="geoFullscreen" type="button" title="Tela cheia (F)">⛶</button></div><div class="geo-sequence-nav" id="geoSequenceNav" aria-label="Navegação da rua"><button id="geoSeqPrev" type="button" title="Voltar (S, A, ↓ ou ←)">◀ VOLTAR</button><span class="geo-sequence-pos" id="geoSeqPosition">CARREGANDO<small>W/S • setas • espaço avança</small></span><button id="geoSeqNext" type="button" title="Avançar (W, D, ↑, → ou Espaço)">AVANÇAR ▶</button></div>`);
+   $('geoSeqPrev')?.addEventListener('click',()=>moveSequence(-1));
+   $('geoSeqNext')?.addEventListener('click',()=>moveSequence(1));
++  $('geoMapHotkey')?.addEventListener('click',toggleMap);
++  $('geoFullscreen')?.addEventListener('click',toggleGeoFullscreen);
++  let lastTap=0;
++  $('geoStreetView')?.addEventListener('dblclick',e=>{if(!isLocked()){e.preventDefault();moveSequence(1);}});
++  $('geoStreetView')?.addEventListener('pointerup',e=>{if(e.pointerType!=='touch'||isLocked())return;const now=Date.now();if(now-lastTap<320){lastTap=0;moveSequence(1)}else lastTap=now;},{passive:true});
+ }
+ function updateSequenceControls(){
+   ensureSequenceControls();
+-  const prev=$('geoSeqPrev'),next=$('geoSeqNext'),label=$('geoSeqPosition');
+-  const q=currentQ(),locked=isLocked();
+-  let idx=activeSequenceIds.indexOf(String(lastImageId||roundStartImageId||''));
+-  if(idx<0)idx=activeSequenceIndex;
+-  if(idx>=0)activeSequenceIndex=idx;
+-  const total=activeSequenceIds.length;
+-  if(label)label.innerHTML=total&&idx>=0?`🚶 ${idx+1}/${total}<small>A/D ou ←/→</small>`:`SEM ROTA<small>tente outra rodada</small>`;
+-  if(prev)prev.disabled=locked||sequenceMoveBusy||idx<=0||total<2;
+-  if(next)next.disabled=locked||sequenceMoveBusy||idx<0||idx>=total-1||total<2;
++  const prev=$('geoSeqPrev'),next=$('geoSeqNext'),label=$('geoSeqPosition'),locked=isLocked(),idx=navIndex(),total=activeSequenceIds.length;
++  if(label&&!sequenceMoveBusy&&!continuationSearchBusy&&!navStatusTimer){
++    const edge=total&&idx>=0&&((idx===0)||(idx===total-1));
++    label.dataset.kind=edge?'route':'';
++    label.innerHTML=total&&idx>=0?`🚶 ${idx+1}/${total}<small>${edge?'fim da sequência: tenta conectar outra rua':'W/S • setas • espaço avança'}</small>`:`ROTA LIVRE<small>W/S tenta achar a continuação</small>`;
++  }
++  const disabled=locked||sequenceMoveBusy||continuationSearchBusy;
++  if(prev)prev.disabled=disabled;
++  if(next)next.disabled=disabled;
++}
++async function activateSequenceForImage(imageId,sequenceId=''){
++  const id=String(imageId||'').trim();if(!id)return [];
++  let sid=String(sequenceId||'').trim();
++  if(!sid){const meta=await mapillaryImageMeta(id);sid=mlySequenceId(meta);}
++  if(!sid)sid=await mapillaryImageSequenceId(id);
++  if(!sid)return [];
++  const ids=await mapillarySequenceIds(sid,14000);
++  const start=ids.indexOf(id);if(ids.length<2||start<0)return [];
++  activeSequenceId=sid;activeSequenceIds=ids;activeSequenceIndex=start;updateSequenceControls();return ids;
+ }
+ async function prepareRoundSequence(q){
+-  activeSequenceIds=[];activeSequenceIndex=-1;sequenceMoveBusy=false;updateSequenceControls();
++  activeSequenceIds=[];activeSequenceIndex=-1;activeSequenceId='';sequenceMoveBusy=false;continuationSearchBusy=false;updateSequenceControls();
+   let sid=String(q?.sequenceId||'').trim();
+   if(!sid)sid=await mapillaryImageSequenceId(q?.imageId);
+   if(sid&&!q.sequenceId)q.sequenceId=sid;
+-  if(!sid)return [];
+-  const ids=await mapillarySequenceIds(sid,14000);
+-  if(ids.length<2)return [];
+-  const start=ids.indexOf(String(q.imageId));
+-  if(start<0)return [];
+-  activeSequenceIds=ids;activeSequenceIndex=start;updateSequenceControls();return ids;
++  return activateSequenceForImage(q?.imageId,sid);
++}
++async function findNearbyContinuation(direction){
++  const currentId=String(lastImageId||roundStartImageId||'').trim();if(!currentId)return null;
++  const key=`${currentId}:${direction<0?'back':'forward'}`;if(continuationCache.has(key))return continuationCache.get(key);
++  const meta=await mapillaryImageMeta(currentId);const g=mlyGeometry(meta);if(!g){continuationCache.set(key,null);return null;}
++  const baseHeading=Number(meta?.computed_compass_angle??meta?.compass_angle??0),wanted=(Number.isFinite(baseHeading)?baseHeading:0)+(direction<0?180:0);
++  let nearby=[];try{nearby=await mapillaryGraphImages({lat:g.lat,lng:g.lng,radius:45,limit:30},10000)}catch{return null;}
++  const active=new Set(activeSequenceIds.map(String));
++  const ranked=nearby.map(img=>{
++    const id=String(img?.id||''),ig=mlyGeometry(img),sid=mlySequenceId(img);if(!id||id===currentId||!ig||!sid||active.has(id))return null;
++    const meters=hav(g.lat,g.lng,ig.lat,ig.lng)*1000;if(meters<2||meters>55)return null;
++    const bearing=geoBearing(g.lat,g.lng,ig.lat,ig.lng),turn=Math.abs(angleDelta(wanted,bearing));if(turn>115)return null;
++    const spherical=String(img.camera_type||'').toLowerCase()==='spherical'?0:-8;
++    return {img,id,sid,meters,turn,score:turn*.72+meters*.28+spherical};
++  }).filter(Boolean).sort((a,b)=>a.score-b.score).slice(0,6);
++  for(const c of ranked){
++    try{const ids=await mapillarySequenceIds(c.sid,9000);if(ids.length>=3&&ids.includes(c.id)){const result={...c,ids};continuationCache.set(key,result);return result;}}catch{}
++  }
++  continuationCache.set(key,null);return null;
++}
++async function moveNearbyContinuation(direction){
++  continuationSearchBusy=true;setNavStatus('🔎 CONECTANDO RUA...<small>procurando imagens próximas</small>','busy');updateSequenceControls();
++  try{
++    const c=await findNearbyContinuation(direction);if(!c){setNavStatus('SEM CONTINUAÇÃO<small>tente voltar ou escolha outra pista</small>','warn');navStatusTimer=setTimeout(()=>{navStatusTimer=null;updateSequenceControls();},1800);return false;}
++    await Promise.race([viewer.moveTo(c.id),new Promise((_,reject)=>setTimeout(()=>reject(new Error('A continuação demorou demais para abrir.')),15000))]);
++    activeSequenceId=c.sid;activeSequenceIds=c.ids;activeSequenceIndex=c.ids.indexOf(c.id);lastImageId=c.id;setNavStatus('✓ NOVA RUA<small>rota conectada automaticamente</small>','route');navStatusTimer=setTimeout(()=>{navStatusTimer=null;updateSequenceControls();},1200);return true;
++  }catch(e){toast('Movimento',e?.message||'Não consegui conectar a próxima rua.','error');return false;}
++  finally{continuationSearchBusy=false;updateSequenceControls();}
+ }
+ async function moveSequence(delta){
+-  if(sequenceMoveBusy||!viewer||isLocked()||!activeSequenceIds.length)return;
+-  let idx=activeSequenceIds.indexOf(String(lastImageId||roundStartImageId||''));
+-  if(idx<0)idx=activeSequenceIndex;
+-  if(idx<0)return;
+-  const dir=delta<0?-1:1;
+-  sequenceMoveBusy=true;updateSequenceControls();
++  if(sequenceMoveBusy||continuationSearchBusy||!viewer||isLocked())return;
++  let idx=navIndex();const dir=delta<0?-1:1;
++  if(idx<0||!activeSequenceIds.length)return moveNearbyContinuation(dir);
++  const immediate=idx+dir;
++  if(immediate<0||immediate>=activeSequenceIds.length)return moveNearbyContinuation(dir);
++  sequenceMoveBusy=true;setNavStatus(dir>0?'AVANÇANDO...<small>carregando próxima imagem</small>':'VOLTANDO...<small>carregando imagem anterior</small>','busy');updateSequenceControls();
+   let lastError=null;
+   try{
+-    for(let hop=1;hop<=3;hop++){
++    for(let hop=1;hop<=5;hop++){
+       const nextIndex=idx+(dir*hop);if(nextIndex<0||nextIndex>=activeSequenceIds.length)break;
+       const target=activeSequenceIds[nextIndex];
+       try{
+         await Promise.race([viewer.moveTo(target),new Promise((_,reject)=>setTimeout(()=>reject(new Error('Movimento demorou demais.')),15000))]);
+-        activeSequenceIndex=nextIndex;lastImageId=String(target);updateSequenceControls();return;
++        activeSequenceIndex=nextIndex;lastImageId=String(target);updateSequenceControls();return true;
+       }catch(e){lastError=e;}
+     }
+     if(lastError)throw lastError;
+-  }catch(e){toast('Movimento',e?.message||'Não consegui abrir a próxima imagem desta rua.','error');}
++    return moveNearbyContinuation(dir);
++  }catch(e){toast('Movimento',e?.message||'Não consegui abrir a próxima imagem desta rua.','error');return false;}
+   finally{sequenceMoveBusy=false;updateSequenceControls();}
+ }
++function toggleGeoFullscreen(){
++  const card=document.querySelector('.geo-street-card');if(!card)return;
++  if(document.fullscreenElement){document.exitFullscreen?.().catch(()=>{});return;}
++  card.requestFullscreen?.().catch(()=>toast('Tela cheia','Seu navegador bloqueou o modo tela cheia.','error'));
++}
+ function bindSequenceKeyboard(){
+   if(window.__geoSequenceKeyboard)return;window.__geoSequenceKeyboard=true;
+   document.addEventListener('keydown',e=>{
+     if(!$('geoGameScreen')?.classList.contains('active')||isLocked())return;
+     const tag=String(e.target?.tagName||'').toLowerCase();if(['input','select','textarea','button'].includes(tag))return;
+-    if(['ArrowLeft','a','A'].includes(e.key)){e.preventDefault();moveSequence(-1);}
+-    else if(['ArrowRight','d','D'].includes(e.key)){e.preventDefault();moveSequence(1);}
++    const k=e.key;
++    if(['ArrowUp','ArrowRight','w','W','d','D',' '].includes(k)){e.preventDefault();moveSequence(1);}
++    else if(['ArrowDown','ArrowLeft','s','S','a','A'].includes(k)){e.preventDefault();moveSequence(-1);}
++    else if(['r','R'].includes(k)){e.preventDefault();returnToStart();}
++    else if(['m','M'].includes(k)){e.preventDefault();toggleMap();}
++    else if(['f','F'].includes(k)){e.preventDefault();toggleGeoFullscreen();}
+   });
+ }
+ function mapillaryProxyUrl(url){
+@@ -423,15 +516,17 @@ async function ensureViewer(){
+     accessToken:mapillaryToken,
+     container:'geoStreetView',
+     imageTiling:false,
+-    component:{cover:false,direction:true,fallback:{image:true,navigation:true},sequence:false,zoom:true}
++    component:{cover:false,direction:true,fallback:{image:true,navigation:true},sequence:false,zoom:true,cache:true}
+   };
+   if(dataProvider)options.dataProvider=dataProvider;
+   viewer=new mly.Viewer(options);
+   viewer.on('image',event=>{
+     const image=event?.image,id=String(image?.id||'');if(!id)return;
++    if(image)rememberMlyMeta({id,computed_geometry:image.computedLngLat?{coordinates:[image.computedLngLat.lng,image.computedLngLat.lat]}:undefined,computed_compass_angle:image.computedCa,camera_type:image.cameraType,sequence:image.sequenceId?{id:image.sequenceId}:undefined});
+     if(suppressStep){suppressStep=false;lastImageId=id;activeSequenceIndex=activeSequenceIds.indexOf(id);updateSequenceControls();return;}
+     if(lastImageId&&id!==lastImageId&&!isLocked()){steps++;$('geoStepLabel').textContent=steps;}
+     lastImageId=id;activeSequenceIndex=activeSequenceIds.indexOf(id);updateSequenceControls();
++    if(activeSequenceIndex<0&&!sequenceMoveBusy&&!continuationSearchBusy)activateSequenceForImage(id).catch(()=>{});
+   });
+   return viewer;
+ }
+@@ -439,7 +534,7 @@ async function loadStreetRound(q){
+   const token=++roundToken,loading=$('geoStreetLoading'),view=$('geoStreetView');
+   loading.innerHTML='<div class="geo-spinner"></div><b>Preparando Mapillary...</b><span>Carregando a sequência de imagens da rodada.</span>';loading.classList.remove('hidden');view.classList.remove('ready');
+   const v=await ensureViewer();if(token!==roundToken)return;
+-  roundStartImageId=String(q.imageId);lastImageId=roundStartImageId;steps=0;$('geoStepLabel').textContent='0';suppressStep=true;
++  roundStartImageId=String(q.imageId);lastImageId=roundStartImageId;steps=0;$('geoStepLabel').textContent='0';suppressStep=true;continuationCache.clear();
+   try{
+     await prepareRoundSequence(q).catch(()=>[]);if(token!==roundToken)return;
+     await Promise.race([v.moveTo(roundStartImageId),new Promise((_,reject)=>setTimeout(()=>reject(new Error('A imagem do Mapillary demorou demais para abrir.')),20000))]);if(token!==roundToken)return;
+@@ -451,7 +546,7 @@ async function loadStreetRound(q){
+     throw e;
+   }
+ }
+-async function returnToStart(){const q=currentQ();if(!viewer||!q||isLocked())return;suppressStep=true;lastImageId=String(q.imageId);try{await viewer.moveTo(String(q.imageId));activeSequenceIndex=activeSequenceIds.indexOf(String(q.imageId));updateSequenceControls();await viewer.setFieldOfView?.(90)}catch(e){toast('Mapillary','Não consegui voltar ao ponto inicial.','error')}}
++async function returnToStart(){const q=currentQ();if(!viewer||!q||isLocked())return;suppressStep=true;lastImageId=String(q.imageId);try{await viewer.moveTo(String(q.imageId));await prepareRoundSequence(q).catch(()=>[]);activeSequenceIndex=activeSequenceIds.indexOf(String(q.imageId));updateSequenceControls();await viewer.setFieldOfView?.(90)}catch(e){toast('Mapillary','Não consegui voltar ao ponto inicial.','error')}}
+ 
+ function difficultyFor(value=config.difficulty){return GEO_DIFFICULTIES[value]||GEO_DIFFICULTIES.normal;}
+ function clearSoloTimer(){if(soloTick){clearInterval(soloTick);soloTick=null;}if(solo)solo.deadline=0;}
+@@ -496,7 +591,7 @@ async function displayRound(){
+   const difficulty=difficultyFor(mode==='arena'?room?.config?.difficulty:config.difficulty);
+   $('geoRoundLabel').textContent=`${idx+1}/${total}`;$('geoScoreLabel').textContent=mode==='solo'?solo.score:Number(myPlayer()?.score||0);$('geoModeBadge').textContent=mode==='solo'?`🌍 SOLO • ${difficulty.icon}`:`⚔️ SALA ${roomCode}`;
+   $('geoTimerLabel').classList.remove('hidden');$('geoTimerLabel').classList.remove('geo-timer-warning');$('geoTimerLabel').textContent=`⏱️ ${difficulty.timerSec}`;
+-  $('geoMoveHint').textContent=q.cameraType==='spherical'?'🌀 360° • use ◀ ▶, A/D ou setas do teclado • © Mapillary':'🚶 Sequência de rua • use ◀ ▶, A/D ou setas do teclado • © Mapillary';$('geoFeedback').textContent='Clique no mapa para colocar seu palpite.';$('geoSubmitGuess').classList.remove('hidden');$('geoSubmitGuess').disabled=true;$('geoNextRound').textContent='PRÓXIMA RODADA ▶';$('geoNextRound').classList.add('hidden');$('geoReturnStart').disabled=false;selected=null;
++  $('geoMoveHint').textContent=q.cameraType==='spherical'?'🌀 360° • W/↑/Espaço avança • S/↓ volta • M mapa • F tela cheia • © Mapillary':'🚶 W/↑/Espaço avança • S/↓ volta • fim da sequência conecta outra rua • © Mapillary';$('geoFeedback').textContent='Clique no mapa para colocar seu palpite.';$('geoSubmitGuess').classList.remove('hidden');$('geoSubmitGuess').disabled=true;$('geoNextRound').textContent='PRÓXIMA RODADA ▶';$('geoNextRound').classList.add('hidden');$('geoReturnStart').disabled=false;selected=null;
+   $('geoScoreboard')?.classList.toggle('hidden',mode!=='arena');if(mode==='arena')renderScoreboard();setTimeout(()=>map?.invalidateSize?.(),100);
+   try{
+     await loadStreetRound(q);
+diff --git a/index.html b/index.html
+index 26b6000..3523af1 100644
+--- a/index.html
++++ b/index.html
+@@ -4,7 +4,7 @@
+   <meta charset="UTF-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+   <meta name="theme-color" content="#090b18">
+-  <title>Game Guess V20.5.0 — GeoGuess Navegação Direta</title>
++  <title>Game Guess V20.6.0 — GeoGuess Jogabilidade Melhorada</title>
+   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>">
+   <link rel="preconnect" href="https://fonts.googleapis.com">
+   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+@@ -778,7 +778,7 @@
+   <script src="/termo.js?v=17.0.0" defer></script>
+   <script src="/quiz-bank.js?v=17.0.0" defer></script>
+   <script src="/quiz.js?v=17.0.0" defer></script>
+-  <script src="/geoguess.js?v=20.5.0" defer></script>
++  <script src="/geoguess.js?v=20.6.0" defer></script>
+   <script src="/achievements.js?v=20.1.0" defer></script>
+   <script src="/seasons.js?v=20.1.0" defer></script>
+   <script src="/challenges.js?v=20.1.0" defer></script>
