@@ -48,6 +48,84 @@
         }
       }
     },
+    "geoRooms": {
+      "$code": {
+        ".read": "auth != null",
+        ".write": "auth != null && ((!data.exists() && newData.exists() && newData.child('hostUid').val() === auth.uid && newData.child('players').child(auth.uid).exists()) || (data.exists() && newData.exists() && data.child('players').child(auth.uid).exists()) || (data.exists() && !newData.exists() && (data.child('players').child(auth.uid).exists() || (data.child('expiresAt').isNumber() && data.child('expiresAt').val() < now))))",
+        ".validate": "!newData.exists() || (newData.hasChildren(['code','protocolVersion','appVersion','hostUid','status','roundState','createdAt','updatedAt','expiresAt','startedAt','finishedAt','roundIndex','roundDeadline','winnerUid','config','questions','slots','players']) && newData.child('code').val() === $code && newData.child('protocolVersion').val() === 1 && newData.child('appVersion').isString() && newData.child('createdAt').isNumber() && newData.child('updatedAt').isNumber() && newData.child('expiresAt').isNumber() && newData.child('startedAt').isNumber() && newData.child('finishedAt').isNumber() && newData.child('roundDeadline').isNumber())",
+        "code": {
+          ".validate": "newData.val() === $code"
+        },
+        "protocolVersion": {
+          ".validate": "newData.val() === 1"
+        },
+        "appVersion": {
+          ".validate": "newData.isString()"
+        },
+        "hostUid": {
+          ".validate": "newData.isString() && newData.parent().child('players').child(newData.val()).exists()"
+        },
+        "status": {
+          ".validate": "newData.val() === 'waiting' || newData.val() === 'playing' || newData.val() === 'finished'"
+        },
+        "roundState": {
+          ".validate": "newData.val() === 'waiting' || newData.val() === 'playing' || newData.val() === 'finished'"
+        },
+        "createdAt": {
+          ".validate": "newData.isNumber()"
+        },
+        "updatedAt": {
+          ".validate": "newData.isNumber()"
+        },
+        "expiresAt": {
+          ".validate": "newData.isNumber()"
+        },
+        "startedAt": {
+          ".validate": "newData.isNumber()"
+        },
+        "finishedAt": {
+          ".validate": "newData.isNumber()"
+        },
+        "roundIndex": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() < newData.parent().child('config').child('rounds').val()"
+        },
+        "roundDeadline": {
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+        "winnerUid": {
+          ".validate": "newData.isString() && (newData.val() === '' || newData.parent().child('players').child(newData.val()).exists())"
+        },
+        "config": {
+          ".validate": "newData.hasChildren(['maxPlayers','region','difficulty','timerSec','rounds']) && newData.child('maxPlayers').isNumber() && newData.child('maxPlayers').val() >= 2 && newData.child('maxPlayers').val() <= 8 && newData.child('region').isString() && (newData.child('region').val() === 'world' || newData.child('region').val() === 'americas' || newData.child('region').val() === 'europe' || newData.child('region').val() === 'asia' || newData.child('region').val() === 'africa' || newData.child('region').val() === 'oceania') && newData.child('difficulty').isString() && (newData.child('difficulty').val() === 'easy' || newData.child('difficulty').val() === 'normal' || newData.child('difficulty').val() === 'hard' || newData.child('difficulty').val() === 'insane') && newData.child('timerSec').isNumber() && newData.child('timerSec').val() >= 15 && newData.child('timerSec').val() <= 300 && newData.child('rounds').isNumber() && newData.child('rounds').val() >= 3 && newData.child('rounds').val() <= 8 && newData.child('rounds').val() === newData.parent().child('questions').numChildren()"
+        },
+        "questions": {
+          ".validate": "newData.numChildren() >= 3 && newData.numChildren() <= 8",
+          "$question": {
+            ".validate": "newData.hasChildren(['id','imageId','lat','lng','country','city','region','heading','cameraType','provider']) && newData.child('id').isString() && newData.child('imageId').isString() && newData.child('lat').isNumber() && newData.child('lat').val() >= -90 && newData.child('lat').val() <= 90 && newData.child('lng').isNumber() && newData.child('lng').val() >= -180 && newData.child('lng').val() <= 180 && newData.child('country').isString() && newData.child('city').isString() && newData.child('region').isString() && newData.child('heading').isNumber() && newData.child('cameraType').isString() && newData.child('provider').isString()"
+          }
+        },
+        "slots": {
+          "$slot": {
+            ".write": "auth != null && ((!data.exists() && newData.val() === auth.uid && root.child('geoRooms').child($code).child('status').val() === 'waiting') || (data.val() === auth.uid && (!newData.exists() || newData.val() === auth.uid)))",
+            ".validate": "!newData.exists() || (newData.isString() && newData.val() === auth.uid)"
+          }
+        },
+        "players": {
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid && ((!data.exists() && newData.exists() && root.child('geoRooms').child($code).child('status').val() === 'waiting' && root.child('geoRooms').child($code).child('slots').child(newData.child('slot').val()).val() === auth.uid) || (data.exists() && (!newData.exists() || newData.child('uid').val() === auth.uid)))",
+            ".validate": "!newData.exists() || (newData.hasChildren(['uid','name','slot','joinedAt','lastSeen','score','roundScore','distanceKm','submittedRound','left']) && newData.child('uid').val() === $uid && newData.child('name').isString() && newData.child('slot').isNumber() && newData.child('slot').val() >= 1 && newData.child('slot').val() <= 8 && newData.child('joinedAt').isNumber() && newData.child('lastSeen').isNumber() && newData.child('score').isNumber() && newData.child('score').val() >= 0 && newData.child('score').val() <= newData.parent().parent().child('config').child('rounds').val() * 10000 && newData.child('roundScore').isNumber() && newData.child('roundScore').val() >= 0 && newData.child('roundScore').val() <= 10000 && newData.child('distanceKm').isNumber() && newData.child('distanceKm').val() >= 0 && newData.child('distanceKm').val() <= 20050 && newData.child('submittedRound').isNumber() && newData.child('submittedRound').val() >= -1 && newData.child('submittedRound').val() < newData.parent().parent().child('config').child('rounds').val() && newData.child('left').isBoolean() && (!newData.child('guessLat').exists() || (newData.child('guessLat').isNumber() && newData.child('guessLat').val() >= -90 && newData.child('guessLat').val() <= 90)) && (!newData.child('guessLng').exists() || (newData.child('guessLng').isNumber() && newData.child('guessLng').val() >= -180 && newData.child('guessLng').val() <= 180)) && (!newData.child('steps').exists() || (newData.child('steps').isNumber() && newData.child('steps').val() >= 0 && newData.child('steps').val() <= 100000)) && (!newData.child('timedOut').exists() || newData.child('timedOut').isBoolean()) && (!newData.child('connectionState').exists() || newData.child('connectionState').isString()) && (!newData.child('controlSessionId').exists() || newData.child('controlSessionId').isString()))"
+          }
+        },
+        "presence": {
+          "$uid": {
+            "$session": {
+              ".write": "auth != null && auth.uid === $uid && root.child('geoRooms').child($code).child('players').child($uid).exists()",
+              ".validate": "!newData.exists() || (newData.hasChildren(['sessionId','connectedAt','heartbeatAt']) && newData.child('sessionId').val() === $session && newData.child('connectedAt').isNumber() && newData.child('heartbeatAt').isNumber())"
+            }
+          }
+        }
+      }
+    },
     "rankedConfig": {
       "currentSeason": {
         ".read": "auth != null",

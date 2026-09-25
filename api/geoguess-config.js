@@ -9,14 +9,13 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET');
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
 
   try {
     // Route: /api/geoguess-config - returns token config
     if (!req.url.includes('?') || req.url === '/api/geoguess-config') {
-      res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache 1 hour
+      // O token é público para o Viewer, mas não deve continuar em cache depois de uma rotação.
+      res.setHeader('Cache-Control', 'no-store');
       const token = process.env.MAPILLARY_ACCESS_TOKEN;
       const isProduction = process.env.NODE_ENV === 'production';
 
@@ -44,13 +43,11 @@ export default async function handler(req, res) {
         enabled: true,
         token: token,
         version: '4.1.2',
-        endpoint: 'https://graph.mapillary.com/v4',
+        endpoint: 'https://graph.mapillary.com',
         cdnJs: 'https://cdn.jsdelivr.net/npm/mapillary-js@4.1.2/dist/mapillary.js',
         cdnCss: 'https://cdn.jsdelivr.net/npm/mapillary-js@4.1.2/dist/mapillary.css',
         limits: {
-          requestsPerMonth: 50000,
-          estimatedCapacity: '~300 games/day',
-          note: 'Monitor quota at https://www.mapillary.com/dashboard/api-keys'
+          note: 'Consulte a cota do seu aplicativo no painel do Mapillary.'
         },
         timestamp: new Date().toISOString()
       });
@@ -69,6 +66,12 @@ export default async function handler(req, res) {
 
       const latNum = Number(lat);
       const lngNum = Number(lng);
+      if (!Number.isFinite(latNum) || !Number.isFinite(lngNum) || Math.abs(latNum) > 90 || Math.abs(lngNum) > 180) {
+        return res.status(400).json({
+          error: 'Coordenadas inválidas',
+          message: 'Latitude deve estar entre -90 e 90; longitude, entre -180 e 180.'
+        });
+      }
       const latPad = Math.min(0.045, Math.max(0.012, 0.04));
       const lngPad = Math.min(0.045, Math.max(0.012, 0.04));
 
@@ -157,4 +160,3 @@ export default async function handler(req, res) {
     });
   }
 }
-

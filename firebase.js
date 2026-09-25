@@ -32,6 +32,7 @@ let connectedUnsub = null;
 let seasonUnsub = null;
 const duelPresence = new Map();
 const fightPresence = new Map();
+const geoPresence = new Map();
 let authMode = 'login';
 let socialPresenceHandle = null;
 let rankingUnsub = null;
@@ -242,6 +243,15 @@ async function logout(){
   duelPresence.clear();
   for(const h of [...fightPresence.values()]){try{clearInterval(h.timer);await h.dp.cancel();await h.dl.cancel();if(h.dr)await h.dr.cancel();await remove(h.pr);if(h.rr)await remove(h.rr);}catch{}}
   fightPresence.clear();
+  for(const h of [...geoPresence.values()]){
+    try{
+      clearInterval(h.timer);
+      await h.disconnectPresence.cancel();
+      await h.disconnectLastSeen.cancel();
+      await remove(h.presenceRef);
+    }catch{}
+  }
+  geoPresence.clear();
   if(auth)await signOut(auth);
 }
 
@@ -509,6 +519,287 @@ async function mutateDuel(code,fn){
 }
 async function deleteDuel(code){if(!currentUser||!code)return;code=String(code).toUpperCase();await detachDuelPresence(code).catch(()=>{});const snap=await get(ref(db,`duels/${code}`)),room=snap.val();if(room?.hostUid===currentUser.uid||Number(room?.expiresAt||0)<=serverNow())await remove(ref(db,`duels/${code}`));}
 
+// ===== GeoGuess Arena =====
+// Scores are still calculated by the game client, but room access, lifecycle and
+// presence are scoped to authenticated members of the room.
+const GEO_PROTOCOL_VERSION=1;
+const GEO_REGIONS=new Set(['world','americas','europe','asia','africa','oceania']);
+const GEO_DIFFICULTIES=new Set(['easy','normal','hard','insane']);
+function geoRoomCode(){return roomCode();}
+function geoRoomRef(code){return ref(db,'geoRooms/'+String(code||'').trim().toUpperCase());}
+function validGeoCode(code){return /^[A-Z2-9]{6}$/.test(String(code||'').trim().toUpperCase());}
+function geoPlayerOnline(room,uid){return Object.keys(room?.presence?.[uid]||{}).length>0;}
+function geoChoice(value,choices,fallback){const v=String(value||'').toLowerCase();return choices.has(v)?v:fallback;}
+function geoText(value,max=80){return String(value??'').trim().slice(0,max);}
+function geoBoundedInt(value,min,max,fallback){const n=Number(value);return Number.isFinite(n)?Math.max(min,Math.min(max,Math.round(n))):fallback;}
+function cleanGeoQuestion(raw){
+  const id=geoText(raw?.id,160),imageId=geoText(raw?.imageId,100),lat=Number(raw?.lat),lng=Number(raw?.lng);
+  if(!id||!imageId||!Number.isFinite(lat)||!Number.isFinite(lng)||lat<-90||lat>90||lng<-180||lng>180)return null;
+  const heading=Number(raw?.heading);
+  return {
+    id,imageId,lat,lng,
+    country:geoText(raw?.country,80),
+    city:geoText(raw?.city,100),
+    region:geoChoice(raw?.region,GEO_REGIONS,'world'),
+    heading:Number.isFinite(heading)?heading:0,
+    cameraType:geoText(raw?.cameraType,40),
+    provider:geoText(raw?.provider,30)||'mapillary'
+  };
+}
+function newGeoPlayer(uid,name,slot,now){
+  return {
+    uid,name,slot,joinedAt:now,lastSeen:now,connectionState:'online',controlSessionId:CLIENT_SESSION_ID,
+    score:0,roundScore:0,distanceKm:0,submittedRound:-1,guessLat:null,guessLng:null,steps:0,timedOut:false,left:false
+  };
+}
+async function attachGeoPresence(code){
+  if(!currentUser||!db||!validGeoCode(code))return;
+  code=String(code).trim().toUpperCase();
+  const key=code+':'+currentUser.uid;
+  if(geoPresence.has(key))return;
+  const presenceRef=ref(db,'geoRooms/'+code+'/presence/'+currentUser.uid+'/'+CLIENT_SESSION_ID);
+  const playerRef=ref(db,'geoRooms/'+code+'/players/'+currentUser.uid);
+  const lastSeenRef=ref(db,'geoRooms/'+code+'/players/'+currentUser.uid+'/lastSeen');
+  const disconnectPresence=onDisconnect(presenceRef),disconnectLastSeen=onDisconnect(lastSeenRef);
+  try{
+    await disconnectPresence.remove();
+    await disconnectLastSeen.set(serverTimestamp());
+    await set(presenceRef,{sessionId:CLIENT_SESSION_ID,connectedAt:serverTimestamp(),heartbeatAt:serverTimestamp()});
+    await update(playerRef,{controlSessionId:CLIENT_SESSION_ID,lastSeen:serverNow(),connectionState:'online'});
+    const timer=setInterval(async()=>{
+      if(!currentUser)return;
+      await update(presenceRef,{heartbeatAt:serverTimestamp()}).catch(()=>{});
+      await set(lastSeenRef,serverNow()).catch(()=>{});
+    },8000);
+    geoPresence.set(key,{code,presenceRef,playerRef,lastSeenRef,disconnectPresence,disconnectLastSeen,timer});
+  }catch(error){
+    await disconnectPresence.cancel().catch(()=>{});
+    await disconnectLastSeen.cancel().catch(()=>{});
+    throw error;
+  }
+}
+async function detachGeoPresence(code){
+  if(!currentUser||!db||!validGeoCode(code))return;
+  code=String(code).trim().toUpperCase();
+  const key=code+':'+currentUser.uid,h=geoPresence.get(key);
+  if(h){
+    clearInterval(h.timer);
+    await h.disconnectPresence.cancel().catch(()=>{});
+    await h.disconnectLastSeen.cancel().catch(()=>{});
+    await remove(h.presenceRef).catch(()=>{});
+    geoPresence.delete(key);
+    return;
+  }
+  await remove(ref(db,'geoRooms/'+code+'/presence/'+currentUser.uid+'/'+CLIENT_SESSION_ID)).catch(()=>{});
+}
+async function cleanupExpiredGeoRoom(code){
+  if(!db||!validGeoCode(code))return false;
+  const roomRef=geoRoomRef(code),snap=await get(roomRef),room=snap.val();
+  if(room?.expiresAt&&Number(room.expiresAt)<=serverNow()){
+    await remove(roomRef).catch(()=>{});
+    return true;
+  }
+  return false;
+}
+async function createGeoRoom(payload={}){
+  if(!currentUser||!db)throw new Error('Faça login antes de criar a sala GeoGuess.');
+  if(!await waitFirebaseOnline())throw new Error('Firebase offline. Verifique a internet e tente novamente.');
+  const requestConfig=payload?.config&&typeof payload.config==='object'?payload.config:{};
+  const rawQuestions=Array.isArray(payload?.questions)?payload.questions:[];
+  const requestedRounds=Number(payload?.rounds??requestConfig.rounds);
+  const roundLimit=Number.isFinite(requestedRounds)?geoBoundedInt(requestedRounds,3,8,5):geoBoundedInt(rawQuestions.length,3,8,3);
+  const maxPlayers=geoBoundedInt(payload?.maxPlayers??requestConfig.maxPlayers,2,8,2);
+  const questions=rawQuestions.map(cleanGeoQuestion).filter(Boolean).slice(0,roundLimit);
+  if(questions.length<3)throw new Error('Não há rodadas GeoGuess válidas o suficiente para criar a sala.');
+  const region=geoChoice(payload?.region??requestConfig.region,GEO_REGIONS,'world');
+  const difficulty=geoChoice(payload?.difficulty??requestConfig.difficulty,GEO_DIFFICULTIES,'normal');
+  const timerSec=geoBoundedInt(payload?.timerSec??requestConfig.timerSec,15,300,60);
+  for(let attempt=0;attempt<8;attempt++){
+    const code=geoRoomCode(),roomRef=geoRoomRef(code),now=serverNow();
+    const name=cleanName(localProfile()?.nickname||currentUser.displayName||currentUser.email?.split('@')[0]);
+    const room={
+      code,protocolVersion:GEO_PROTOCOL_VERSION,appVersion:APP_VERSION,hostUid:currentUser.uid,
+      status:'waiting',roundState:'waiting',createdAt:now,updatedAt:now,expiresAt:now+WAITING_TTL_MS,
+      startedAt:0,finishedAt:0,roundIndex:0,roundDeadline:0,winnerUid:'',
+      config:{maxPlayers,region,difficulty,timerSec,rounds:questions.length},
+      questions,slots:{1:currentUser.uid},
+      players:{[currentUser.uid]:newGeoPlayer(currentUser.uid,name,1,now)}
+    };
+    try{
+      const result=await runTransaction(roomRef,current=>current?undefined:room,{applyLocally:false});
+      if(!result.committed)continue;
+      attachGeoPresence(code).catch(error=>console.warn('GeoGuess presence:',error));
+      return code;
+    }catch(error){
+      const message=String(error?.code||error?.message||'').toLowerCase();
+      if(message.includes('permission'))throw new Error('O Firebase recusou a criação da Arena GeoGuess. Publique as regras atuais do Realtime Database.');
+      throw error;
+    }
+  }
+  throw new Error('Não consegui gerar um código de sala. Tente novamente.');
+}
+async function claimGeoSlot(code,maxPlayers){
+  for(let slot=1;slot<=maxPlayers;slot++){
+    const slotRef=ref(db,'geoRooms/'+code+'/slots/'+slot);
+    const result=await runTransaction(slotRef,current=>{
+      if(current===currentUser.uid)return current;
+      if(current===null||current===undefined)return currentUser.uid;
+      return;
+    },{applyLocally:false});
+    if(result.committed&&result.snapshot?.val()===currentUser.uid){
+      const disconnectSlot=onDisconnect(slotRef);
+      try{
+        await disconnectSlot.remove();
+        return {slot,disconnectSlot};
+      }catch(error){
+        await runTransaction(slotRef,current=>current===currentUser.uid?null:current,{applyLocally:false}).catch(()=>{});
+        throw error;
+      }
+    }
+  }
+  return null;
+}
+async function releaseGeoSlot(code,slot){
+  if(!slot)return;
+  await runTransaction(ref(db,'geoRooms/'+code+'/slots/'+slot),current=>current===currentUser?.uid?null:current,{applyLocally:false}).catch(()=>{});
+}
+async function joinGeoRoom(code){
+  if(!currentUser||!db)throw new Error('Faça login antes de entrar no GeoGuess.');
+  if(!await waitFirebaseOnline())throw new Error('Firebase offline. Verifique a internet antes de entrar na sala.');
+  code=String(code||'').trim().toUpperCase();
+  if(!validGeoCode(code))throw new Error('Código inválido.');
+  const roomRef=geoRoomRef(code),snap=await get(roomRef);
+  if(!snap.exists())throw new Error('Sala não encontrada.');
+  const initial=snap.val();
+  if(Number(initial.protocolVersion||0)!==GEO_PROTOCOL_VERSION)throw new Error('Esta sala usa uma versão incompatível. Atualize a página.');
+  if(initial.expiresAt&&Number(initial.expiresAt)<=serverNow()){
+    await cleanupExpiredGeoRoom(code);
+    throw new Error('Esta sala expirou. Crie uma nova sala.');
+  }
+  if(initial.status==='finished')throw new Error('Esta partida já foi finalizada.');
+  if(initial.players?.[currentUser.uid]){
+    attachGeoPresence(code).catch(error=>console.warn('GeoGuess presence:',error));
+    return code;
+  }
+  if(initial.status!=='waiting')throw new Error('Esta partida já começou.');
+  const maxPlayers=Math.max(2,Math.min(8,Number(initial.config?.maxPlayers||2)));
+  if(Object.values(initial.players||{}).filter(player=>!player.left).length>=maxPlayers)throw new Error('A sala está lotada.');
+  const claim=await claimGeoSlot(code,maxPlayers);
+  if(!claim)throw new Error('A sala acabou de ficar cheia.');
+  const now=serverNow();
+  const name=cleanName(localProfile()?.nickname||currentUser.displayName||currentUser.email?.split('@')[0]);
+  const player=newGeoPlayer(currentUser.uid,name,claim.slot,now);
+  try{
+    await set(ref(db,'geoRooms/'+code+'/players/'+currentUser.uid),player);
+    await claim.disconnectSlot.cancel();
+  }catch(error){
+    await claim.disconnectSlot.cancel().catch(()=>{});
+    await releaseGeoSlot(code,claim.slot);
+    const message=String(error?.code||error?.message||'').toLowerCase();
+    if(message.includes('permission'))throw new Error('O Firebase recusou a entrada na Arena GeoGuess. Publique as regras atuais do Realtime Database.');
+    throw error;
+  }
+  const after=(await get(roomRef)).val();
+  if(!after||after.status!=='waiting'||Number(after.protocolVersion)!==GEO_PROTOCOL_VERSION){
+    await remove(ref(db,'geoRooms/'+code+'/players/'+currentUser.uid)).catch(()=>{});
+    await releaseGeoSlot(code,claim.slot);
+    throw new Error('A sala iniciou enquanto você entrava. Tente novamente.');
+  }
+  attachGeoPresence(code).catch(error=>console.warn('GeoGuess presence:',error));
+  await update(roomRef,{updatedAt:serverNow()}).catch(()=>{});
+  return code;
+}
+function watchGeoRoom(code,cb){
+  if(!db||!validGeoCode(code))return()=>{};
+  return onValue(geoRoomRef(code),snapshot=>cb?.(snapshot.val()||null,null),error=>cb?.(null,error));
+}
+async function startGeoRoom(code){
+  if(!currentUser||!db)throw new Error('Sessão expirada.');
+  code=String(code||'').trim().toUpperCase();
+  if(!validGeoCode(code))throw new Error('Código inválido.');
+  const result=await runTransaction(geoRoomRef(code),room=>{
+    if(!room||Number(room.protocolVersion)!==GEO_PROTOCOL_VERSION||room.hostUid!==currentUser.uid||!room.players?.[currentUser.uid]||room.status!=='waiting')return;
+    const players=Object.values(room.players||{}).filter(player=>!player.left);
+    if(players.length<2)return;
+    const now=serverNow(),timerSec=geoBoundedInt(room.config?.timerSec,15,300,60);
+    room.status='playing';
+    room.roundState='playing';
+    room.startedAt=now;
+    room.finishedAt=0;
+    room.winnerUid='';
+    room.roundIndex=0;
+    room.roundDeadline=now+timerSec*1000;
+    room.updatedAt=now;
+    room.expiresAt=now+PLAYING_TTL_MS;
+    for(const player of players){
+      player.score=Number.isFinite(Number(player.score))?Number(player.score):0;
+      player.submittedRound=-1;
+      player.roundScore=0;
+      player.distanceKm=0;
+      player.guessLat=null;
+      player.guessLng=null;
+      player.steps=0;
+      player.timedOut=false;
+      player.left=false;
+    }
+    return room;
+  },{applyLocally:false});
+  if(!result.committed)throw new Error('Não consegui iniciar. Verifique se há pelo menos 2 jogadores e se você é o host.');
+  return result.snapshot?.val()||null;
+}
+async function mutateGeoRoom(code,fn){
+  if(!currentUser||!db)throw new Error('Sessão expirada.');
+  if(typeof fn!=='function')throw new Error('Atualização de sala inválida.');
+  code=String(code||'').trim().toUpperCase();
+  if(!validGeoCode(code))throw new Error('Código inválido.');
+  const result=await runTransaction(geoRoomRef(code),room=>{
+    if(!room||Number(room.protocolVersion)!==GEO_PROTOCOL_VERSION)return;
+    const player=room.players?.[currentUser.uid];
+    if(!player||player.left)return;
+    if(player.controlSessionId&&player.controlSessionId!==CLIENT_SESSION_ID)return;
+    const before=JSON.stringify(room);
+    const next=fn(room,currentUser.uid);
+    if(!next||typeof next!=='object'||JSON.stringify(next)===before)return;
+    next.updatedAt=serverNow();
+    return next;
+  },{applyLocally:false});
+  return {committed:result.committed,value:result.snapshot?.val()||null};
+}
+async function ensureGeoHost(code){
+  if(!currentUser||!db||!validGeoCode(code))return;
+  code=String(code).trim().toUpperCase();
+  await runTransaction(geoRoomRef(code),room=>{
+    if(!room||Number(room.protocolVersion)!==GEO_PROTOCOL_VERSION||!room.players?.[currentUser.uid]||room.status==='finished')return;
+    const host=room.players?.[room.hostUid];
+    const stale=!host||host.left||(!geoPlayerOnline(room,room.hostUid)&&(serverNow()-Number(host?.lastSeen||0)>=HOST_GRACE_MS));
+    if(!stale)return;
+    const replacement=Object.values(room.players||{}).filter(player=>!player.left).sort((a,b)=>(Number(a.slot||99)-Number(b.slot||99))||(Number(a.joinedAt||0)-Number(b.joinedAt||0)))[0];
+    if(!replacement)return;
+    room.hostUid=replacement.uid;
+    room.updatedAt=serverNow();
+    return room;
+  },{applyLocally:false}).catch(()=>{});
+}
+async function leaveGeoRoom(code){
+  if(!currentUser||!db||!validGeoCode(code))return;
+  code=String(code).trim().toUpperCase();
+  await detachGeoPresence(code).catch(()=>{});
+  await runTransaction(geoRoomRef(code),room=>{
+    if(!room||!room.players?.[currentUser.uid])return;
+    const player=room.players[currentUser.uid],slot=player.slot;
+    delete room.players[currentUser.uid];
+    if(slot&&room.slots?.[slot]===currentUser.uid)delete room.slots[slot];
+    if(room.presence?.[currentUser.uid])delete room.presence[currentUser.uid];
+    if(room.hostUid===currentUser.uid){
+      const replacement=Object.values(room.players||{}).filter(item=>!item.left).sort((a,b)=>(Number(a.slot||99)-Number(b.slot||99))||(Number(a.joinedAt||0)-Number(b.joinedAt||0)))[0];
+      if(replacement)room.hostUid=replacement.uid;
+    }
+    if(!Object.keys(room.players||{}).length)return null;
+    room.updatedAt=serverNow();
+    return room;
+  },{applyLocally:false}).catch(()=>{});
+}
+
 function bind(){
   $('accountButton')?.addEventListener('click',()=>openAuth('login'));
   $('authCloseButton')?.addEventListener('click',()=>closeOverlay('authOverlay'));
@@ -538,6 +829,14 @@ if(configured){
         }
         for(const h of fightPresence.values()){
           try{await h.dp.remove();await h.dl.set(serverTimestamp());await set(h.pr,{sessionId:CLIENT_SESSION_ID,connectedAt:serverTimestamp(),heartbeatAt:serverTimestamp()});}catch{}
+        }
+        for(const h of geoPresence.values()){
+          try{
+            await h.disconnectPresence.remove();
+            await h.disconnectLastSeen.set(serverTimestamp());
+            await set(h.presenceRef,{sessionId:CLIENT_SESSION_ID,connectedAt:serverTimestamp(),heartbeatAt:serverTimestamp()});
+            await update(h.playerRef,{lastSeen:serverNow(),connectionState:'online'});
+          }catch{}
         }
         if(socialPresenceHandle){try{await socialPresenceHandle.d.remove();await set(socialPresenceHandle.pr,{sessionId:CLIENT_SESSION_ID,online:true,at:serverTimestamp()});}catch{}}
       }
@@ -633,6 +932,7 @@ window.GameGuessFirebase={
   createDuelRoom, joinDuelRoom, startDuelRoom, leaveDuelRoom, ensureDuelHost, attachDuelPresence, detachDuelPresence, cleanupExpiredDuel,
   watchDuel, mutateDuel, deleteDuel,getRoom:async code=>configured?(await get(ref(db,`duels/${String(code||'').toUpperCase()}`))).val():null,
   fightProtocolVersion:FIGHT_PROTOCOL_VERSION, createFightRoom, joinFightRoom, watchFightRoom, markFightReady, requestFightLaunch, submitFightResult, claimFightRankedRecord, leaveFightRoom, attachFightPresence, detachFightPresence, getFightRoom:async code=>configured?(await get(ref(db,`fightRooms/${String(code||'').toUpperCase()}`))).val():null,
+  geoProtocolVersion:GEO_PROTOCOL_VERSION, createGeoRoom, joinGeoRoom, watchGeoRoom, startGeoRoom, mutateGeoRoom, ensureGeoHost, leaveGeoRoom, attachGeoPresence, detachGeoPresence, cleanupExpiredGeoRoom, getGeoRoom:async code=>configured?(await get(ref(db,'geoRooms/'+String(code||'').toUpperCase()))).val():null,
   syncPublicProfile, searchPlayers, sendFriendRequest, respondFriendRequest, removeFriend, getSocialData, sendGameInvite, dismissGameInvite, watchSocialInbox, listenToRanking
 };
 
