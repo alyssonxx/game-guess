@@ -1,7 +1,7 @@
 (() => {
 'use strict';
 const $=id=>document.getElementById(id), CORE=()=>window.GameGuessCore, FB=()=>window.GameGuessFirebase;
-const GEO_VERSION='20.3.0';
+const GEO_VERSION='20.4.0';
 const REGIONS={world:['🌍','Mundo todo'],americas:['🌎','Américas'],europe:['🏰','Europa'],asia:['🌏','Ásia'],africa:['🦁','África'],oceania:['🌊','Oceania']};
 const GEO_DIFFICULTIES={easy:{icon:'🌱',timerSec:120,scoreMultiplier:0.85},normal:{icon:'🎯',timerSec:60,scoreMultiplier:1},hard:{icon:'🔥',timerSec:45,scoreMultiplier:1.35},insane:{icon:'💀',timerSec:30,scoreMultiplier:1.8}};
 let config={region:'world',rounds:5,maxPlayers:2,difficulty:'normal'};
@@ -263,9 +263,33 @@ async function fetchRounds(){
 function currentQ(){return mode==='solo'?solo?.questions?.[solo.index]:room?.questions?.[Number(room.roundIndex||0)]}
 function isLocked(){if(mode==='solo')return Boolean(solo?.answered);const me=myPlayer();return !room||room.status!=='playing'||Number(me?.submittedRound)===Number(room.roundIndex);}
 
+function mapillaryProxyUrl(url){
+  try{
+    const u=new URL(String(url||''),location.href),h=u.hostname.toLowerCase();
+    const needsProxy=h==='fbcdn.net'||h.endsWith('.fbcdn.net')||h==='cdninstagram.com'||h.endsWith('.cdninstagram.com')||h==='fbsbx.com'||h.endsWith('.fbsbx.com');
+    return needsProxy?`${location.origin}/api/mapillary-asset?url=${encodeURIComponent(u.href)}`:u.href;
+  }catch{return url;}
+}
+function createMapillaryDataProvider(mly){
+  if(!mly?.GraphDataProvider)return null;
+  class GameGuessMapillaryProvider extends mly.GraphDataProvider{
+    getImageBuffer(url,abort){return super.getImageBuffer(mapillaryProxyUrl(url),abort);}
+    getCluster(url,abort){return super.getCluster(mapillaryProxyUrl(url),abort);}
+    getMesh(url,abort){return super.getMesh(mapillaryProxyUrl(url),abort);}
+  }
+  return new GameGuessMapillaryProvider({accessToken:mapillaryToken});
+}
 async function ensureViewer(){
   const mly=await ensureMapillary();if(viewer)return viewer;
-  viewer=new mly.Viewer({accessToken:mapillaryToken,container:'geoStreetView',component:{cover:false,fallback:{image:true,navigation:true},sequence:{visible:true,playing:false},zoom:true}});
+  const dataProvider=createMapillaryDataProvider(mly);
+  const options={
+    accessToken:mapillaryToken,
+    container:'geoStreetView',
+    imageTiling:false,
+    component:{cover:false,fallback:{image:true,navigation:true},sequence:{visible:true,playing:false},zoom:true}
+  };
+  if(dataProvider)options.dataProvider=dataProvider;
+  viewer=new mly.Viewer(options);
   viewer.on('image',event=>{
     const image=event?.image,id=String(image?.id||'');if(!id)return;
     if(suppressStep){suppressStep=false;lastImageId=id;return;}
@@ -285,7 +309,7 @@ async function loadStreetRound(q){
     v.resize?.();loading.classList.add('hidden');view.classList.add('ready');
   }catch(e){
     if(token!==roundToken)return;
-    loading.innerHTML='<b>Não foi possível abrir esta imagem do Mapillary.</b><span>Tente iniciar outra partida.</span>';
+    loading.innerHTML='<b>Não foi possível abrir esta imagem do Mapillary.</b><span>O navegador não conseguiu carregar a mídia do CDN da Meta. O modo proxy v20.4 tentará evitar bloqueios de fbcdn.net; se persistir, teste sem bloqueador/VPN.</span>';
     throw e;
   }
 }
