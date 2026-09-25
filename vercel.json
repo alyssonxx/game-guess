@@ -3,6 +3,19 @@
   "trailingSlash": false,
   "headers": [
     {
+      "source": "/ejs/(.*)",
+      "headers": [
+        {
+          "key": "x-vercel-enable-rewrite-caching",
+          "value": "1"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400"
+        }
+      ]
+    },
+    {
       "source": "/roms/(.*)",
       "headers": [
         {
@@ -31,6 +44,16 @@
           "value": "camera=(), microphone=(), geolocation=()"
         }
       ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/ejs/4.2.3/:path*",
+      "destination": "https://cdn.emulatorjs.org/4.2.3/data/:path*"
+    },
+    {
+      "source": "/ejs/4.3.0-pre/:path*",
+      "destination": "https://cdn.emulatorjs.org/4.3.0-pre/data/:path*"
     }
   ]
 }

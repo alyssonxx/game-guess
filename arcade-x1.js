@@ -4,7 +4,7 @@
   const $ = id => document.getElementById(id);
   const CORE = () => window.GameGuessCore;
   const FB = () => window.GameGuessFirebase;
-  const VERSION = '2.0.0';
+  const VERSION = '2.0.1';
 
   const GAMES = {
     kf2k2mp2: {

@@ -22,7 +22,11 @@
   const TRAINING_EJS_VERSION = '4.2.3';
   const ONLINE_EJS_VERSION = '4.3.0-pre';
   const EJS_VERSION = online ? ONLINE_EJS_VERSION : TRAINING_EJS_VERSION;
-  const EJS_DATA = `https://cdn.emulatorjs.org/${EJS_VERSION}/data/`;
+  // Use o domínio do próprio Game Guess como proxy para o CDN do EmulatorJS.
+  // Isso evita falhas de DNS/bloqueio do cdn.emulatorjs.org em algumas redes móveis.
+  const EJS_PROXY_DATA = `/ejs/${EJS_VERSION}/`;
+  const EJS_DIRECT_DATA = `https://cdn.emulatorjs.org/${EJS_VERSION}/data/`;
+  let EJS_DATA = EJS_PROXY_DATA;
   const PUBLIC_NETPLAY_SERVER = 'https://netplay.emulatorjs.org';
   const rtcRoomName = `GG-${room}-${launchToken}`.slice(0,20);
 
@@ -144,7 +148,26 @@
       if(online){window.EJS_netplayServer=server;window.EJS_netplayICEServers=ice}else{window.EJS_netplayServer='';window.EJS_netplayICEServers=[]}
       window.EJS_ready=()=>setBoot(`${game.core} carregado. Preparando ${game.title}…`);
       window.EJS_onGameStart=async()=>{const ok=await waitDirect();if(!ok){fail('A entrada direta do emulador não ficou disponível.');return}started=true;loading=false;boot.style.display='none';setStatus(online?'🟡 Jogo carregado • conectando PVP…':`✅ ${localPlayers}P local ativo • COIN + START para entrar`);cancelAnimationFrame(padFrame);padLoop();if(online)startAutomaticNetplay();post('arcade-player-ready',`${game.title} carregado.`,{online,players:online?2:localPlayers,role,room})};
-      const script=document.createElement('script');script.src=`${EJS_DATA}loader.js`;script.onerror=()=>fail(`Não foi possível carregar EmulatorJS ${EJS_VERSION}.`);document.body.appendChild(script);
+      const loadLoader=(dataPath,label)=>new Promise((resolve,reject)=>{
+        EJS_DATA=dataPath;
+        window.EJS_pathtodata=dataPath;
+        const script=document.createElement('script');
+        script.src=`${dataPath}loader.js`;
+        script.async=true;
+        script.onload=()=>resolve(label);
+        script.onerror=()=>{script.remove();reject(new Error(label));};
+        document.body.appendChild(script);
+      });
+      try{
+        await loadLoader(EJS_PROXY_DATA,'proxy da Vercel');
+      }catch{
+        setBoot(`Proxy indisponível. Tentando CDN direto do EmulatorJS ${EJS_VERSION}…`);
+        try{
+          await loadLoader(EJS_DIRECT_DATA,'CDN direto');
+        }catch{
+          throw new Error(`Não foi possível carregar EmulatorJS ${EJS_VERSION} pelo proxy da Vercel nem pelo CDN direto.`);
+        }
+      }
     }catch(e){fail(e?.message||String(e))}
   }
 
