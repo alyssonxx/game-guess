@@ -64,6 +64,9 @@
   // mesmo controle físico seja lido duas vezes (input duplicado / movimento pesado).
   const nativeGetGamepads = typeof navigator.getGamepads === 'function' ? navigator.getGamepads.bind(navigator) : null;
   let nativeGamepadIsolation = false;
+  let lastTouchPointerAt = -Infinity;
+  let onlineTransportPatched = false;
+  let onlineInputSeq = 0;
 
   const $ = id => document.getElementById(id);
   const boot = $('boot');
@@ -454,11 +457,44 @@
   }
 
   function gm() { return window.EJS_emulator?.gameManager || null; }
-  function emuPlayer(localPlayer) { return online ? onlineInputPort : localPlayer; }
+  function actualOnlinePlayer() {
+    const np = getNetplay();
+    if (np?.emu?.isNetplay && typeof np.getUserIndex === 'function') {
+      const idx = Number(np.getUserIndex());
+      if (Number.isInteger(idx) && idx >= 0 && idx <= 3) return idx;
+    }
+    return onlineInputPort;
+  }
+  function emuPlayer(localPlayer) { return online ? actualOnlinePlayer() : localPlayer; }
+  function onlineInputReady() {
+    const np = getNetplay();
+    return !!(np?.emu?.isNetplay && np.webRtcReady && Object.keys(np.players || {}).length >= 2);
+  }
   function simulate(localPlayer, input, value) {
     const manager = gm();
-    if (!manager || typeof manager.simulateInput !== 'function') return false;
-    try { manager.simulateInput(emuPlayer(localPlayer), Number(input), Number(value)); return true; } catch { return false; }
+    if (!manager) return false;
+    const player = emuPlayer(localPlayer);
+    const index = Number(input), state = Number(value);
+    try {
+      if (online) {
+        // IMPORTANTE: não use gameManager.simulateInput() no X1. No 4.3.0-pre
+        // ele entra novamente em Netplay.simulateInput(), que mantém uma fila por
+        // frame e, no guest, também usa o canal de sinalização. Para o nosso X1
+        // (host executa o core e guest recebe o vídeo), usamos UMA única rota:
+        // host -> função nativa do core; guest -> função que o próprio Netplay
+        // substitui para enviar pelo DataChannel WebRTC.
+        if (!onlineInputReady() || typeof manager.functions?.simulateInput !== 'function') return false;
+        manager.functions.simulateInput(player, index, state);
+        onlineInputSeq++;
+        return true;
+      }
+      if (typeof manager.simulateInput !== 'function') return false;
+      manager.simulateInput(player, index, state);
+      return true;
+    } catch (e) {
+      console.warn('[GameGuess Arcade] falha no input', { online, role, player, index, state, error: e?.message || String(e) });
+      return false;
+    }
   }
   function heldKey(player, input) { return `${player}:${input}`; }
   function setSource(player, input, source, pressed) {
@@ -528,27 +564,58 @@
     addEventListener('blur', () => releasePrefix('key:'));
   }
 
+  function isSyntheticPointerAfterTouch(e) {
+    const now = performance.now();
+    if (e.pointerType === 'touch' || e.pointerType === 'pen') {
+      lastTouchPointerAt = now;
+      return false;
+    }
+    return e.pointerType === 'mouse' && (now - lastTouchPointerAt) < 850;
+  }
+
+  function swallowTouchCompatEvent(e) {
+    e.preventDefault();
+    e.stopImmediatePropagation();
+  }
+
   function bindTouchButtons() {
     document.querySelectorAll('#touchWrap .touch-control button[data-input]').forEach(button => {
       const holder = button.closest('.touch-control');
       const player = Number(holder?.dataset.player || 0);
       const input = Number(button.dataset.input);
       const base = `touch:${player}:${input}:`;
+      let activePointer = null;
+      let activeSource = '';
+
       const down = e => {
-        if (editMode || !started) return;
-        e.preventDefault(); e.stopPropagation(); button.classList.add('pressed');
+        if (editMode || !started || isSyntheticPointerAfterTouch(e)) return;
+        swallowTouchCompatEvent(e);
+        // Um botão aceita somente um pointer por vez. Isso impede que um único
+        // toque seja reaberto por eventos de compatibilidade do navegador.
+        if (activePointer !== null) return;
+        activePointer = e.pointerId;
+        activeSource = base + e.pointerId;
+        button.classList.add('pressed');
         try { button.setPointerCapture?.(e.pointerId); } catch {}
-        setActionSource(player, input, base + e.pointerId, true);
+        if (!setActionSource(player, input, activeSource, true)) {
+          activePointer = null; activeSource = ''; button.classList.remove('pressed');
+        }
       };
       const up = e => {
-        if (editMode) return;
-        e.preventDefault(); e.stopPropagation(); button.classList.remove('pressed');
-        setActionSource(player, input, base + e.pointerId, false);
+        if (editMode || activePointer === null || e.pointerId !== activePointer) return;
+        swallowTouchCompatEvent(e);
+        const source = activeSource;
+        activePointer = null; activeSource = '';
+        button.classList.remove('pressed');
+        setActionSource(player, input, source, false);
       };
       button.addEventListener('pointerdown', down, { passive: false });
       ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(n => button.addEventListener(n, up, { passive: false }));
+      // O click sintético gerado depois do touch não pode escapar para o player.
+      ['click', 'dblclick', 'contextmenu'].forEach(n => button.addEventListener(n, swallowTouchCompatEvent, { passive: false }));
     });
   }
+
 
   const STICK_DIRECTIONS = [
     [INPUT.RIGHT], [INPUT.RIGHT, INPUT.DOWN], [INPUT.DOWN], [INPUT.LEFT, INPUT.DOWN],
@@ -606,19 +673,24 @@
 
       const move = e => {
         if (pointerId !== e.pointerId) return;
-        e.preventDefault(); e.stopPropagation();
-        const points = typeof e.getCoalescedEvents === 'function' ? e.getCoalescedEvents() : [];
-        if (points.length) points.forEach(processPoint); else processPoint(e);
+        swallowTouchCompatEvent(e);
+        // CoalescedEvents pode conter vários pontos intermediários no MESMO frame.
+        // Processar todos eles enviava sequências extras pela rede. Usamos apenas
+        // o ponto mais recente, mantendo a alavanca rápida sem ruído intermediário.
+        const points = typeof e.getCoalescedEvents === 'function' ? e.getCoalescedEvents() : null;
+        processPoint(points?.length ? points[points.length - 1] : e);
       };
       const down = e => {
-        if (editMode || !started) return;
-        e.preventDefault(); e.stopPropagation(); pointerId = e.pointerId;
+        if (editMode || !started || isSyntheticPointerAfterTouch(e) || pointerId !== null) return;
+        swallowTouchCompatEvent(e);
+        pointerId = e.pointerId;
         try { stick.setPointerCapture?.(e.pointerId); } catch {}
         processPoint(e);
       };
       const up = e => {
         if (pointerId !== e.pointerId) return;
-        e.preventDefault(); e.stopPropagation(); pointerId = null;
+        swallowTouchCompatEvent(e);
+        pointerId = null;
         knob.style.transform = 'translate(-50%,-50%)';
         lastSector = -1; active = false;
         updateStickSector(player, source, -1);
@@ -626,8 +698,10 @@
       stick.addEventListener('pointerdown', down, { passive: false });
       stick.addEventListener('pointermove', move, { passive: false });
       ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(n => stick.addEventListener(n, up, { passive: false }));
+      ['click', 'dblclick', 'contextmenu'].forEach(n => stick.addEventListener(n, swallowTouchCompatEvent, { passive: false }));
     });
   }
+
 
   function selectControl(player, id, updateDock = true) {
     selectedControl = { player, id };
@@ -727,7 +801,7 @@
     if (started) {
       if (pads.length) {
         const names = pads.map((g, i) => {
-          const slot = online ? onlineInputPort + 1 : i + 1;
+          const slot = online ? actualOnlinePlayer() + 1 : i + 1;
           return `P${slot}: ${String(g.id).split('(')[0].trim().slice(0, 24)}`;
         });
         if (online) showStatus(`🎮 ${names.join(' • ')} • PVP ${room}`);
@@ -775,19 +849,47 @@
     throw new Error('O Netplay WebRTC não ficou disponível.');
   }
   function stopNetplayTimers() { if (guestFindTimer) clearInterval(guestFindTimer); if (netplayWatchTimer) clearInterval(netplayWatchTimer); guestFindTimer = netplayWatchTimer = 0; }
+
+  function stabilizeOnlineInputTransport(np) {
+    if (!online || !np || onlineTransportPatched) return;
+    onlineTransportPatched = true;
+    // O guest já tem gameManager.functions.simulateInput substituído pelo próprio
+    // EmulatorJS para mandar pelo DataChannel. Nosso simulate() usa essa rota direta.
+    // No host, o 4.3.0-pre também guarda o mesmo evento recebido em inputsData e
+    // reaplica no postMainLoop. Como o guest é vídeo remoto/frozen, essa segunda
+    // aplicação e o rebroadcast não são necessários e causam sensação de input duplo.
+    if (role === 'host' && typeof np._initModulePostMainLoop === 'function' && !np.__ggSingleInputPostLoop) {
+      np.__ggSingleInputPostLoop = true;
+      np._initModulePostMainLoop = function() {
+        if (this._origPostMainLoop) { try { this._origPostMainLoop(); } catch {} }
+        if (this.emu?.isNetplay && !this.owner) return;
+        this.currentFrame = (this.emu?.gameManager ? this.emu.gameManager.getFrameNum() : 0) - (this.init_frame || 0);
+        if (!this.emu?.isNetplay || !this.owner) return;
+        // Inputs via DataChannel já foram aplicados imediatamente no host.
+        if (this.inputsData && Object.keys(this.inputsData).length) this.inputsData = {};
+      };
+    }
+    console.info('[GameGuess Arcade] transporte de input online estabilizado', {
+      role, player: actualOnlinePlayer() + 1, route: role === 'guest' ? 'WebRTC DataChannel -> host' : 'core local + WebRTC guest input',
+      rtcRoomName
+    });
+  }
+
   function monitorNetplay(np) {
     if (netplayWatchTimer) clearInterval(netplayWatchTimer);
     netplayWatchTimer = setInterval(() => {
       try {
         const players = Object.keys(np.players || {}).length;
         if (np.emu?.isNetplay && players >= 2 && np.webRtcReady) {
-          const localPlayerLabel = `PLAYER ${onlineInputPort + 1}`;
+          stabilizeOnlineInputTransport(np);
+          const actual = actualOnlinePlayer();
+          const localPlayerLabel = `PLAYER ${actual + 1}`;
           showStatus(`✅ PVP conectado • ${localPlayerLabel} • ${game.title}`);
           console.info('[GameGuess Arcade] PVP input atribuído', {
-            role, localInputPort: onlineInputPort, localPlayer: onlineInputPort + 1,
-            room, rtcRoomName, netplayPlayers: players
+            role, localInputPort: actual, localPlayer: actual + 1,
+            room, rtcRoomName, netplayPlayers: players, inputRoute: 'single-path'
           });
-          post('arcade-netplay-status', 'PVP conectado', { state: 'connected', role, room, localInputPort: onlineInputPort, localPlayer: onlineInputPort + 1 });
+          post('arcade-netplay-status', 'PVP conectado', { state: 'connected', role, room, localInputPort: actual, localPlayer: actual + 1 });
           clearInterval(netplayWatchTimer); netplayWatchTimer = 0;
         } else if (np.emu?.isNetplay && role === 'host') showStatus(`🟡 Sala ${rtcRoomName} criada • aguardando rival…`);
         else if (np.emu?.isNetplay) showStatus(`🟡 Entrando na sala ${rtcRoomName}…`);
@@ -1050,7 +1152,7 @@
         if (online) showStatus('🟡 Jogo carregado • conectando PVP…'); else hideStatus();
         cancelAnimationFrame(padFrame); padLoop(); if (online) startAutomaticNetplay();
         startReplayRecording();
-        post('arcade-player-ready', `${game.title} carregado.`, { online, players: online ? 2 : localPlayers, role, room, localInputPort: online ? onlineInputPort : 0, localPlayer: online ? onlineInputPort + 1 : 1 });
+        post('arcade-player-ready', `${game.title} carregado.`, { online, players: online ? 2 : localPlayers, role, room, localInputPort: online ? actualOnlinePlayer() : 0, localPlayer: online ? actualOnlinePlayer() + 1 : 1 });
       };
 
       const loadLoader = (dataPath, label) => new Promise((resolve, reject) => {
@@ -1059,7 +1161,7 @@
         document.querySelectorAll('script[data-gg-ejs-loader="1"]').forEach(el => el.remove());
         const script = document.createElement('script');
         script.dataset.ggEjsLoader = '1';
-        script.src = `${dataPath}loader.js?v=gg256`;
+        script.src = `${dataPath}loader.js?v=gg257`;
         script.async = true;
         script.onload = () => resolve(label);
         script.onerror = () => { script.remove(); reject(new Error(`Falha ao carregar loader (${label})`)); };
@@ -1074,8 +1176,17 @@
     } catch (e) { fail(e?.message || String(e)); }
   }
 
+  window.GG_ARCADE_INPUT_DIAG = () => ({
+    version: '2.5.7', online, role, room, rtcRoomName, started, directReady,
+    pvpReady: online ? onlineInputReady() : true,
+    player: online ? actualOnlinePlayer() + 1 : 1,
+    held: [...held.entries()].map(([key, sources]) => ({ key, sources: [...sources] })),
+    stickHeld: [...stickHeld.entries()].map(([key, values]) => ({ key, values: [...values] })),
+    onlineInputSeq
+  });
+
   setupUi(); bindKeyboard();
-  if (online) console.info('[GameGuess Arcade] papel do netplay', { role, localInputPort: onlineInputPort, localPlayer: onlineInputPort + 1, room, rtcRoomName });
+  if (online) console.info('[GameGuess Arcade] papel do netplay', { role, expectedInputPort: onlineInputPort, expectedPlayer: onlineInputPort + 1, room, rtcRoomName, inputVersion: '2.5.7' });
   startButton?.addEventListener('click', bootGame);
   helpButton?.addEventListener('click', () => { showTopbar(0); renderHelp(); });
   customizeButton?.addEventListener('click', () => { showTopbar(0); renderCustomize('layout'); });
