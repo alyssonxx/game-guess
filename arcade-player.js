@@ -993,7 +993,13 @@
       // de estados concorrentes no pré-release. Mantemos threads apenas no modo local.
       window.EJS_threads = online ? false : !!(window.crossOriginIsolated && typeof SharedArrayBuffer !== 'undefined');
       window.EJS_color = '#42e8ff'; window.EJS_backgroundColor = '#050913'; window.EJS_backgroundBlur = false;
-      window.EJS_controlScheme = 'arcade'; window.EJS_defaultControls = defaultControls(); window.EJS_VirtualGamepadSettings = []; window.EJS_disableVirtualGamepad = true;
+      window.EJS_controlScheme = 'arcade'; window.EJS_defaultControls = defaultControls();
+      // EmulatorJS 4.3.0-pre tem um bug no validador de VirtualGamepadSettings:
+      // passar [] entra no validador e ele tenta acessar `this.debug` dentro de uma
+      // function sem bind, fazendo `this` ficar undefined. Como usamos nosso próprio
+      // touchscreen, não enviamos configuração de gamepad virtual ao EmulatorJS.
+      try { delete window.EJS_VirtualGamepadSettings; } catch { window.EJS_VirtualGamepadSettings = undefined; }
+      try { delete window.EJS_disableVirtualGamepad; } catch { window.EJS_disableVirtualGamepad = undefined; }
       window.EJS_Buttons = { playPause: false, restart: false, mute: false, settings: false, fullscreen: false, saveState: false, loadState: false, screenRecord: false, gamepad: false, cheat: false, volume: false, saveSavFiles: false, loadSavFiles: false, quickSave: false, quickLoad: false, screenshot: false, cacheManager: false, exitEmulation: false };
       window.EJS_AdTimer = -1;
       // 4.3+ usa EJS_cacheConfig. EJS_CacheLimit ficou obsoleto depois do 4.2.3.
@@ -1019,7 +1025,7 @@
         document.querySelectorAll('script[data-gg-ejs-loader="1"]').forEach(el => el.remove());
         const script = document.createElement('script');
         script.dataset.ggEjsLoader = '1';
-        script.src = `${dataPath}loader.js?v=gg254`;
+        script.src = `${dataPath}loader.js?v=gg255`;
         script.async = true;
         script.onload = () => resolve(label);
         script.onerror = () => { script.remove(); reject(new Error(`Falha ao carregar loader (${label})`)); };
