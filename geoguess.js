@@ -1,11 +1,11 @@
 (() => {
 'use strict';
 const $=id=>document.getElementById(id), CORE=()=>window.GameGuessCore, FB=()=>window.GameGuessFirebase;
-const GEO_VERSION='20.7.0';
+const GEO_VERSION='20.8.0';
 const CAMERA_FOV=55;
-const REGIONS={world:['🌍','Mundo todo'],americas:['🌎','Américas'],europe:['🏰','Europa'],asia:['🌏','Ásia'],africa:['🦁','África'],oceania:['🌊','Oceania']};
+const REGIONS={brazil:['🇧🇷','Brasil'],world:['🌍','Mundo todo'],americas:['🌎','Américas'],europe:['🏰','Europa'],asia:['🌏','Ásia'],africa:['🦁','África'],oceania:['🌊','Oceania']};
 const GEO_DIFFICULTIES={easy:{icon:'🌱',timerSec:120,scoreMultiplier:0.85},normal:{icon:'🎯',timerSec:60,scoreMultiplier:1},hard:{icon:'🔥',timerSec:45,scoreMultiplier:1.35},insane:{icon:'💀',timerSec:30,scoreMultiplier:1.8}};
-let config={region:'world',rounds:5,maxPlayers:2,difficulty:'normal'};
+let config={region:'brazil',rounds:5,maxPlayers:2,difficulty:'normal'};
 let solo=null, map=null, guessMarker=null, targetMarker=null, line=null, selected=null;
 let roomCode='',room=null,unsub=null,mode='solo',lastRenderedRound=-1,advanceScheduled=-1,tick=null,soloTick=null;
 let mapillaryPromise=null,leafletPromise=null,mapillaryToken='',viewer=null,roundStartImageId='',lastImageId='',steps=0,suppressStep=false,roundToken=0;
@@ -131,17 +131,33 @@ async function ensureGuessMap(){
   if(map)return map;
   const L=await ensureLeaflet();
   if(!$('geoMap'))throw new Error('A área do mapa não está disponível. Atualize a página e tente novamente.');
-  map=L.map('geoMap',{worldCopyJump:true,minZoom:2,zoomControl:true,zoomSnap:.25}).setView([15,0],2);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18,attribution:'© OpenStreetMap contributors'}).addTo(map);
+  map=L.map('geoMap',{worldCopyJump:true,minZoom:1,zoomControl:false,zoomSnap:.25,scrollWheelZoom:false}).setView([-14.2,-51.9],2);
+  L.control.zoom({position:'topleft',zoomInTitle:'Aproximar mapa',zoomOutTitle:'Afastar mapa'}).addTo(map);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>'}).addTo(map);
   map.on('click',e=>{
     if(isLocked())return;
-    selected={lat:e.latlng.lat,lng:e.latlng.lng};
-    if(guessMarker)guessMarker.setLatLng(e.latlng);else guessMarker=L.marker(e.latlng).addTo(map);
+    const position=e.latlng.wrap();selected={lat:position.lat,lng:position.lng};
+    if(guessMarker)guessMarker.setLatLng(position);else guessMarker=L.marker(position,{icon:L.divIcon({className:'geo-guess-pin',html:'<span></span>',iconSize:[26,26],iconAnchor:[13,13]}),title:'Seu palpite'}).addTo(map);
     $('geoSubmitGuess').disabled=false;$('geoFeedback').innerHTML=`📍 Palpite marcado. <span class="geo-muted">Você ainda pode mover o pino antes de confirmar.</span>`;
   });
   return map;
 }
-function clearMarkers(){if(!map)return;for(const x of [guessMarker,targetMarker,line])if(x)map.removeLayer(x);guessMarker=targetMarker=line=null;selected=null;map.setView([15,0],2);$('geoMapCard')?.classList.remove('geo-result-mode','geo-map-expanded');}
+function clearMarkers(){
+  if(!map)return;
+  for(const marker of [guessMarker,targetMarker,line])if(marker)map.removeLayer(marker);
+  guessMarker=targetMarker=line=null;selected=null;
+  $('geoMapCard')?.classList.remove('geo-result-mode','geo-map-expanded','geo-map-minimized');
+  $('geoMapToggle')?.setAttribute('aria-expanded','false');
+  $('geoMapMinimize')?.setAttribute('aria-expanded','true');
+  if($('geoMapMinimize'))$('geoMapMinimize').textContent='−';
+  const region=mode==='arena'?room?.config?.region:config.region;
+  const views={world:[[15,0],2],americas:[[5,-75],2],europe:[[50,15],3],asia:[[30,100],2],africa:[[0,20],2],oceania:[[-25,140],3]};
+  setTimeout(()=>{
+    map.invalidateSize();
+    if(region==='brazil')map.fitBounds([[-34,-74],[6,-34]],{padding:[6,6],maxZoom:4});
+    else {const [center,zoom]=views[region]||views.world;map.setView(center,zoom);}
+  },220);
+}
 function hav(a,b,c,d){const R=6371,to=x=>x*Math.PI/180,dLat=to(c-a),dLon=to(d-b),x=Math.sin(dLat/2)**2+Math.cos(to(a))*Math.cos(to(c))*Math.sin(dLon/2)**2;return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));}
 function scoreDistance(km,difficulty='normal'){
   const multiplier=GEO_DIFFICULTIES[difficulty]?.scoreMultiplier||1;
@@ -272,7 +288,11 @@ async function browserMapillaryImages(lat,lng){
   let firstError=null;
   try{
     const nearby=await mapillaryGraphImages({lat,lng,radius:50,limit:20},12000);
-    if(nearby.length)return nearby;
+    if(nearby.some(img=>img.camera_type==='spherical'))return nearby;
+    if(nearby.length){
+      // Look beyond the nearest flat photograph before falling back to it.
+      try{const area=await mapillaryGraphImages({bbox:mlyBbox(lat,lng,1.5),limit:60},12000);return [...new Map([...area,...nearby].map(img=>[String(img.id),img])).values()];}catch{return nearby;}
+    }
   }catch(e){
     firstError=e;
     if([400,401,403,429].includes(Number(e?.status)))throw e;
@@ -293,7 +313,7 @@ async function resolveSeedInBrowser(seed){
   const candidates=shuffled(usable).sort((a,b)=>{
     const sa=(String(a.camera_type||'').toLowerCase()==='spherical'?100:0)+(seqFrequency.get(mlySequenceId(a))||0);
     const sb=(String(b.camera_type||'').toLowerCase()==='spherical'?100:0)+(seqFrequency.get(mlySequenceId(b))||0);
-    return sb-sa;
+    return sb-sa||(Number(b.captured_at)||0)-(Number(a.captured_at)||0);
   }).slice(0,4);
   let firstError=null;
   for(const img of candidates){
@@ -393,11 +413,18 @@ function ensureSequenceControls(){
   $('geoSeqNext')?.addEventListener('click',()=>moveSequence(1));
   $('geoSeqPrev').title='Imagem anterior (S ou ↓)';
   $('geoSeqNext').title='Próxima imagem (W ou ↑)';
+  $('geoSeqPrev').textContent='↓';$('geoSeqPrev').setAttribute('aria-label','Voltar pela rua');
+  $('geoSeqNext').textContent='↑';$('geoSeqNext').setAttribute('aria-label','Avançar pela rua');
   $('geoMapHotkey')?.addEventListener('click',toggleMap);
   $('geoFullscreen')?.addEventListener('click',toggleGeoFullscreen);
   const tools=$('geoPlayTools');
   tools.insertAdjacentHTML('beforeend','<button id="geoResetCamera" type="button" title="Centralizar câmera" aria-label="Centralizar câmera">◎</button>');
   $('geoResetCamera').addEventListener('click',resetCamera);
+  tools.insertAdjacentHTML('beforeend','<button id="geoZoomIn" type="button" title="Aproximar imagem" aria-label="Aproximar imagem">+</button><button id="geoZoomOut" type="button" title="Afastar imagem" aria-label="Afastar imagem">−</button><div class="geo-compass" title="Orientação da câmera"><span id="geoCompassNeedle" aria-hidden="true">▲</span><b id="geoCompassLabel">N</b></div>');
+  $('geoZoomIn').addEventListener('click',()=>zoomStreet(-10));
+  $('geoZoomOut').addEventListener('click',()=>zoomStreet(10));
+  $('geoMapToggle').insertAdjacentHTML('beforebegin','<button type="button" class="geo-map-toggle" id="geoMapMinimize" title="Ocultar ou mostrar minimapa" aria-label="Ocultar ou mostrar minimapa" aria-expanded="true">−</button>');
+  $('geoMapMinimize').addEventListener('click',()=>{const hidden=$('geoMapCard').classList.toggle('geo-map-minimized');$('geoMapMinimize').textContent=hidden?'+':'−';$('geoMapMinimize').setAttribute('aria-expanded',String(!hidden));setTimeout(()=>map?.invalidateSize?.(),220);});
   document.addEventListener('fullscreenchange',()=>{viewer?.resize?.();map?.invalidateSize?.();});
 }
 function updateSequenceControls(){
@@ -516,13 +543,14 @@ async function ensureViewer(){
     container:'geoStreetView',
     imageTiling:false,
     combinedPanning:false,
-    component:{cover:false,direction:true,keyboard:false,fallback:{image:true,navigation:true},sequence:false,zoom:true,cache:true}
+    component:{cover:false,direction:true,keyboard:false,fallback:{image:true,navigation:true},sequence:false,zoom:false,cache:true}
   };
   if(dataProvider)options.dataProvider=dataProvider;
   viewer=new mly.Viewer(options);
+  viewer.on('bearing',event=>{const bearing=Number(event.bearing);if(!Number.isFinite(bearing))return;const needle=$('geoCompassNeedle'),label=$('geoCompassLabel');if(needle)needle.style.transform=`rotate(${-bearing}deg)`;if(label)label.textContent=['N','NE','L','SE','S','SO','O','NO'][Math.round(((bearing%360+360)%360)/45)%8];});
   viewer.on('image',event=>{
     const image=event?.image,id=String(image?.id||'');if(!id)return;
-    if(image)rememberMlyMeta({id,computed_geometry:image.computedLngLat?{coordinates:[image.computedLngLat.lng,image.computedLngLat.lat]}:undefined,computed_compass_angle:image.computedCa,camera_type:image.cameraType,sequence:image.sequenceId?{id:image.sequenceId}:undefined});
+    if(image)rememberMlyMeta({id,computed_geometry:image.computedLngLat?{coordinates:[image.computedLngLat.lng,image.computedLngLat.lat]}:undefined,computed_compass_angle:image.computedCompassAngle,camera_type:image.cameraType,sequence:image.sequenceId?{id:image.sequenceId}:undefined});
     if(suppressStep){suppressStep=false;lastImageId=id;activeSequenceIndex=activeSequenceIds.indexOf(id);updateSequenceControls();return;}
     if(lastImageId&&id!==lastImageId&&!isLocked()){steps++;$('geoStepLabel').textContent=steps;}
     lastImageId=id;activeSequenceIndex=activeSequenceIds.indexOf(id);updateSequenceControls();
@@ -547,6 +575,7 @@ async function loadStreetRound(q){
   }
 }
 function resetCamera(){if(!viewer)return;try{viewer.setCenter([.5,.5]);viewer.setFieldOfView(CAMERA_FOV);}catch{}}
+async function zoomStreet(delta){if(!viewer)return;try{const fov=await viewer.getFieldOfView();viewer.setFieldOfView(Math.max(30,Math.min(80,fov+delta)));}catch{}}
 async function returnToStart(){const q=currentQ();if(!viewer||!q||isLocked()||sequenceMoveBusy)return;sequenceMoveBusy=true;updateSequenceControls();suppressStep=true;try{await viewer.moveTo(String(q.imageId));await prepareRoundSequence(q).catch(()=>[]);activeSequenceIndex=activeSequenceIds.indexOf(String(q.imageId));resetCamera();}catch(e){toast('Mapillary','Não consegui voltar ao ponto inicial.','error')}finally{sequenceMoveBusy=false;updateSequenceControls();}}
 
 function difficultyFor(value=config.difficulty){return GEO_DIFFICULTIES[value]||GEO_DIFFICULTIES.normal;}
@@ -604,7 +633,7 @@ function reveal(q,guess,km,pts){
   if(!map)return;const target=[Number(q.lat),Number(q.lng)],g=[Number(guess.lat),Number(guess.lng)];
   targetMarker=L.marker(target).addTo(map).bindPopup(`🎯 Local correto: ${esc(q.city)} • ${esc(q.country)}`).openPopup();
   line=L.polyline([g,target],{weight:4,opacity:.82,dashArray:'9 9'}).addTo(map);map.fitBounds(L.latLngBounds([g,target]).pad(.32),{maxZoom:8});
-  $('geoMapCard').classList.add('geo-result-mode','geo-map-expanded');$('geoReturnStart').disabled=true;updateSequenceControls();
+  $('geoMapCard').classList.remove('geo-map-minimized');$('geoMapCard').classList.add('geo-result-mode','geo-map-expanded');$('geoMapToggle')?.setAttribute('aria-expanded','true');$('geoMapMinimize')?.setAttribute('aria-expanded','true');if($('geoMapMinimize'))$('geoMapMinimize').textContent='−';$('geoReturnStart').disabled=true;updateSequenceControls();
   $('geoMoveHint').innerHTML=`🎯 <b>${esc(q.city)}</b> • ${esc(q.country)}`;
   $('geoFeedback').innerHTML=`<div class="geo-result-stats"><span><small>DISTÂNCIA</small><b>${fmtDistance(km)}</b></span><span><small>PONTOS</small><b>+${pts.toLocaleString('pt-BR')}</b></span><span><small>PASSOS</small><b>${steps}</b></span></div>`;
   setTimeout(()=>map.invalidateSize(),180);
@@ -660,7 +689,7 @@ function ensureArenaTicker(){if(tick)return;tick=setInterval(async()=>{if(!room|
 function finishArena(){if(tick){clearInterval(tick);tick=null}const u=user();if(!u||!room)return;const key=`ggGeoRecorded:${room.code}:${u.uid}`;if(!localStorage.getItem(key)){localStorage.setItem(key,'1');const p=CORE()?.getProfile?.()||{},won=room.winnerUid===u.uid,myScore=Number(myPlayer()?.score||0),difficulty=room.config?.difficulty||'normal';p.geoPlayed=Number(p.geoPlayed||0)+1;p.geoWins=Number(p.geoWins||0)+(won?1:0);p.gamesPlayed=Number(p.gamesPlayed||0)+1;if(won)p.gamesWon=Number(p.gamesWon||0)+1;p.geoBestScore=Math.max(Number(p.geoBestScore||0),myScore);const coinsEarned=window.GameGuessScoring?.pointsToCoinReward?.(myScore,difficulty)||(won?12:4);p.coins=Number(p.coins||0)+coinsEarned;window.GameGuessRanked?.record?.(p,{kind:'geoguess-arena',score:myScore,mode:`${players().length}-players`,universe:'geoguess',challenge:room.config?.region||'world',difficulty:difficulty,correct:Number(room.config?.rounds||0),wrong:0,won,players:players().length});CORE()?.replaceProfile?.(p);CORE()?.saveProfile?.();FB()?.syncLocalProfile?.(p);if(won)CORE()?.spawnConfetti?.();toast(won?'🏆 Você venceu o GeoGuess!':'GeoGuess finalizado',`${myScore.toLocaleString('pt-BR')} pontos • +${coinsEarned} moedas`);}const winner=room.players?.[room.winnerUid];$('geoFeedback').innerHTML=`🏆 Vencedor: <b>${esc(winner?.name||'Jogador')}</b> • ${Number(winner?.score||0).toLocaleString('pt-BR')} pontos`;}
 async function leaveRoom(){clearSoloTimer();if(roomCode)await FB()?.leaveGeoRoom?.(roomCode).catch(()=>{});unsub?.();unsub=null;room=null;roomCode='';localStorage.removeItem('gameGuessLastGeoRoom');lastRenderedRound=-1;advanceScheduled=-1;$('geoWaiting')?.classList.add('hidden');if(tick){clearInterval(tick);tick=null}show('geoSetupScreen')}
 function quit(){roundToken++;clearSoloTimer();if(mode==='arena'&&roomCode)return leaveRoom();solo=null;show('geoSetupScreen')}
-function toggleMap(){const c=$('geoMapCard');if(!c)return;const expanded=c.classList.toggle('geo-map-expanded');$('geoMapToggle')?.setAttribute('aria-expanded',String(expanded));setTimeout(()=>map?.invalidateSize?.(),220)}
+function toggleMap(){const c=$('geoMapCard');if(!c)return;c.classList.remove('geo-map-minimized');$('geoMapMinimize')?.setAttribute('aria-expanded','true');if($('geoMapMinimize'))$('geoMapMinimize').textContent='−';const expanded=c.classList.toggle('geo-map-expanded');$('geoMapToggle')?.setAttribute('aria-expanded',String(expanded));setTimeout(()=>map?.invalidateSize?.(),220)}
 function open(arena=false){show('geoSetupScreen');if(arena)setTimeout(()=>$('geoCreateRoom')?.scrollIntoView({behavior:'smooth',block:'center'}),100)}
 function bind(){inject();ensureSequenceControls();bindSequenceKeyboard();const openSolo=()=>open(false),openArena=()=>open(true);$('homeGeoButton')?.addEventListener('click',openSolo);$('homeGeoguessButton')?.addEventListener('click',openSolo);$('homeGeoArenaButton')?.addEventListener('click',openArena);$('homeGeoguessArenaButton')?.addEventListener('click',openArena);$('geoBack')?.addEventListener('click',()=>show('homeScreen'));$('geoSoloStart')?.addEventListener('click',startSolo);$('geoSubmitGuess')?.addEventListener('click',()=>mode==='solo'?submitSolo():submitArena());$('geoNextRound')?.addEventListener('click',nextSolo);$('geoCreateRoom')?.addEventListener('click',createRoom);$('geoJoinRoom')?.addEventListener('click',joinRoom);$('geoStartRoom')?.addEventListener('click',startRoom);$('geoLeaveRoom')?.addEventListener('click',leaveRoom);$('geoQuit')?.addEventListener('click',quit);$('geoReturnStart')?.addEventListener('click',returnToStart);$('geoMapToggle')?.addEventListener('click',toggleMap);$('geoCopyCode')?.addEventListener('click',()=>navigator.clipboard?.writeText(roomCode).then(()=>toast('Código copiado',roomCode)));window.addEventListener('gameguess:authchange',e=>{if(!e.detail?.user&&roomCode)leaveRoom()});}
 window.GameGuessGeo={open,version:GEO_VERSION};if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind);else bind();

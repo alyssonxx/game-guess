@@ -301,6 +301,50 @@ body.redesign .termo-key-row {min-width:0;width:100%}
   body.redesign .top-actions {width:100%;justify-content:flex-end;gap:7px!important}
   body.redesign .top-actions .mini-pill,body.redesign .top-actions .icon-btn {width:44px;min-width:44px;height:44px;min-height:44px}
 }
+/* Street exploration: camera first, compact map and unobtrusive controls. */
+body.redesign .geo-game-screen {padding-bottom:16px}
+body.redesign .geo-stage {height:max(520px,calc(100dvh - 165px));max-height:1080px}
+body.redesign .geo-map-card {width:216px;padding:6px;background:#f5f7f2f5;border:1px solid #fff9;box-shadow:0 4px 20px #0004}
+body.redesign .geo-map-head {gap:4px;height:34px;padding:0 0 4px}
+body.redesign .geo-map-head b {margin-right:auto;color:#273426;font-size:9px}
+body.redesign .geo-map-toggle {width:30px;height:30px;color:#314c2a;background:#e1e8dc;border:0}
+body.redesign .geo-map {height:112px;background:#dce8e9;border:1px solid #ced6c8}
+body.redesign .geo-map .leaflet-tile-pane {filter:saturate(.78) contrast(.96)}
+body.redesign .geo-map .leaflet-control-attribution {background:#fffffff0;color:#405045;font-size:9px}
+body.redesign .geo-map .leaflet-control-attribution a {color:#285b43}
+body.redesign .geo-map .leaflet-control-zoom a {width:28px;height:28px;line-height:26px;background:white;color:#233a29;border-color:#d4dfce}
+body.redesign .geo-map .leaflet-bar {border:1px solid #cdd7c6;box-shadow:0 2px 7px #0002}
+body.redesign .geo-map-card .geo-feedback {background:#e3ebde;color:#33472a;font-size:11px}
+body.redesign .geo-map-card .geo-feedback :is(b,span,small) {color:#33472a}
+body.redesign .geo-map-card.geo-map-minimized {width:162px}
+body.redesign .geo-map-minimized :is(.geo-map,.geo-map-actions,.geo-feedback) {display:none}
+body.redesign .geo-map-minimized .geo-map-head {padding:0}
+body.redesign .geo-guess-pin {display:grid;place-items:center;background:transparent}
+body.redesign .geo-guess-pin span {display:block;width:20px;height:20px;background:#177a54;border:3px solid white;border-radius:50%;box-shadow:0 0 0 5px #177a5433,0 3px 8px #0005}
+body.redesign .geo-sequence-nav {left:50%;bottom:25px;transform:translateX(-50%);grid-template-columns:44px 110px 44px;gap:8px;max-width:calc(100% - 32px);border:1px solid #ffffff30;border-radius:40px;padding:6px 10px;background:#17201ae6;box-shadow:0 4px 20px #0003}
+body.redesign .geo-sequence-nav button {border-radius:50%;font:600 25px var(--font-ui);width:44px;height:44px;background:#ffffff17;border-color:#ffffff29}
+body.redesign .geo-play-tools {gap:6px;align-items:center}
+body.redesign .geo-play-tools button {width:40px;height:40px;border-radius:50%;background:#17201ae6;box-shadow:0 3px 12px #0002}
+body.redesign .geo-compass {display:grid;place-items:center;width:40px;height:48px;color:white;background:#17201ae6;border-radius:20px;font-size:10px}
+body.redesign .geo-compass span {color:#ff7f78;line-height:18px;transition:transform .1s linear}
+body.redesign .geo-compass b {font-size:9px}
+body.redesign .geo-street-toolbar {top:68px}
+@media(max-width:760px) {
+  body.redesign .geo-stage {height:max(550px,calc(100dvh - 180px))}
+  body.redesign .geo-map-card {width:158px;bottom:84px;right:8px;padding:5px}
+  body.redesign .geo-map {height:90px}
+  body.redesign .geo-map-head b {font-size:8px}
+  body.redesign .geo-map-toggle {width:28px;height:30px;flex:none}
+  body.redesign .geo-map-actions .primary-btn {font-size:8px;min-height:36px;padding:7px 4px}
+  body.redesign .geo-sequence-nav {right:auto;left:50%;bottom:16px;width:236px;max-width:calc(100% - 16px)}
+  body.redesign .geo-map-card.geo-map-expanded {width:calc(100% - 16px)}
+  body.redesign .geo-map-card.geo-map-minimized {width:158px}
+  body.redesign .geo-play-tools {gap:5px;left:8px;top:8px}
+  body.redesign .geo-play-tools button {width:36px;height:40px}
+}
+@media(min-width:761px) and (max-width:980px) {
+  body.redesign .geo-sequence-nav {left:16px;transform:none}
+}
 @media (prefers-reduced-motion:reduce) {
   html {scroll-behavior:auto}
   body.redesign *,body.redesign *::before,body.redesign *::after {animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}

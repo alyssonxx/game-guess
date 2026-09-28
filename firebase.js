@@ -530,7 +530,7 @@ async function deleteDuel(code){if(!currentUser||!code)return;code=String(code).
 // Scores are still calculated by the game client, but room access, lifecycle and
 // presence are scoped to authenticated members of the room.
 const GEO_PROTOCOL_VERSION=1;
-const GEO_REGIONS=new Set(['world','americas','europe','asia','africa','oceania']);
+const GEO_REGIONS=new Set(['brazil','world','americas','europe','asia','africa','oceania']);
 const GEO_DIFFICULTIES=new Set(['easy','normal','hard','insane']);
 function geoRoomCode(){return roomCode();}
 function geoRoomRef(code){return ref(db,'geoRooms/'+String(code||'').trim().toUpperCase());}
