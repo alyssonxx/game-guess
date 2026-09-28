@@ -95,6 +95,7 @@
   let selectedControl = null;
   let foreignTouchObserver = null;
   let topbarHideTimer = 0;
+  let bootStage = 'idle';
   const held = new Map();
   const keyboardMaps = [];
   const stickHeld = new Map();
@@ -108,6 +109,7 @@
   function post(type, message, extra = {}) { try { parent.postMessage({ type, message, game: gameKey, ...extra }, location.origin); } catch {} }
   function mb(n) { return `${(Number(n || 0) / 1024 / 1024).toFixed(1)} MB`; }
   function setBoot(message) { if (bootText) bootText.textContent = message; }
+  function setBootStage(stage, message) { bootStage = String(stage || 'unknown'); setBoot(message); }
   function showStatus(message) { if (!status) return; status.textContent = message; status.classList.remove('status-hidden'); }
   function hideStatus() { if (!status) return; status.textContent = ''; status.classList.add('status-hidden'); }
   function fail(message) {
@@ -117,7 +119,8 @@
     if (startButton) { startButton.disabled = false; startButton.textContent = '↻ TENTAR NOVAMENTE'; }
     setBoot(msg);
     showStatus('❌ ' + msg);
-    post('arcade-player-error', msg);
+    console.error('[GameGuess Arcade]', { stage: bootStage, online, role, game: gameKey, ejs: EJS_VERSION, message: msg });
+    post('arcade-player-error', msg, { stage: bootStage, ejsVersion: EJS_VERSION });
   }
   async function head(url, timeout = 6500) {
     const ctrl = new AbortController(), timer = setTimeout(() => ctrl.abort(), timeout);
@@ -968,11 +971,11 @@
     if (loading || started || !game) return;
     loading = true; startButton.disabled = true; startButton.textContent = 'CARREGANDO…';
     try {
-      setBoot(`Validando ${game.url.split('/').pop()}…`);
+      setBootStage('rom-head', `Validando ${game.url.split('/').pop()}…`);
       const rom = await head(game.url);
       if (rom.status === 404 || rom.status === 410) throw new Error(`ROM não encontrada: ${game.url}`);
       if (rom.ok && rom.size && game.size && rom.size !== game.size) throw new Error(`ROM diferente da validada: ${rom.size} bytes; esperado ${game.size}.`);
-      setBoot(`ROM OK (${mb(rom.size || game.size)}). Carregando EmulatorJS ${EJS_VERSION} + ${game.core}…`);
+      setBootStage('ejs-config', `ROM OK (${mb(rom.size || game.size)}). Carregando EmulatorJS ${EJS_VERSION} + ${game.core}…`);
 
       const cfg = online ? await json('/api/kof-config') : null;
       const server = String(cfg?.netplayServer || PUBLIC_NETPLAY_SERVER).trim().replace(/\/+$/, '') || PUBLIC_NETPLAY_SERVER;
@@ -980,13 +983,26 @@
 
       window.EJS_player = '#game'; window.EJS_core = game.core; window.EJS_gameUrl = game.url; window.EJS_gameID = online ? gameId : game.localId;
       window.EJS_pathtodata = EJS_DATA; window.EJS_language = 'pt-BR'; window.EJS_disableAutoLang = true; window.EJS_startOnLoaded = true; window.EJS_noAutoFocus = true;
-      window.EJS_threads = !!(window.crossOriginIsolated && typeof SharedArrayBuffer !== 'undefined'); window.EJS_color = '#42e8ff'; window.EJS_backgroundColor = '#050913'; window.EJS_backgroundBlur = false;
+
+      // O 4.3.0-pre é um pré-release e a build minificada pode falhar antes do jogo
+      // com erros internos pouco descritivos (ex.: leitura de "debug" em objeto indefinido).
+      // No X1 usamos a build-fonte oficial da MESMA versão. Isso também deixa o log do
+      // EmulatorJS completo caso o Netplay/WebRTC falhe em um navegador específico.
+      window.EJS_DEBUG_XX = online;
+      // Threads não trazem vantagem para o bootstrap do netplay e aumentam a quantidade
+      // de estados concorrentes no pré-release. Mantemos threads apenas no modo local.
+      window.EJS_threads = online ? false : !!(window.crossOriginIsolated && typeof SharedArrayBuffer !== 'undefined');
+      window.EJS_color = '#42e8ff'; window.EJS_backgroundColor = '#050913'; window.EJS_backgroundBlur = false;
       window.EJS_controlScheme = 'arcade'; window.EJS_defaultControls = defaultControls(); window.EJS_VirtualGamepadSettings = []; window.EJS_disableVirtualGamepad = true;
       window.EJS_Buttons = { playPause: false, restart: false, mute: false, settings: false, fullscreen: false, saveState: false, loadState: false, screenRecord: false, gamepad: false, cheat: false, volume: false, saveSavFiles: false, loadSavFiles: false, quickSave: false, quickLoad: false, screenshot: false, cacheManager: false, exitEmulation: false };
-      window.EJS_AdTimer = -1; window.EJS_CacheLimit = 512 * 1024 * 1024;
+      window.EJS_AdTimer = -1;
+      // 4.3+ usa EJS_cacheConfig. EJS_CacheLimit ficou obsoleto depois do 4.2.3.
+      window.EJS_cacheConfig = { enabled: true, cacheMaxSizeMB: 512, cacheMaxAgeMins: 7200 };
+      if (!online) window.EJS_CacheLimit = 512 * 1024 * 1024;
+      else try { delete window.EJS_CacheLimit; } catch { window.EJS_CacheLimit = undefined; }
       if (online) { window.EJS_netplayServer = server; window.EJS_netplayICEServers = ice; } else { window.EJS_netplayServer = ''; window.EJS_netplayICEServers = []; }
 
-      window.EJS_ready = () => setBoot(`${game.core} carregado. Preparando ${game.title}…`);
+      window.EJS_ready = () => setBootStage('ejs-ready', `${game.core} carregado. Preparando ${game.title}…`);
       window.EJS_onGameStart = async () => {
         const ok = await waitDirect(); if (!ok) { fail('A entrada direta do emulador não ficou disponível.'); return; }
         started = true; loading = false; boot.style.display = 'none'; hideForeignTouchUI();
@@ -999,13 +1015,19 @@
 
       const loadLoader = (dataPath, label) => new Promise((resolve, reject) => {
         EJS_DATA = dataPath; window.EJS_pathtodata = dataPath;
-        const script = document.createElement('script'); script.src = `${dataPath}loader.js`; script.async = true;
-        script.onload = () => resolve(label); script.onerror = () => { script.remove(); reject(new Error(label)); };
+        setBootStage(`loader:${label}`, `Carregando EmulatorJS ${EJS_VERSION} (${label})…`);
+        document.querySelectorAll('script[data-gg-ejs-loader="1"]').forEach(el => el.remove());
+        const script = document.createElement('script');
+        script.dataset.ggEjsLoader = '1';
+        script.src = `${dataPath}loader.js?v=gg254`;
+        script.async = true;
+        script.onload = () => resolve(label);
+        script.onerror = () => { script.remove(); reject(new Error(`Falha ao carregar loader (${label})`)); };
         document.body.appendChild(script);
       });
       try { await loadLoader(EJS_PROXY_DATA, 'proxy da Vercel'); }
       catch {
-        setBoot(`Proxy indisponível. Tentando CDN direto do EmulatorJS ${EJS_VERSION}…`);
+        setBootStage('loader:fallback-cdn', `Proxy indisponível. Tentando CDN direto do EmulatorJS ${EJS_VERSION}…`);
         try { await loadLoader(EJS_DIRECT_DATA, 'CDN direto'); }
         catch { throw new Error(`Não foi possível carregar EmulatorJS ${EJS_VERSION} pelo proxy da Vercel nem pelo CDN direto.`); }
       }
@@ -1042,6 +1064,14 @@
     if (d.type === 'arcade-replay-stop') stopReplayRecording(d.meta || {});
   });
   addEventListener('pagehide', () => { stopReplayRecording({ reason:'pagehide' }); releaseAll(); stopNetplayTimers(); clearTopbarTimer(); cancelAnimationFrame(padFrame); });
-  addEventListener('unhandledrejection', e => { if (!started && e?.reason) fail(e.reason?.message || String(e.reason)); });
+  addEventListener('unhandledrejection', e => {
+    if (!started && e?.reason) {
+      console.error('[GameGuess Arcade] unhandledrejection', e.reason);
+      fail(e.reason?.message || String(e.reason));
+    }
+  });
+  addEventListener('error', e => {
+    if (!started && e?.error) console.error('[GameGuess Arcade] window.error', e.error);
+  });
   setTimeout(() => { if (game && !started && !loading) bootGame(); }, 220);
 })();
