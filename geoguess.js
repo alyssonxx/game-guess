@@ -1,10 +1,21 @@
 (() => {
 'use strict';
 const $=id=>document.getElementById(id), CORE=()=>window.GameGuessCore, FB=()=>window.GameGuessFirebase;
-const GEO_VERSION='20.8.0';
+const GEO_VERSION='21.0.0';
 const CAMERA_FOV=55;
 const REGIONS={brazil:['🇧🇷','Brasil'],world:['🌍','Mundo todo'],americas:['🌎','Américas'],europe:['🏰','Europa'],asia:['🌏','Ásia'],africa:['🦁','África'],oceania:['🌊','Oceania']};
-const GEO_DIFFICULTIES={easy:{icon:'🌱',timerSec:120,scoreMultiplier:0.85},normal:{icon:'🎯',timerSec:60,scoreMultiplier:1},hard:{icon:'🔥',timerSec:45,scoreMultiplier:1.35},insane:{icon:'💀',timerSec:30,scoreMultiplier:1.8}};
+const GEO_ROUND_SECONDS=300;
+const GEO_GUESS_PENALTY_MS=50000;
+let L=null,geoProvider='';
+const googleGeo=()=>window.GameGuessGoogle;
+async function ensureGeoProvider(){
+  if(geoProvider)return geoProvider;
+  const {r,d}=await fetchJsonWithTimeout('/api/geoguess-config',8000);
+  if(!r.ok)throw new Error(d?.message||'Não foi possível carregar a configuração do GeoGuess.');
+  geoProvider=d?.provider==='google'?'google':'mapillary';
+  document.body.classList.toggle('geo-google-provider',geoProvider==='google');
+  return geoProvider;
+}
 let config={region:'brazil',rounds:5,maxPlayers:2,difficulty:'normal'};
 let solo=null, map=null, guessMarker=null, targetMarker=null, line=null, selected=null;
 let roomCode='',room=null,unsub=null,mode='solo',lastRenderedRound=-1,advanceScheduled=-1,tick=null,soloTick=null;
@@ -24,8 +35,8 @@ function inject(){
   <section class="screen geo-setup-screen" id="geoSetupScreen">
     <div class="section-heading geo-section-heading"><button class="back-link" id="geoBack">← Voltar</button><div><p class="eyebrow">🌍 GEOGUESS ARENA</p><h2>Onde no mundo?</h2><p>Explore imagens reais de rua, siga as pistas e fixe seu palpite no mapa antes que o relógio acabe.</p></div></div>
     <div class="geo-setup-layout">
-      <section class="geo-setup-card geo-solo-card"><div class="geo-card-kicker">JOGUE NO SEU RITMO</div><h3>🎮 Partida solo</h3><label>Região<select id="geoRegion"></select></label><label>Dificuldade<select id="geoDifficulty"><option value="easy">🌱 Fácil • 120s</option><option value="normal" selected>🎯 Normal • 60s</option><option value="hard">🔥 Difícil • 45s</option><option value="insane">💀 Insano • 30s</option></select></label><label>Rodadas<select id="geoRounds"><option value="3">3 rodadas</option><option value="5" selected>5 rodadas</option><option value="8">8 rodadas</option></select></label><div class="geo-mode-explain"><b>🚶 Movimento liberado</b><span>Avance pelas imagens, arraste para olhar ao redor e use as pistas do cenário antes de marcar o mapa.</span></div><button class="primary-btn huge" id="geoSoloStart">INICIAR SOLO ▶</button></section>
-      <section class="geo-setup-card geo-arena-card"><div class="geo-card-kicker">DESAFIE AMIGOS</div><h3>⚔️ Arena online</h3><label>Região<select id="geoArenaRegion"></select></label><label>Dificuldade<select id="geoArenaDifficulty"><option value="easy">🌱 Fácil • 120s</option><option value="normal" selected>🎯 Normal • 60s</option><option value="hard">🔥 Difícil • 45s</option><option value="insane">💀 Insano • 30s</option></select></label><div class="geo-arena-options"><label>Rodadas<select id="geoArenaRounds"><option value="3">3 rodadas</option><option value="5" selected>5 rodadas</option><option value="8">8 rodadas</option></select></label><label>Jogadores<select id="geoMaxPlayers">${[2,3,4,5,6,7,8].map(n=>`<option value="${n}">${n} jogadores${n===2?' — 1x1':''}</option>`).join('')}</select></label></div><div class="geo-room-actions"><button class="primary-btn" id="geoCreateRoom">CRIAR SALA</button><div class="geo-join"><input id="geoJoinCode" maxlength="6" placeholder="ABC123" autocomplete="off" aria-label="Código da sala"><button class="secondary-btn" id="geoJoinRoom">ENTRAR</button></div></div><small>Todos recebem a mesma sequência, com cronômetro e placar ao vivo. É preciso entrar na conta para jogar online.</small></section>
+      <section class="geo-setup-card geo-solo-card"><div class="geo-card-kicker">JOGUE NO SEU RITMO</div><h3>🎮 Partida solo</h3><label>Região<select id="geoRegion"></select></label><div class="geo-mode-explain"><b>⏱️ 5 minutos por rodada</b><span>Pontuação pela distância, com as mesmas regras para todos.</span></div><label>Rodadas<select id="geoRounds"><option value="3">3 rodadas</option><option value="5" selected>5 rodadas</option><option value="8">8 rodadas</option></select></label><div class="geo-mode-explain"><b>🚶 Movimento liberado</b><span>Avance pelas imagens, arraste para olhar ao redor e use as pistas do cenário antes de marcar o mapa.</span></div><button class="primary-btn huge" id="geoSoloStart">INICIAR SOLO ▶</button></section>
+      <section class="geo-setup-card geo-arena-card"><div class="geo-card-kicker">DESAFIE AMIGOS</div><h3>⚔️ Arena online</h3><label>Região<select id="geoArenaRegion"></select></label><div class="geo-mode-explain"><b>⏱️ 5 minutos por rodada</b><span>Os dois primeiros palpites confirmados retiram 50 segundos cada do relógio de todos.</span></div><div class="geo-arena-options"><label>Rodadas<select id="geoArenaRounds"><option value="3">3 rodadas</option><option value="5" selected>5 rodadas</option><option value="8">8 rodadas</option></select></label><label>Jogadores<select id="geoMaxPlayers">${[2,3,4,5,6,7,8].map(n=>`<option value="${n}">${n} jogadores${n===2?' — 1x1':''}</option>`).join('')}</select></label></div><div class="geo-room-actions"><button class="primary-btn" id="geoCreateRoom">CRIAR SALA</button><div class="geo-join"><input id="geoJoinCode" maxlength="6" placeholder="ABC123" autocomplete="off" aria-label="Código da sala"><button class="secondary-btn" id="geoJoinRoom">ENTRAR</button></div></div><small>Todos recebem a mesma sequência, com cronômetro e placar ao vivo. É preciso entrar na conta para jogar online.</small></section>
       <section class="geo-waiting hidden" id="geoWaiting"><div class="geo-room-code"><span>SALA</span><b id="geoRoomCode">------</b><button class="icon-btn" id="geoCopyCode" aria-label="Copiar código da sala" title="Copiar código da sala">📋</button></div><div id="geoWaitingPlayers" class="geo-waiting-players"></div><div id="geoWaitingStatus"></div><button class="primary-btn huge" id="geoStartRoom">INICIAR PARTIDA</button><button class="secondary-btn" id="geoLeaveRoom">SAIR DA SALA</button></section>
     </div>
   </section>
@@ -34,7 +45,7 @@ function inject(){
     <div class="geo-stage" id="geoStage">
       <section class="geo-street-card">
         <div id="geoStreetView" class="geo-street-view" aria-label="Imagem de rua da rodada"></div>
-        <div class="geo-street-loading" id="geoStreetLoading" role="status"><div class="geo-spinner"></div><b>Preparando Mapillary...</b><span>Procurando uma sequência de imagens de rua navegável.</span></div>
+        <div class="geo-street-loading" id="geoStreetLoading" role="status"><div class="geo-spinner"></div><b>Preparando imagens da rua...</b><span>Procurando uma sequência de imagens de rua navegável.</span></div>
         <div class="geo-street-toolbar"><button id="geoReturnStart" class="geo-float-btn" title="Voltar ao ponto inicial">↩️ INÍCIO</button><span id="geoMoveHint">🚶 Avance pelas imagens para encontrar pistas • © Mapillary</span></div>
       </section>
       <section class="geo-map-card" id="geoMapCard">
@@ -129,7 +140,8 @@ async function ensureLeaflet(){
 }
 async function ensureGuessMap(){
   if(map)return map;
-  const L=await ensureLeaflet();
+  await ensureGeoProvider();
+  if(geoProvider==='google'){await googleGeo().ensure();L=googleGeo().mapLibrary();}else L=await ensureLeaflet();
   if(!$('geoMap'))throw new Error('A área do mapa não está disponível. Atualize a página e tente novamente.');
   map=L.map('geoMap',{worldCopyJump:true,minZoom:1,zoomControl:false,zoomSnap:.25,scrollWheelZoom:false}).setView([-14.2,-51.9],2);
   L.control.zoom({position:'topleft',zoomInTitle:'Aproximar mapa',zoomOutTitle:'Afastar mapa'}).addTo(map);
@@ -160,7 +172,7 @@ function clearMarkers(){
 }
 function hav(a,b,c,d){const R=6371,to=x=>x*Math.PI/180,dLat=to(c-a),dLon=to(d-b),x=Math.sin(dLat/2)**2+Math.cos(to(a))*Math.cos(to(c))*Math.sin(dLon/2)**2;return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));}
 function scoreDistance(km,difficulty='normal'){
-  const multiplier=GEO_DIFFICULTIES[difficulty]?.scoreMultiplier||1;
+  const multiplier=1;
   const scoreConfig={distance:km,formula:'distanceBased',difficultyMultiplier:multiplier};
   const pts=window.GameGuessScoring?.calculateScore?.('geoguess',scoreConfig);
   return pts||Math.max(0,Math.round(5000*Math.exp(-km/1800)*multiplier));
@@ -333,7 +345,8 @@ function updatePrepareProgress(found,wanted,checked,total){
   for(const id of ['geoSoloStart','geoCreateRoom']){const b=$(id);if(b?.disabled)b.textContent=label;}
 }
 async function fetchRounds(){
-  await ensureMapillaryToken();
+  await ensureGeoProvider();
+  if(geoProvider==='google')await googleGeo().begin();else await ensureMapillaryToken();
   const wanted=config.rounds;
   let data={};
   try{
@@ -346,6 +359,7 @@ async function fetchRounds(){
   }
   const seeds=Array.isArray(data.seeds)?data.seeds:[];
   if(!seeds.length)throw new Error('O servidor não retornou locais candidatos para esta região.');
+  if(geoProvider==='google')return googleGeo().resolveSeeds(seeds,wanted);
   const resolved=[];let firstError=null,checked=0;
   // Busca paralela no navegador: evita o timeout de funções serverless do Vercel.
   for(let i=0;i<seeds.length&&resolved.length<wanted;i+=4){
@@ -429,6 +443,13 @@ function ensureSequenceControls(){
 }
 function updateSequenceControls(){
   ensureSequenceControls();
+  if(geoProvider==='google'){
+    const locked=isLocked();googleGeo().lock(locked);
+    if($('geoSeqPrev'))$('geoSeqPrev').disabled=locked;
+    if($('geoSeqNext'))$('geoSeqNext').disabled=locked;
+    if($('geoSeqPosition'))$('geoSeqPosition').innerHTML='STREET VIEW<small>Use as setas da rua ou W/S</small>';
+    return;
+  }
   const prev=$('geoSeqPrev'),next=$('geoSeqNext'),label=$('geoSeqPosition'),locked=isLocked(),idx=navIndex(),total=activeSequenceIds.length;
   if(label&&!sequenceMoveBusy&&!continuationSearchBusy&&!navStatusTimer){
     const edge=total&&idx>=0&&((idx===0)||(idx===total-1));
@@ -485,6 +506,7 @@ async function moveNearbyContinuation(direction){
   finally{continuationSearchBusy=false;updateSequenceControls();}
 }
 async function moveSequence(delta){
+  if(geoProvider==='google'){if(!isLocked())googleGeo().move(delta);return;}
   if(sequenceMoveBusy||continuationSearchBusy||!viewer||isLocked())return;
   let idx=navIndex();const dir=delta<0?-1:1;
   if(idx<0||!activeSequenceIds.length)return;
@@ -559,8 +581,15 @@ async function ensureViewer(){
   return viewer;
 }
 async function loadStreetRound(q){
+  if(geoProvider==='google'){
+    if(q.provider!=='google')throw new Error('Esta sala usa outro provedor. Crie uma nova sala para jogar com o Google.');
+    const loading=$('geoStreetLoading');loading.textContent='Carregando Google Street View...';loading.classList.remove('hidden');
+    try{await googleGeo().load(q);viewer={resize:()=>googleGeo().resize()};loading.classList.add('hidden');$('geoStreetView').classList.add('ready');updateSequenceControls();}
+    catch(error){loading.textContent=error.message||'Street View indisponível.';throw error;}
+    return;
+  }
   const token=++roundToken,loading=$('geoStreetLoading'),view=$('geoStreetView');
-  loading.innerHTML='<div class="geo-spinner"></div><b>Preparando Mapillary...</b><span>Carregando a sequência de imagens da rodada.</span>';loading.classList.remove('hidden');view.classList.remove('ready');
+  loading.innerHTML='<div class="geo-spinner"></div><b>Preparando imagens da rua...</b><span>Carregando a sequência de imagens da rodada.</span>';loading.classList.remove('hidden');view.classList.remove('ready');
   const v=await ensureViewer();if(token!==roundToken)return;
   roundStartImageId=String(q.imageId);lastImageId=roundStartImageId;steps=0;$('geoStepLabel').textContent='0';suppressStep=true;continuationCache.clear();
   try{
@@ -575,16 +604,18 @@ async function loadStreetRound(q){
   }
 }
 function resetCamera(){if(!viewer)return;try{viewer.setCenter([.5,.5]);viewer.setFieldOfView(CAMERA_FOV);}catch{}}
-async function zoomStreet(delta){if(!viewer)return;try{const fov=await viewer.getFieldOfView();viewer.setFieldOfView(Math.max(30,Math.min(80,fov+delta)));}catch{}}
-async function returnToStart(){const q=currentQ();if(!viewer||!q||isLocked()||sequenceMoveBusy)return;sequenceMoveBusy=true;updateSequenceControls();suppressStep=true;try{await viewer.moveTo(String(q.imageId));await prepareRoundSequence(q).catch(()=>[]);activeSequenceIndex=activeSequenceIds.indexOf(String(q.imageId));resetCamera();}catch(e){toast('Mapillary','Não consegui voltar ao ponto inicial.','error')}finally{sequenceMoveBusy=false;updateSequenceControls();}}
+async function zoomStreet(delta){if(geoProvider==='google'){googleGeo().zoom(delta);return;}if(!viewer)return;try{const fov=await viewer.getFieldOfView();viewer.setFieldOfView(Math.max(30,Math.min(80,fov+delta)));}catch{}}
+async function returnToStart(){if(geoProvider==='google'){if(!isLocked())googleGeo().reset();return;}const q=currentQ();if(!viewer||!q||isLocked()||sequenceMoveBusy)return;sequenceMoveBusy=true;updateSequenceControls();suppressStep=true;try{await viewer.moveTo(String(q.imageId));await prepareRoundSequence(q).catch(()=>[]);activeSequenceIndex=activeSequenceIds.indexOf(String(q.imageId));resetCamera();}catch(e){toast('Mapillary','Não consegui voltar ao ponto inicial.','error')}finally{sequenceMoveBusy=false;updateSequenceControls();}}
 
-function difficultyFor(value=config.difficulty){return GEO_DIFFICULTIES[value]||GEO_DIFFICULTIES.normal;}
+function difficultyFor(){return {timerSec:GEO_ROUND_SECONDS,scoreMultiplier:1};}
+function formatGeoTime(seconds){const value=Math.max(0,Math.ceil(seconds));return `${Math.floor(value/60)}:${String(value%60).padStart(2,'0')}`;}
+function geoNow(){return FB()?.serverNow?.()||Date.now();}
 function clearSoloTimer(){if(soloTick){clearInterval(soloTick);soloTick=null;}if(solo)solo.deadline=0;}
 function renderSoloTimer(){
   if(!solo?.deadline)return;
   const left=Math.max(0,Math.ceil((solo.deadline-Date.now())/1000));
   const label=$('geoTimerLabel');
-  if(label){label.textContent=`⏱️ ${left}`;label.classList.toggle('geo-timer-warning',left<=10);}
+  if(label){label.textContent=`⏱️ ${formatGeoTime(left)}`;label.classList.toggle('geo-timer-warning',left<=10);}
   if(left<=0)expireSoloRound();
 }
 function startSoloTimer(){
@@ -619,15 +650,15 @@ async function displayRound(){
   clearMarkers();
   const idx=mode==='solo'?solo.index:Number(room.roundIndex||0),total=mode==='solo'?solo.questions.length:Number(room.config?.rounds||room.questions?.length||5);
   const difficulty=difficultyFor(mode==='arena'?room?.config?.difficulty:config.difficulty);
-  $('geoRoundLabel').textContent=`${idx+1}/${total}`;$('geoScoreLabel').textContent=mode==='solo'?solo.score:Number(myPlayer()?.score||0);$('geoModeBadge').textContent=mode==='solo'?`🌍 SOLO • ${difficulty.icon}`:`⚔️ SALA ${roomCode}`;
-  $('geoTimerLabel').classList.remove('hidden');$('geoTimerLabel').classList.remove('geo-timer-warning');$('geoTimerLabel').textContent=`⏱️ ${difficulty.timerSec}`;
-  $('geoMoveHint').textContent=q.cameraType==='spherical'?'🌀 360° • W/↑/Espaço avança • S/↓ volta • M mapa • F tela cheia • © Mapillary':'🚶 W/↑/Espaço avança • S/↓ volta • fim da sequência conecta outra rua • © Mapillary';$('geoFeedback').textContent='Clique no mapa para colocar seu palpite.';$('geoSubmitGuess').classList.remove('hidden');$('geoSubmitGuess').disabled=true;$('geoNextRound').textContent='PRÓXIMA RODADA ▶';$('geoNextRound').classList.add('hidden');$('geoReturnStart').disabled=false;selected=null;
+  $('geoRoundLabel').textContent=`${idx+1}/${total}`;$('geoScoreLabel').textContent=mode==='solo'?solo.score:Number(myPlayer()?.score||0);$('geoModeBadge').textContent=mode==='solo'?'🌍 SOLO • 5 MIN':`⚔️ SALA ${roomCode}`;
+  $('geoTimerLabel').classList.remove('hidden');$('geoTimerLabel').classList.remove('geo-timer-warning');$('geoTimerLabel').textContent=`⏱️ ${formatGeoTime(GEO_ROUND_SECONDS)}`;
+  $('geoMoveHint').textContent=geoProvider==='google'?'Google Street View • W/S para caminhar • M mapa • F tela cheia':q.cameraType==='spherical'?'🌀 360° • W/↑/Espaço avança • S/↓ volta • M mapa • F tela cheia • © Mapillary':'🚶 W/↑/Espaço avança • S/↓ volta • fim da sequência conecta outra rua • © Mapillary';$('geoFeedback').textContent='Clique no mapa para colocar seu palpite.';$('geoSubmitGuess').classList.remove('hidden');$('geoSubmitGuess').disabled=true;$('geoNextRound').textContent='PRÓXIMA RODADA ▶';$('geoNextRound').classList.add('hidden');$('geoReturnStart').disabled=false;selected=null;
   $('geoScoreboard')?.classList.toggle('hidden',mode!=='arena');if(mode==='arena')renderScoreboard();setTimeout(()=>map?.invalidateSize?.(),100);
   try{
     await loadStreetRound(q);
     if(q!==currentQ())return;
     if(mode==='solo')startSoloTimer();
-  }catch(e){toast('Mapillary',e.message||String(e),'error');}
+  }catch(e){toast('Imagens indisponíveis',e.message||String(e),'error');}
 }
 function reveal(q,guess,km,pts){
   if(!map)return;const target=[Number(q.lat),Number(q.lng)],g=[Number(guess.lat),Number(guess.lng)];
@@ -641,10 +672,10 @@ function reveal(q,guess,km,pts){
 function awardCoins(amount){const p=CORE()?.getProfile?.()||{};const coins=window.GameGuessScoring?.pointsToCoinReward?.(amount,'normal')||Math.max(0,Math.round(amount));p.coins=Number(p.coins||0)+coins;CORE()?.replaceProfile?.(p);CORE()?.saveProfile?.();FB()?.syncLocalProfile?.(p);}
 
 async function startSolo(){
-  config.region=$('geoRegion').value;config.difficulty=$('geoDifficulty').value||'normal';config.rounds=Number($('geoRounds').value)||5;const b=$('geoSoloStart');b.disabled=true;b.textContent='PREPARANDO MAPILLARY...';
-  try{const [questions]=await Promise.all([fetchRounds(),ensureGuessMap()]);mode='solo';solo={questions,index:0,score:0,answered:false,deadline:0};show('geoGameScreen');setTimeout(()=>displayRound(),100)}catch(e){toast('GeoGuess indisponível',e.message||String(e),'error')}finally{b.disabled=false;b.textContent='INICIAR SOLO ▶';}
+  config.region=$('geoRegion').value;config.difficulty='normal';config.rounds=Number($('geoRounds').value)||5;const b=$('geoSoloStart');b.disabled=true;b.textContent='PREPARANDO LOCALIZAÇÕES...';
+  try{const questions=await fetchRounds();await ensureGuessMap();mode='solo';solo={questions,index:0,score:0,answered:false,deadline:0};show('geoGameScreen');setTimeout(()=>displayRound(),100)}catch(e){toast('GeoGuess indisponível',e.message||String(e),'error')}finally{b.disabled=false;b.textContent='INICIAR SOLO ▶';}
 }
-function submitSolo(){if(!selected||solo?.answered)return;clearSoloTimer();const q=currentQ(),km=hav(selected.lat,selected.lng,q.lat,q.lng),pts=scoreDistance(km,config.difficulty);solo.answered=true;solo.score+=pts;$('geoScoreLabel').textContent=solo.score;reveal(q,selected,km,pts);$('geoSubmitGuess').classList.add('hidden');$('geoNextRound').classList.remove('hidden');awardCoins(Math.max(1,Math.min(6,Math.round(pts/1000))));}
+function submitSolo(){if(!selected||solo?.answered||!solo?.deadline)return;if(Date.now()>=solo.deadline)return expireSoloRound();clearSoloTimer();const q=currentQ(),km=hav(selected.lat,selected.lng,q.lat,q.lng),pts=scoreDistance(km,config.difficulty);solo.answered=true;solo.score+=pts;$('geoScoreLabel').textContent=solo.score;reveal(q,selected,km,pts);$('geoSubmitGuess').classList.add('hidden');$('geoNextRound').classList.remove('hidden');awardCoins(Math.max(1,Math.min(6,Math.round(pts/1000))));}
 function nextSolo(){
   if(!solo)return;
   clearSoloTimer();
@@ -662,13 +693,25 @@ function players(){return Object.values(room?.players||{}).filter(p=>!p.left).so
 function myPlayer(){const u=user();return u?room?.players?.[u.uid]:null}
 function online(uid){return Object.keys(room?.presence?.[uid]||{}).length>0}
 function renderWaiting(){if(!room)return;$('geoWaiting').classList.remove('hidden');$('geoRoomCode').textContent=roomCode;$('geoWaitingPlayers').innerHTML=players().map(p=>`<div><span>${p.uid===room.hostUid?'👑':'🌍'}</span><b>${esc(p.name)}</b><small>${online(p.uid)?'🟢 online':'🟡 reconectando'}</small></div>`).join('');$('geoWaitingStatus').textContent=`${players().length}/${room.config?.maxPlayers||2} jogadores na sala`;$('geoStartRoom').classList.toggle('hidden',room.hostUid!==user()?.uid);$('geoStartRoom').disabled=players().length<2;}
-function renderScoreboard(){if(mode!=='arena'||!room)return;$('geoScoreboard').classList.remove('hidden');$('geoScoreRows').innerHTML=players().sort((a,b)=>Number(b.score||0)-Number(a.score||0)).map((p,i)=>`<div><span>#${i+1}</span><b>${esc(p.name)}</b><small>${Number(p.submittedRound)===Number(room.roundIndex)?(p.timedOut?'⌛ tempo esgotado':`✅ ${fmtDistance(Number(p.distanceKm||0))}`):'🚶 explorando'}</small><strong>${Number(p.score||0).toLocaleString('pt-BR')}</strong></div>`).join('');}
+function renderScoreboard(){
+  if(mode!=='arena'||!room)return;
+  const finished=room.status==='finished',list=players().sort((a,b)=>Number(b.score||0)-Number(a.score||0));
+  $('geoScoreboard').classList.remove('hidden');
+  $('geoScoreboard').querySelector('h3').textContent=finished?'🏆 Classificação final':'🏆 Classificação • pontos acumulados';
+  $('geoScoreRows').innerHTML=list.map((p,i)=>{
+    const rank=list.findIndex(other=>Number(other.score||0)===Number(p.score||0))+1;
+    const submitted=Number(p.submittedRound)===Number(room.roundIndex);
+    const detail=submitted?(p.timedOut?'⌛ Tempo esgotado':`Rodada: +${Number(p.roundScore||0).toLocaleString('pt-BR')} pts`):'🚶 Explorando';
+    return `<div><span>#${rank}</span><b>${esc(p.name)}</b><small>${detail}</small><strong>${Number(p.score||0).toLocaleString('pt-BR')} pts</strong></div>`;
+  }).join('');
+  $('geoScoreLabel').textContent=Number(myPlayer()?.score||0).toLocaleString('pt-BR');
+}
 async function createRoom(){
   if(!user())return toast('Login necessário','Entre na sua conta para criar uma Arena GeoGuess.','error');
-  config.region=$('geoArenaRegion').value;config.difficulty=$('geoArenaDifficulty').value||'normal';config.rounds=Number($('geoArenaRounds').value)||5;config.maxPlayers=Number($('geoMaxPlayers').value)||2;
-  const b=$('geoCreateRoom');b.disabled=true;b.textContent='PREPARANDO MAPILLARY...';
+  config.region=$('geoArenaRegion').value;config.difficulty='normal';config.rounds=Number($('geoArenaRounds').value)||5;config.maxPlayers=Number($('geoMaxPlayers').value)||2;
+  const b=$('geoCreateRoom');b.disabled=true;b.textContent='PREPARANDO LOCALIZAÇÕES...';
   try{
-    const [questions]=await Promise.all([fetchRounds(),ensureGuessMap()]);
+    const questions=await fetchRounds();await ensureGuessMap();
     const diff=difficultyFor(config.difficulty);
     roomCode=await FB().createGeoRoom({questions,region:config.region,difficulty:config.difficulty,rounds:config.rounds,maxPlayers:config.maxPlayers,timerSec:diff.timerSec});
     localStorage.setItem('gameGuessLastGeoRoom',roomCode);mode='arena';watchRoom(roomCode);$('geoWaiting').classList.remove('hidden');toast('Sala criada',`Código ${roomCode}`);
@@ -677,16 +720,35 @@ async function createRoom(){
 async function joinRoom(){
   if(!user())return toast('Login necessário','Entre na sua conta para entrar na Arena GeoGuess.','error');
   const code=String($('geoJoinCode').value||'').trim().toUpperCase();
-  try{await ensureGuessMap();roomCode=await FB().joinGeoRoom(code);localStorage.setItem('gameGuessLastGeoRoom',roomCode);mode='arena';watchRoom(roomCode);$('geoWaiting').classList.remove('hidden');toast('Conectado',`Você entrou em ${roomCode}`)}catch(e){toast('Não consegui entrar',e.message||String(e),'error')}
+  try{await ensureGeoProvider();if(geoProvider==='google')await googleGeo().begin();await ensureGuessMap();roomCode=await FB().joinGeoRoom(code);localStorage.setItem('gameGuessLastGeoRoom',roomCode);mode='arena';watchRoom(roomCode);$('geoWaiting').classList.remove('hidden');toast('Conectado',`Você entrou em ${roomCode}`)}catch(e){toast('Não consegui entrar',e.message||String(e),'error')}
 }
 function watchRoom(code){unsub?.();unsub=FB().watchGeoRoom(code,(r,e)=>{if(e)return toast('GeoGuess',e.message||'Falha na sala.','error');room=r;if(!r){roomCode='';$('geoWaiting')?.classList.add('hidden');if(tick){clearInterval(tick);tick=null;}return;}FB()?.ensureGeoHost?.(code);if(r.status==='waiting'){show('geoSetupScreen');renderWaiting()}else if(r.status==='playing'){show('geoGameScreen');const idx=Number(r.roundIndex||0);if(lastRenderedRound!==idx){lastRenderedRound=idx;displayRound()}else{renderScoreboard();maybeRevealArena();}ensureArenaTicker()}else if(r.status==='finished'){show('geoGameScreen');renderScoreboard();finishArena();}})}
 async function startRoom(){try{await FB().startGeoRoom(roomCode)}catch(e){toast('Não consegui iniciar',e.message||String(e),'error')}}
-async function submitArena(){if(!selected||isLocked())return;const q=currentQ(),idx=Number(room.roundIndex||0),km=hav(selected.lat,selected.lng,q.lat,q.lng),pts=scoreDistance(km,room?.config?.difficulty),g={...selected},walkSteps=steps;$('geoSubmitGuess').disabled=true;try{await FB().mutateGeoRoom(roomCode,(r,uid)=>{const p=r.players?.[uid];if(!p||Number(p.submittedRound)===idx||Number(r.roundIndex)!==idx)return;p.submittedRound=idx;p.timedOut=false;p.guessLat=g.lat;p.guessLng=g.lng;p.distanceKm=Math.round(km*10)/10;p.roundScore=pts;p.score=Number(p.score||0)+pts;p.steps=walkSteps;return r;});awardCoins(Math.max(1,Math.min(5,Math.round(pts/1200))))}catch(e){$('geoSubmitGuess').disabled=false;toast('Palpite',e.message||String(e),'error')}}
+// Runs inside the Firebase transaction: retries cannot duplicate points or time deductions.
+function applyArenaGuess(r,uid,idx,guess,km,pts,walkSteps,now){
+  const p=r.players?.[uid];
+  if(r.status!=='playing'||!p||p.left||Number(p.submittedRound)===idx||Number(r.roundIndex)!==idx||now>=Number(r.roundDeadline))return;
+  const confirmed=Object.values(r.players||{}).filter(player=>Number(player.submittedRound)===idx&&!player.timedOut).length;
+  p.submittedRound=idx;p.timedOut=false;p.guessLat=guess.lat;p.guessLng=guess.lng;
+  p.distanceKm=Math.round(km*10)/10;p.roundScore=pts;p.score=Number(p.score||0)+pts;p.steps=walkSteps;
+  if(confirmed<2)r.roundDeadline=Math.max(now,Number(r.roundDeadline)-GEO_GUESS_PENALTY_MS);
+  return r;
+}
+async function submitArena(){
+  if(!selected||isLocked())return;
+  const q=currentQ(),idx=Number(room.roundIndex||0),km=hav(selected.lat,selected.lng,q.lat,q.lng),pts=scoreDistance(km),g={...selected},walkSteps=steps;
+  $('geoSubmitGuess').disabled=true;
+  try{
+    const result=await FB().mutateGeoRoom(roomCode,(r,uid)=>applyArenaGuess(r,uid,idx,g,km,pts,walkSteps,geoNow()));
+    if(result?.committed)awardCoins(Math.max(1,Math.min(5,Math.round(pts/1200))));
+    else { $('geoSubmitGuess').disabled=isLocked();toast('Palpite não registrado','A rodada terminou ou seu palpite já foi confirmado.'); }
+  }catch(e){$('geoSubmitGuess').disabled=false;toast('Palpite',e.message||String(e),'error')}
+}
 function allSubmitted(){const idx=Number(room?.roundIndex||0);return players().length>0&&players().every(p=>Number(p.submittedRound)===idx)}
-function maybeRevealArena(){if(!room||room.status!=='playing')return;const me=myPlayer(),idx=Number(room.roundIndex||0),q=currentQ();if(Number(me?.submittedRound)===idx&&!targetMarker){if(me?.timedOut){reveal(q,{lat:q.lat,lng:q.lng},0,0);$('geoFeedback').innerHTML='<b>⌛ Tempo esgotado.</b><span>Você não confirmou um palpite nesta rodada.</span>';}else if(me?.guessLat!=null)reveal(q,{lat:me.guessLat,lng:me.guessLng},Number(me.distanceKm||0),Number(me.roundScore||0));}if(allSubmitted()&&room.hostUid===user()?.uid&&advanceScheduled!==idx){advanceScheduled=idx;setTimeout(()=>advanceArena(idx),4000)}}
-async function advanceArena(idx){if(!room||room.status!=='playing'||Number(room.roundIndex)!==idx||room.hostUid!==user()?.uid)return;try{await FB().mutateGeoRoom(roomCode,(r)=>{if(Number(r.roundIndex)!==idx)return r;const total=Number(r.config?.rounds||r.questions?.length||5);if(idx>=total-1){r.status='finished';r.roundState='finished';r.finishedAt=Date.now();r.expiresAt=Date.now()+2*60*60*1000;const list=Object.values(r.players||{}).sort((a,b)=>Number(b.score||0)-Number(a.score||0));r.winnerUid=list[0]?.uid||'';return r;}const diff=difficultyFor(r.config?.difficulty);r.roundIndex=idx+1;r.roundDeadline=Date.now()+diff.timerSec*1000;r.roundState='playing';for(const p of Object.values(r.players||{})){p.roundScore=0;p.distanceKm=0;p.timedOut=false;p.guessLat=null;p.guessLng=null;p.steps=0;}return r;});}catch{}}
-function ensureArenaTicker(){if(tick)return;tick=setInterval(async()=>{if(!room||room.status!=='playing'){if(tick){clearInterval(tick);tick=null;}return;}const left=Math.max(0,Math.ceil((Number(room.roundDeadline||0)-(FB()?.serverNow?.()||Date.now()))/1000));if($('geoTimerLabel')){$('geoTimerLabel').textContent=`⏱️ ${left}`;$('geoTimerLabel').classList.toggle('geo-timer-warning',left<=10);}if(left<=0&&room.hostUid===user()?.uid&&!allSubmitted()){const idx=Number(room.roundIndex||0);await FB().mutateGeoRoom(roomCode,r=>{for(const p of Object.values(r.players||{})){if(Number(p.submittedRound)!==idx){p.submittedRound=idx;p.timedOut=true;p.guessLat=null;p.guessLng=null;p.distanceKm=0;p.roundScore=0;p.steps=0;}}return r;}).catch(()=>{});}},500)}
-function finishArena(){if(tick){clearInterval(tick);tick=null}const u=user();if(!u||!room)return;const key=`ggGeoRecorded:${room.code}:${u.uid}`;if(!localStorage.getItem(key)){localStorage.setItem(key,'1');const p=CORE()?.getProfile?.()||{},won=room.winnerUid===u.uid,myScore=Number(myPlayer()?.score||0),difficulty=room.config?.difficulty||'normal';p.geoPlayed=Number(p.geoPlayed||0)+1;p.geoWins=Number(p.geoWins||0)+(won?1:0);p.gamesPlayed=Number(p.gamesPlayed||0)+1;if(won)p.gamesWon=Number(p.gamesWon||0)+1;p.geoBestScore=Math.max(Number(p.geoBestScore||0),myScore);const coinsEarned=window.GameGuessScoring?.pointsToCoinReward?.(myScore,difficulty)||(won?12:4);p.coins=Number(p.coins||0)+coinsEarned;window.GameGuessRanked?.record?.(p,{kind:'geoguess-arena',score:myScore,mode:`${players().length}-players`,universe:'geoguess',challenge:room.config?.region||'world',difficulty:difficulty,correct:Number(room.config?.rounds||0),wrong:0,won,players:players().length});CORE()?.replaceProfile?.(p);CORE()?.saveProfile?.();FB()?.syncLocalProfile?.(p);if(won)CORE()?.spawnConfetti?.();toast(won?'🏆 Você venceu o GeoGuess!':'GeoGuess finalizado',`${myScore.toLocaleString('pt-BR')} pontos • +${coinsEarned} moedas`);}const winner=room.players?.[room.winnerUid];$('geoFeedback').innerHTML=`🏆 Vencedor: <b>${esc(winner?.name||'Jogador')}</b> • ${Number(winner?.score||0).toLocaleString('pt-BR')} pontos`;}
+function maybeRevealArena(){if(!room||room.status!=='playing')return;const me=myPlayer(),idx=Number(room.roundIndex||0),q=currentQ();if(Number(me?.submittedRound)===idx&&!allSubmitted()){$('geoSubmitGuess').classList.add('hidden');$('geoFeedback').textContent='✅ Palpite confirmado. Aguardando os demais jogadores.';}if(allSubmitted()&&Number(me?.submittedRound)===idx&&!targetMarker){if(me?.timedOut){reveal(q,{lat:q.lat,lng:q.lng},0,0);$('geoFeedback').innerHTML='<b>⌛ Tempo esgotado.</b><span>Você não confirmou um palpite nesta rodada.</span>';}else if(me?.guessLat!=null)reveal(q,{lat:me.guessLat,lng:me.guessLng},Number(me.distanceKm||0),Number(me.roundScore||0));}if(allSubmitted()&&room.hostUid===user()?.uid&&advanceScheduled!==idx){advanceScheduled=idx;setTimeout(()=>advanceArena(idx),4000)}}
+async function advanceArena(idx){if(!room||room.status!=='playing'||Number(room.roundIndex)!==idx||room.hostUid!==user()?.uid)return;try{await FB().mutateGeoRoom(roomCode,(r)=>{if(r.status!=='playing'||Number(r.roundIndex)!==idx||Object.values(r.players||{}).some(p=>!p.left&&Number(p.submittedRound)!==idx))return;const total=Number(r.config?.rounds||r.questions?.length||5);if(idx>=total-1){r.status='finished';r.roundState='finished';r.finishedAt=geoNow();r.expiresAt=geoNow()+2*60*60*1000;const list=Object.values(r.players||{}).filter(p=>!p.left).sort((a,b)=>Number(b.score||0)-Number(a.score||0));r.winnerUid=list.length&&(!list[1]||Number(list[0].score||0)>Number(list[1].score||0))?list[0].uid:'';return r;}const diff=difficultyFor(r.config?.difficulty);r.roundIndex=idx+1;r.roundDeadline=geoNow()+GEO_ROUND_SECONDS*1000;r.roundState='playing';for(const p of Object.values(r.players||{})){p.roundScore=0;p.distanceKm=0;p.timedOut=false;p.guessLat=null;p.guessLng=null;p.steps=0;}return r;});}catch{}}
+function ensureArenaTicker(){if(tick)return;tick=setInterval(async()=>{if(!room||room.status!=='playing'){if(tick){clearInterval(tick);tick=null;}return;}const left=Math.max(0,Math.ceil((Number(room.roundDeadline||0)-(FB()?.serverNow?.()||Date.now()))/1000));if($('geoTimerLabel')){$('geoTimerLabel').textContent=`⏱️ ${formatGeoTime(left)}`;$('geoTimerLabel').classList.toggle('geo-timer-warning',left<=10);}if(left<=0&&room.hostUid===user()?.uid&&!allSubmitted()){const idx=Number(room.roundIndex||0);await FB().mutateGeoRoom(roomCode,r=>{if(r.status!=='playing'||Number(r.roundIndex)!==idx||geoNow()<Number(r.roundDeadline))return;for(const p of Object.values(r.players||{})){if(!p.left&&Number(p.submittedRound)!==idx){p.submittedRound=idx;p.timedOut=true;p.guessLat=null;p.guessLng=null;p.distanceKm=0;p.roundScore=0;p.steps=0;}}return r;}).catch(()=>{});}},500)}
+function finishArena(){if(tick){clearInterval(tick);tick=null}const u=user();if(!u||!room)return;const key=`ggGeoRecorded:${room.code}:${u.uid}`;if(!localStorage.getItem(key)){localStorage.setItem(key,'1');const p=CORE()?.getProfile?.()||{},won=room.winnerUid===u.uid,myScore=Number(myPlayer()?.score||0),difficulty=room.config?.difficulty||'normal';p.geoPlayed=Number(p.geoPlayed||0)+1;p.geoWins=Number(p.geoWins||0)+(won?1:0);p.gamesPlayed=Number(p.gamesPlayed||0)+1;if(won)p.gamesWon=Number(p.gamesWon||0)+1;p.geoBestScore=Math.max(Number(p.geoBestScore||0),myScore);const coinsEarned=window.GameGuessScoring?.pointsToCoinReward?.(myScore,difficulty)||(won?12:4);p.coins=Number(p.coins||0)+coinsEarned;window.GameGuessRanked?.record?.(p,{kind:'geoguess-arena',score:myScore,mode:`${players().length}-players`,universe:'geoguess',challenge:room.config?.region||'world',difficulty:difficulty,correct:Number(room.config?.rounds||0),wrong:0,won,players:players().length});CORE()?.replaceProfile?.(p);CORE()?.saveProfile?.();FB()?.syncLocalProfile?.(p);if(won)CORE()?.spawnConfetti?.();toast(won?'🏆 Você venceu o GeoGuess!':'GeoGuess finalizado',`${myScore.toLocaleString('pt-BR')} pontos • +${coinsEarned} moedas`);}const winner=room.players?.[room.winnerUid];const leaders=players().filter(p=>Number(p.score||0)===Math.max(...players().map(p=>Number(p.score||0))));$('geoFeedback').innerHTML=winner?`🏆 Vencedor: <b>${esc(winner.name)}</b> • ${Number(winner.score||0).toLocaleString('pt-BR')} pontos`:`🤝 Empate: <b>${leaders.map(p=>esc(p.name)).join(' e ')}</b> • ${Number(leaders[0]?.score||0).toLocaleString('pt-BR')} pontos`;$('geoMapCard').classList.remove('geo-map-minimized');$('geoSubmitGuess').classList.add('hidden');$('geoTimerLabel').textContent='🏁 Finalizado';renderScoreboard();}
 async function leaveRoom(){clearSoloTimer();if(roomCode)await FB()?.leaveGeoRoom?.(roomCode).catch(()=>{});unsub?.();unsub=null;room=null;roomCode='';localStorage.removeItem('gameGuessLastGeoRoom');lastRenderedRound=-1;advanceScheduled=-1;$('geoWaiting')?.classList.add('hidden');if(tick){clearInterval(tick);tick=null}show('geoSetupScreen')}
 function quit(){roundToken++;clearSoloTimer();if(mode==='arena'&&roomCode)return leaveRoom();solo=null;show('geoSetupScreen')}
 function toggleMap(){const c=$('geoMapCard');if(!c)return;c.classList.remove('geo-map-minimized');$('geoMapMinimize')?.setAttribute('aria-expanded','true');if($('geoMapMinimize'))$('geoMapMinimize').textContent='−';const expanded=c.classList.toggle('geo-map-expanded');$('geoMapToggle')?.setAttribute('aria-expanded',String(expanded));setTimeout(()=>map?.invalidateSize?.(),220)}

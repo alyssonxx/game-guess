@@ -2,6 +2,10 @@
   "rules": {
     ".read": false,
     ".write": false,
+    "geoGoogleQuota": {
+      ".read": false,
+      ".write": false
+    },
     "profiles": {
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",

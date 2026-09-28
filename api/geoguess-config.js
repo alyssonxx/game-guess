@@ -10,6 +10,11 @@ export default async function handler(req, res) {
   }
 
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  if(process.env.GEOGUESS_PROVIDER==='google'){
+    res.setHeader('Cache-Control','no-store');
+    // Never distribute the browser key here: the quota admission endpoint owns it.
+    return res.status(200).json({provider:'google',quotaEndpoint:'/api/geoguess-google'});
+  }
 
   try {
     // Route: /api/geoguess-config - returns token config

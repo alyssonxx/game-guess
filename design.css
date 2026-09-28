@@ -349,3 +349,12 @@ body.redesign .geo-street-toolbar {top:68px}
   html {scroll-behavior:auto}
   body.redesign *,body.redesign *::before,body.redesign *::after {animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
 }
+/* Arena standings remain readable with long names and cumulative scores. */
+body.redesign .geo-scoreboard #geoScoreRows>div{grid-template-columns:36px minmax(0,1fr) minmax(0,1fr) minmax(86px,auto)}
+body.redesign .geo-scoreboard :is(b,small){min-width:0;overflow-wrap:anywhere}
+body.redesign .geo-scoreboard strong{white-space:nowrap}
+@media(max-width:620px){
+  body.redesign .geo-scoreboard #geoScoreRows>div{grid-template-columns:28px minmax(0,1fr) auto;gap:6px;padding:10px 8px}
+  body.redesign .geo-scoreboard small{grid-column:2;grid-row:2}
+  body.redesign .geo-scoreboard strong{grid-column:3;grid-row:1 / span 2;font-size:.85rem}
+}

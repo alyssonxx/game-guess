@@ -531,7 +531,6 @@ async function deleteDuel(code){if(!currentUser||!code)return;code=String(code).
 // presence are scoped to authenticated members of the room.
 const GEO_PROTOCOL_VERSION=1;
 const GEO_REGIONS=new Set(['brazil','world','americas','europe','asia','africa','oceania']);
-const GEO_DIFFICULTIES=new Set(['easy','normal','hard','insane']);
 function geoRoomCode(){return roomCode();}
 function geoRoomRef(code){return ref(db,'geoRooms/'+String(code||'').trim().toUpperCase());}
 function validGeoCode(code){return /^[A-Z2-9]{6}$/.test(String(code||'').trim().toUpperCase());}
@@ -619,8 +618,8 @@ async function createGeoRoom(payload={}){
   const questions=rawQuestions.map(cleanGeoQuestion).filter(Boolean).slice(0,roundLimit);
   if(questions.length<3)throw new Error('Não há rodadas GeoGuess válidas o suficiente para criar a sala.');
   const region=geoChoice(payload?.region??requestConfig.region,GEO_REGIONS,'world');
-  const difficulty=geoChoice(payload?.difficulty??requestConfig.difficulty,GEO_DIFFICULTIES,'normal');
-  const timerSec=geoBoundedInt(payload?.timerSec??requestConfig.timerSec,15,300,60);
+  const difficulty='normal'; // Retained only for compatibility with saved rooms/rankings.
+  const timerSec=300;
   for(let attempt=0;attempt<8;attempt++){
     const code=geoRoomCode(),roomRef=geoRoomRef(code),now=serverNow();
     const name=cleanName(localProfile()?.nickname||currentUser.displayName||currentUser.email?.split('@')[0]);
@@ -728,7 +727,9 @@ async function startGeoRoom(code){
     if(!room||Number(room.protocolVersion)!==GEO_PROTOCOL_VERSION||room.hostUid!==currentUser.uid||!room.players?.[currentUser.uid]||room.status!=='waiting')return;
     const players=Object.values(room.players||{}).filter(player=>!player.left);
     if(players.length<2)return;
-    const now=serverNow(),timerSec=geoBoundedInt(room.config?.timerSec,15,300,60);
+    const now=serverNow(),timerSec=300;
+    room.config.timerSec=timerSec;
+    room.config.difficulty='normal';
     room.status='playing';
     room.roundState='playing';
     room.startedAt=now;
