@@ -9,6 +9,7 @@
   const room = String(params.get('room') || 'LOCAL').toUpperCase();
   const gameId = Math.max(1, Number(params.get('gameId')) || 700000001);
   const launchToken = String(params.get('launch') || gameId).replace(/\D/g, '').slice(-5) || String(gameId).slice(-5);
+  const rtcParam = String(params.get('rtc') || '').trim().replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 20);
   const playerName = String(params.get('name') || (role === 'host' ? 'HOST' : role === 'guest' ? 'CONVIDADO' : 'PLAYER')).trim().slice(0, 20) || 'PLAYER';
 
   const GAMES = {
@@ -54,7 +55,7 @@
   const EJS_DIRECT_DATA = `https://cdn.emulatorjs.org/${EJS_VERSION}/data/`;
   let EJS_DATA = EJS_PROXY_DATA;
   const PUBLIC_NETPLAY_SERVER = 'https://netplay.emulatorjs.org';
-  const rtcRoomName = `GG-${room}-${launchToken}`.slice(0, 20);
+  const rtcRoomName = rtcParam || `GG-${room}-${launchToken}`.slice(0, 20);
 
   const $ = id => document.getElementById(id);
   const boot = $('boot');

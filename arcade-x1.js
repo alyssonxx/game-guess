@@ -4,7 +4,7 @@
   const $ = id => document.getElementById(id);
   const CORE = () => window.GameGuessCore;
   const FB = () => window.GameGuessFirebase;
-  const VERSION = '2.5.0';
+  const VERSION = '2.5.2';
 
   const GAMES = {
     kf2k2mp2: {
@@ -125,8 +125,9 @@
     if (!g) return '';
     const name = playerName();
     if (mode === 'online') {
-      const role = room?.hostUid === user()?.uid ? 'host' : 'guest';
-      return `/arcade-player.html?v=${VERSION}&game=${encodeURIComponent(selected)}&role=${role}&room=${encodeURIComponent(roomCode)}&gameId=${encodeURIComponent(room?.gameId || 1)}&launch=${encodeURIComponent(launchAt || room?.launchAt || Date.now())}&name=${encodeURIComponent(name)}`;
+      const role = isHost() ? 'host' : 'guest';
+      const rtc = String(room?.rtcRoomName || '');
+      return `/arcade-player.html?v=${VERSION}&game=${encodeURIComponent(selected)}&role=${role}&room=${encodeURIComponent(roomCode)}&gameId=${encodeURIComponent(room?.gameId || 1)}&launch=${encodeURIComponent(launchAt || room?.launchAt || Date.now())}&rtc=${encodeURIComponent(rtc)}&name=${encodeURIComponent(name)}`;
     }
     const players = mode === 'local2' ? 2 : 1;
     return `/arcade-player.html?v=${VERSION}&game=${encodeURIComponent(selected)}&role=local&players=${players}&name=${encodeURIComponent(name)}`;
@@ -169,7 +170,7 @@
   function playerCount() { return room ? Object.keys(room.players || {}).length : 0; }
   function connectedCount() { return room ? Object.keys(room.players || {}).filter(uid => playerOnline(uid)).length : 0; }
   function readyCount() { return Object.values(room?.clientReady || {}).filter(x => x?.ready).length; }
-  function isHost() { return Boolean(user() && room?.hostUid === user().uid); }
+  function isHost() { const u=user(),sid=FB()?.sessionId; return Boolean(u&&room?.hostUid===u.uid&&(!room?.hostSessionId||!sid||room.hostSessionId===sid)); }
 
   function opponentUid() {
     const me = user()?.uid;
@@ -264,6 +265,9 @@
     panel?.classList.toggle('hidden', !room);
     if (!room) return;
     const g = game();
+    const sid=FB()?.sessionId, me=user()?.uid;
+    const boundToOtherSession=Boolean(me&&sid&&((room.hostUid===me&&room.hostSessionId&&room.hostSessionId!==sid)||(room.guestUid===me&&room.guestSessionId&&room.guestSessionId!==sid)));
+    if(boundToOtherSession){setOnlineStatus('Esta conta já ocupa esta sala em outro aparelho. Use outra conta no segundo dispositivo.', 'error');}
     $('arcadeRoomCode').textContent = room.code || roomCode;
     $('arcadeRoomGame').textContent = `${g?.icon || '🎮'} ${g?.title || selected} • ${isHost() ? 'HOST / PLAYER 1' : 'CONVIDADO / PLAYER 2'}`;
     $('arcadeRoomPlayers').innerHTML = Object.values(room.players || {}).map(p => `
@@ -408,6 +412,7 @@
     launching = true; renderRoom();
     try {
       const result = await FB().requestFightLaunch(roomCode);
+      if (result?.rtcRoomName) room = { ...(room || {}), rtcRoomName:String(result.rtcRoomName), launchAt:Number(result.launchAt || Date.now()), status:'playing', launchState:'starting' };
       if (!launched) await launchOnline(true, Number(result?.launchAt || Date.now()));
     } catch (e) {
       launching = false; renderRoom();
