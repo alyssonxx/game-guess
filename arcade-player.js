@@ -41,6 +41,12 @@
 
   const game = GAMES[gameKey];
   const profile = game ? PROFILES[game.profile] : null;
+  const isKof = gameKey === 'kf2k2mp2';
+  const MACRO_INPUT = { DODGE: -101, MAX: -102 };
+  const KOF_MACROS = {
+    [MACRO_INPUT.DODGE]: [0, 8], // ESQUIVA = A+B
+    [MACRO_INPUT.MAX]: [8, 1]    // MAX = B+C
+  };
   const TRAINING_EJS_VERSION = '4.2.3';
   const ONLINE_EJS_VERSION = '4.3.0-pre';
   const EJS_VERSION = online ? ONLINE_EJS_VERSION : TRAINING_EJS_VERSION;
@@ -59,6 +65,8 @@
   const helpButton = $('helpButton');
   const customizeButton = $('customizeButton');
   const exitButton = $('exitButton');
+  const topbar = $('topbar');
+  const topHotspot = $('topHotspot');
   const overlay = $('overlay');
   const overlayTitle = $('overlayTitle');
   const overlayBody = $('overlayBody');
@@ -85,6 +93,7 @@
   let editSnapshot = null;
   let selectedControl = null;
   let foreignTouchObserver = null;
+  let topbarHideTimer = 0;
   const held = new Map();
   const keyboardMaps = [];
   const stickHeld = new Map();
@@ -125,6 +134,7 @@
       ['COIN', INPUT.SELECT], ['START', INPUT.START], ['↑', INPUT.UP], ['↓', INPUT.DOWN], ['←', INPUT.LEFT], ['→', INPUT.RIGHT]
     ];
     profile.buttons.forEach(([label, input]) => base.push([label, input]));
+    if (isKof) base.push(['ESQUIVA (A+B)', MACRO_INPUT.DODGE], ['MAX (B+C)', MACRO_INPUT.MAX]);
     return base;
   }
   function inputLabel(input) {
@@ -160,6 +170,11 @@
     profile.buttons.forEach(([label, input], i) => {
       controls[`action${i}`] = { kind: 'button', label, input, x: positions[i][0], y: positions[i][1], size: localPlayers === 2 ? 48 : 60, opacity: .9, action: true };
     });
+
+    if (isKof) {
+      controls.dodge = { kind: 'button', label: 'ESQ', input: MACRO_INPUT.DODGE, x: actionX - 7, y: yBase - 21, size: localPlayers === 2 ? 46 : 54, opacity: .94, action: true, special: true };
+      controls.max = { kind: 'button', label: 'MAX', input: MACRO_INPUT.MAX, x: actionX + 8, y: yBase - 21, size: localPlayers === 2 ? 46 : 54, opacity: .94, action: true, special: true };
+    }
 
     return { moveStyle: 'dpad', controls };
   }
@@ -198,7 +213,10 @@
     const sys = playerIndex === 0
       ? { [INPUT.SELECT]: 'KeyR', [INPUT.START]: 'KeyT' }
       : { [INPUT.SELECT]: 'Digit0', [INPUT.START]: 'Enter' };
-    return dirs[input] || sys[input] || inverted[input] || '';
+    const kofSpecial = playerIndex === 0
+      ? { [MACRO_INPUT.DODGE]: 'KeyQ', [MACRO_INPUT.MAX]: 'KeyE' }
+      : { [MACRO_INPUT.DODGE]: 'BracketLeft', [MACRO_INPUT.MAX]: 'BracketRight' };
+    return dirs[input] || sys[input] || (isKof ? kofSpecial[input] : '') || inverted[input] || '';
   }
   function actionDefs(playerIndex) {
     const defs = [
@@ -207,6 +225,10 @@
       { input: INPUT.SELECT, label: 'Inserir moeda' }, { input: INPUT.START, label: 'Start' }
     ];
     profile.buttons.forEach(([label, input]) => defs.push({ input, label: `Botão ${label}` }));
+    if (isKof) {
+      defs.push({ input: MACRO_INPUT.DODGE, label: 'Esquiva (A+B)' });
+      defs.push({ input: MACRO_INPUT.MAX, label: 'MAX (B+C)' });
+    }
     return defs;
   }
   function defaultKeyConfig() {
@@ -241,16 +263,33 @@
     });
   }
 
+  function clearTopbarTimer() { if (topbarHideTimer) clearTimeout(topbarHideTimer); topbarHideTimer = 0; }
+  function hideTopbar() {
+    if (!started || editMode || overlay?.classList.contains('open')) return;
+    topbar?.classList.add('auto-hidden');
+  }
+  function showTopbar(autoHideMs = 8000) {
+    topbar?.classList.remove('auto-hidden');
+    clearTopbarTimer();
+    if (started && autoHideMs > 0) topbarHideTimer = setTimeout(hideTopbar, autoHideMs);
+  }
+  function startTopbarMinuteCountdown() {
+    showTopbar(0);
+    clearTopbarTimer();
+    topbarHideTimer = setTimeout(hideTopbar, 60000);
+  }
+
   function openOverlay(title, html) {
+    showTopbar(0);
     overlayTitle.textContent = title;
     overlayBody.innerHTML = html;
     overlay.classList.add('open');
   }
-  function closeOverlay() { overlay.classList.remove('open'); pendingKeyCapture = null; }
+  function closeOverlay() { overlay.classList.remove('open'); pendingKeyCapture = null; if (started) showTopbar(8000); }
 
   function renderHelp() {
     openOverlay(`Controles • ${game.title}`, `
-      <p class="hint">No celular você pode escolher <b>setas</b> ou <b>alavanca arcade</b>. Em <b>PERSONALIZAR</b> é possível arrastar cada controle livremente, alterar o tamanho, opacidade e também remapear botões touch e teclas do PC.</p>
+      <p class="hint">No celular você pode escolher <b>setas</b> ou <b>alavanca arcade</b>. Em <b>PERSONALIZAR</b> é possível arrastar cada controle livremente, alterar o tamanho, opacidade e também remapear botões touch e teclas do PC.${isKof ? ' No KOF, <b>ESQ</b> envia A+B e <b>MAX</b> envia B+C.' : ''}</p>
       <div class="cards">
         <div class="card"><h3>PLAYER 1</h3><p>${profile.p1Text}</p></div>
         ${(!online && localPlayers === 2) ? `<div class="card"><h3>PLAYER 2</h3><p>${profile.p2Text}</p></div>` : ''}
@@ -288,11 +327,11 @@
       body += `<p class="hint">Cada botão touch pode ser remapeado. O texto do botão acompanha a função escolhida.</p><div class="cards">`;
       body += players.map(p => {
         const controls = touchLayout.players[p].controls;
-        const actionIds = Object.keys(controls).filter(id => id.startsWith('action') || id === 'coin' || id === 'start');
+        const actionIds = Object.keys(controls).filter(id => id.startsWith('action') || id === 'coin' || id === 'start' || id === 'dodge' || id === 'max');
         return `<div class="card"><h3>PLAYER ${p + 1}</h3>${actionIds.map(id => {
           const c = controls[id];
           const opts = inputOptions().map(([label, val]) => `<option value="${val}" ${Number(c.input) === Number(val) ? 'selected' : ''}>${label}</option>`).join('');
-          return `<div class="map-row"><span>${id === 'coin' ? 'Botão COIN' : id === 'start' ? 'Botão START' : `Botão ${id.replace('action', '')}`}</span><select data-touch-map data-player="${p}" data-control="${id}">${opts}</select><code>${inputLabel(c.input)}</code></div>`;
+          return `<div class="map-row"><span>${id === 'coin' ? 'Botão COIN' : id === 'start' ? 'Botão START' : id === 'dodge' ? 'Botão ESQUIVA' : id === 'max' ? 'Botão MAX' : `Botão ${id.replace('action', '')}`}</span><select data-touch-map data-player="${p}" data-control="${id}">${opts}</select><code>${inputLabel(c.input)}</code></div>`;
         }).join('')}<div class="btn-row"><button class="small-btn warn" data-reset-touch-map="${p}">↺ Resetar mapeamento</button></div></div>`;
       }).join('');
       body += `</div>`;
@@ -330,7 +369,7 @@
       const p = Number(btn.dataset.resetTouchMap);
       const fresh = defaultPlayerLayout(p);
       Object.keys(touchLayout.players[p].controls).forEach(id => {
-        if (id.startsWith('action') || id === 'coin' || id === 'start') {
+        if (id.startsWith('action') || id === 'coin' || id === 'start' || id === 'dodge' || id === 'max') {
           touchLayout.players[p].controls[id].input = fresh.controls[id].input;
           touchLayout.players[p].controls[id].label = fresh.controls[id].label;
         }
@@ -354,8 +393,10 @@
     $('gameIcon').textContent = game.icon;
     $('gameBadge').textContent = `${game.icon} ${game.title.toUpperCase()} • ${online ? 'ONLINE X1' : `${localPlayers}P LOCAL`}`;
     startButton.textContent = online ? '▶ CARREGAR PARTIDA ONLINE' : `▶ INICIAR ${localPlayers} PLAYER${localPlayers > 1 ? 'S' : ''}`;
-    const cards = [`<div><b>🟡 PLAYER 1</b><small>${profile.p1Text}</small></div>`];
-    if (!online && localPlayers === 2) cards.push(`<div><b>🔵 PLAYER 2</b><small>${profile.p2Text}</small></div>`);
+    const p1Text = profile.p1Text + (isKof ? ' • Q esquiva • E MAX' : '');
+    const p2Text = profile.p2Text + (isKof ? ' • [ esquiva • ] MAX' : '');
+    const cards = [`<div><b>🟡 PLAYER 1</b><small>${p1Text}</small></div>`];
+    if (!online && localPlayers === 2) cards.push(`<div><b>🔵 PLAYER 2</b><small>${p2Text}</small></div>`);
     $('controlsSummary').classList.toggle('one', cards.length === 1);
     $('controlsSummary').innerHTML = cards.join('');
     $('deviceHint').innerHTML = online
@@ -370,7 +411,8 @@
     if (c.kind === 'stick') {
       return `<div class="touch-control arcade-stick" data-player="${p}" data-control="${id}" style="${style}"><span class="edit-label">P${p + 1} • ALAVANCA</span><span class="stick-base-dot"></span><span class="stick-knob"></span></div>`;
     }
-    const kindClass = id.startsWith('action') ? 'action' : (id === 'coin' || id === 'start') ? 'system' : 'arrow';
+    const isSpecial = id === 'dodge' || id === 'max' || Number(c.input) === MACRO_INPUT.DODGE || Number(c.input) === MACRO_INPUT.MAX;
+    const kindClass = (id.startsWith('action') || isSpecial) ? `action${isSpecial ? ' special' : ''}` : (id === 'coin' || id === 'start') ? 'system' : 'arrow';
     return `<div class="touch-control ${kindClass}" data-player="${p}" data-control="${id}" style="${style}"><span class="edit-label">P${p + 1} • ${label}</span><button type="button" data-input="${c.input}">${label}</button></div>`;
   }
 
@@ -421,6 +463,15 @@
     if (!sources.size && !simulate(player, input, 1)) return false;
     sources.add(source); return true;
   }
+  function setActionSource(player, input, source, pressed) {
+    const combo = KOF_MACROS[Number(input)];
+    if (isKof && combo) {
+      let ok = true;
+      for (const realInput of combo) ok = setSource(player, realInput, `${source}:macro:${realInput}`, pressed) && ok;
+      return ok;
+    }
+    return setSource(player, input, source, pressed);
+  }
   function releasePrefix(prefix) {
     for (const [key, sources] of [...held.entries()]) {
       const [p, input] = key.split(':').map(Number);
@@ -450,7 +501,7 @@
       for (const p of players) {
         const input = keyboardMaps[p]?.get(e.code);
         if (input === undefined) continue;
-        e.preventDefault(); e.stopPropagation(); setSource(p, input, `key:${p}:${e.code}`, true); return;
+        e.preventDefault(); e.stopPropagation(); setActionSource(p, input, `key:${p}:${e.code}`, true); return;
       }
     }, { capture: true });
     addEventListener('keyup', e => {
@@ -459,7 +510,7 @@
       for (const p of players) {
         const input = keyboardMaps[p]?.get(e.code);
         if (input === undefined) continue;
-        e.preventDefault(); e.stopPropagation(); setSource(p, input, `key:${p}:${e.code}`, false); return;
+        e.preventDefault(); e.stopPropagation(); setActionSource(p, input, `key:${p}:${e.code}`, false); return;
       }
     }, { capture: true });
     addEventListener('blur', () => releasePrefix('key:'));
@@ -475,28 +526,42 @@
         if (editMode || !started) return;
         e.preventDefault(); e.stopPropagation(); button.classList.add('pressed');
         try { button.setPointerCapture?.(e.pointerId); } catch {}
-        setSource(player, input, base + e.pointerId, true);
+        setActionSource(player, input, base + e.pointerId, true);
       };
       const up = e => {
         if (editMode) return;
         e.preventDefault(); e.stopPropagation(); button.classList.remove('pressed');
-        setSource(player, input, base + e.pointerId, false);
+        setActionSource(player, input, base + e.pointerId, false);
       };
       button.addEventListener('pointerdown', down, { passive: false });
       ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(n => button.addEventListener(n, up, { passive: false }));
     });
   }
 
-  function updateStickDirection(player, source, dx, dy, active) {
-    const prev = stickHeld.get(source) || new Set();
-    const next = new Set();
-    if (active) {
-      const dead = 0.24;
-      if (dy < -dead) next.add(INPUT.UP);
-      if (dy > dead) next.add(INPUT.DOWN);
-      if (dx < -dead) next.add(INPUT.LEFT);
-      if (dx > dead) next.add(INPUT.RIGHT);
+  const STICK_DIRECTIONS = [
+    [INPUT.RIGHT], [INPUT.RIGHT, INPUT.DOWN], [INPUT.DOWN], [INPUT.LEFT, INPUT.DOWN],
+    [INPUT.LEFT], [INPUT.LEFT, INPUT.UP], [INPUT.UP], [INPUT.RIGHT, INPUT.UP]
+  ];
+  function angleDistance(a, b) {
+    let d = Math.abs(a - b) % (Math.PI * 2);
+    return d > Math.PI ? (Math.PI * 2 - d) : d;
+  }
+  function stickSector(dx, dy, previousSector = -1, wasActive = false) {
+    const mag = Math.hypot(dx, dy);
+    const threshold = wasActive ? 0.12 : 0.18;
+    if (mag < threshold) return -1;
+    const angle = Math.atan2(dy, dx);
+    let raw = Math.round(angle / (Math.PI / 4));
+    raw = ((raw % 8) + 8) % 8;
+    if (previousSector >= 0 && raw !== previousSector) {
+      const center = previousSector * (Math.PI / 4);
+      if (angleDistance(angle, center) < (27 * Math.PI / 180)) return previousSector;
     }
+    return raw;
+  }
+  function updateStickSector(player, source, sector) {
+    const prev = stickHeld.get(source) || new Set();
+    const next = new Set(sector >= 0 ? STICK_DIRECTIONS[sector] : []);
     for (const input of prev) if (!next.has(input)) setSource(player, input, `${source}:${input}`, false);
     for (const input of next) if (!prev.has(input)) setSource(player, input, `${source}:${input}`, true);
     stickHeld.set(source, next);
@@ -508,27 +573,43 @@
       const knob = stick.querySelector('.stick-knob');
       const source = `stick:${player}:${stick.dataset.control}`;
       let pointerId = null;
-      const move = e => {
-        if (pointerId !== e.pointerId) return;
+      let lastSector = -1;
+      let active = false;
+
+      const processPoint = point => {
         const rect = stick.getBoundingClientRect();
         const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
-        let dx = (e.clientX - cx) / (rect.width / 2), dy = (e.clientY - cy) / (rect.height / 2);
-        const mag = Math.hypot(dx, dy) || 1;
-        if (mag > 1) { dx /= mag; dy /= mag; }
-        knob.style.transform = `translate(calc(-50% + ${dx * rect.width * .23}px),calc(-50% + ${dy * rect.height * .23}px))`;
-        if (!editMode && started) updateStickDirection(player, source, dx, dy, true);
+        let dx = (point.clientX - cx) / (rect.width / 2), dy = (point.clientY - cy) / (rect.height / 2);
+        const rawMag = Math.hypot(dx, dy);
+        if (rawMag > 1) { dx /= rawMag; dy /= rawMag; }
+        const sector = stickSector(dx, dy, lastSector, active);
+        const mag = Math.min(1, Math.hypot(dx, dy));
+        const travel = mag * rect.width * .30;
+        const unit = Math.hypot(dx, dy) || 1;
+        knob.style.transform = `translate(calc(-50% + ${(dx / unit) * travel}px),calc(-50% + ${(dy / unit) * travel}px))`;
+        if (!editMode && started && sector !== lastSector) updateStickSector(player, source, sector);
+        lastSector = sector;
+        active = sector >= 0;
+      };
+
+      const move = e => {
+        if (pointerId !== e.pointerId) return;
+        e.preventDefault(); e.stopPropagation();
+        const points = typeof e.getCoalescedEvents === 'function' ? e.getCoalescedEvents() : [];
+        if (points.length) points.forEach(processPoint); else processPoint(e);
       };
       const down = e => {
         if (editMode || !started) return;
         e.preventDefault(); e.stopPropagation(); pointerId = e.pointerId;
         try { stick.setPointerCapture?.(e.pointerId); } catch {}
-        move(e);
+        processPoint(e);
       };
       const up = e => {
         if (pointerId !== e.pointerId) return;
         e.preventDefault(); e.stopPropagation(); pointerId = null;
         knob.style.transform = 'translate(-50%,-50%)';
-        updateStickDirection(player, source, 0, 0, false);
+        lastSector = -1; active = false;
+        updateStickSector(player, source, -1);
       };
       stick.addEventListener('pointerdown', down, { passive: false });
       stick.addEventListener('pointermove', move, { passive: false });
@@ -579,6 +660,7 @@
 
   function enterEditMode() {
     closeOverlay();
+    showTopbar(0);
     editSnapshot = clone(touchLayout);
     editMode = true;
     document.body.classList.add('edit-mode');
@@ -591,6 +673,7 @@
     if (save) saveTouchLayout();
     editMode = false; editSnapshot = null; selectedControl = null;
     document.body.classList.remove('edit-mode'); renderTouchControls();
+    if (started) showTopbar(8000);
   }
 
   function buttonPressed(gp, idx) { return !!gp?.buttons?.[idx]?.pressed; }
@@ -604,7 +687,11 @@
       if (!states.has(input)) states.set(input, false);
       states.set(input, states.get(input) || buttonPressed(gp, physical));
     }
-    for (const [input, pressed] of states) setSource(player, input, `${prefix}${input}`, pressed);
+    if (isKof) {
+      states.set(MACRO_INPUT.DODGE, buttonPressed(gp, 4)); // L1 = ESQUIVA (A+B)
+      states.set(MACRO_INPUT.MAX, buttonPressed(gp, 5));   // R1 = MAX (B+C)
+    }
+    for (const [input, pressed] of states) setActionSource(player, input, `${prefix}${input}`, pressed);
   }
   function padLoop() {
     const max = online ? 1 : localPlayers;
@@ -745,6 +832,7 @@
       window.EJS_onGameStart = async () => {
         const ok = await waitDirect(); if (!ok) { fail('A entrada direta do emulador não ficou disponível.'); return; }
         started = true; loading = false; boot.style.display = 'none'; hideForeignTouchUI();
+        startTopbarMinuteCountdown();
         if (online) showStatus('🟡 Jogo carregado • conectando PVP…'); else hideStatus();
         cancelAnimationFrame(padFrame); padLoop(); if (online) startAutomaticNetplay();
         post('arcade-player-ready', `${game.title} carregado.`, { online, players: online ? 2 : localPlayers, role, room });
@@ -767,13 +855,15 @@
 
   setupUi(); bindKeyboard();
   startButton?.addEventListener('click', bootGame);
-  helpButton?.addEventListener('click', renderHelp);
-  customizeButton?.addEventListener('click', () => renderCustomize('layout'));
+  helpButton?.addEventListener('click', () => { showTopbar(0); renderHelp(); });
+  customizeButton?.addEventListener('click', () => { showTopbar(0); renderCustomize('layout'); });
+  topHotspot?.addEventListener('pointerdown', e => { e.preventDefault(); showTopbar(8000); }, { passive: false });
+  addEventListener('mousemove', e => { if (started && e.clientY <= 48) showTopbar(8000); }, { passive: true });
   overlayClose?.addEventListener('click', closeOverlay);
   overlay?.addEventListener('click', e => { if (e.target === overlay) closeOverlay(); });
-  fullscreenButton?.addEventListener('click', async () => { try { if (!document.fullscreenElement) await document.documentElement.requestFullscreen(); else await document.exitFullscreen(); } catch {} });
+  fullscreenButton?.addEventListener('click', async () => { showTopbar(8000); try { if (!document.fullscreenElement) await document.documentElement.requestFullscreen(); else await document.exitFullscreen(); } catch {} });
   document.addEventListener('fullscreenchange', () => { if (fullscreenButton) fullscreenButton.innerHTML = document.fullscreenElement ? '↙ <span class="txt">SAIR CHEIA</span>' : '⛶ <span class="txt">CHEIA</span>'; });
-  exitButton?.addEventListener('click', () => { try { if (history.length > 1) history.back(); else location.href = '/'; } catch { location.href = '/'; } });
+  exitButton?.addEventListener('click', () => { showTopbar(8000); try { if (history.length > 1) history.back(); else location.href = '/'; } catch { location.href = '/'; } });
 
   editSize?.addEventListener('input', () => {
     if (!selectedControl) return;
@@ -787,7 +877,7 @@
   editCancel?.addEventListener('click', () => exitEditMode(false));
   editDone?.addEventListener('click', () => exitEditMode(true));
 
-  addEventListener('pagehide', () => { releaseAll(); stopNetplayTimers(); cancelAnimationFrame(padFrame); });
+  addEventListener('pagehide', () => { releaseAll(); stopNetplayTimers(); clearTopbarTimer(); cancelAnimationFrame(padFrame); });
   addEventListener('unhandledrejection', e => { if (!started && e?.reason) fail(e.reason?.message || String(e.reason)); });
   setTimeout(() => { if (game && !started && !loading) bootGame(); }, 220);
 })();
