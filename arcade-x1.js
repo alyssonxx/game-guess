@@ -4,7 +4,7 @@
   const $ = id => document.getElementById(id);
   const CORE = () => window.GameGuessCore;
   const FB = () => window.GameGuessFirebase;
-  const VERSION = '2.5.2';
+  const VERSION = '2.5.3';
 
   const GAMES = {
     kf2k2mp2: {
@@ -38,6 +38,7 @@
   let launching = false;
   let lastLaunchAt = 0;
   let readyRoom = '';
+  let readySyncPromise = null;
   let processedFinishedRoom = '';
   let resultSubmitting = false;
 
@@ -167,9 +168,21 @@
   }
 
   function playerOnline(uid, r=room) { return Boolean(uid && Object.keys(r?.presence?.[uid] || {}).length); }
+  function expectedSession(uid, r=room) {
+    if (!uid || !r) return '';
+    if (uid === r.hostUid) return String(r.hostSessionId || '');
+    if (uid === r.guestUid) return String(r.guestSessionId || '');
+    return '';
+  }
+  function playerReady(uid, r=room) {
+    const ready = r?.clientReady?.[uid];
+    if (!ready?.ready || !playerOnline(uid, r)) return false;
+    const expected = expectedSession(uid, r);
+    return !expected || !ready.sessionId || String(ready.sessionId) === expected;
+  }
   function playerCount() { return room ? Object.keys(room.players || {}).length : 0; }
   function connectedCount() { return room ? Object.keys(room.players || {}).filter(uid => playerOnline(uid)).length : 0; }
-  function readyCount() { return Object.values(room?.clientReady || {}).filter(x => x?.ready).length; }
+  function readyCount() { return room ? Object.keys(room.players || {}).filter(uid => playerReady(uid)).length : 0; }
   function isHost() { const u=user(),sid=FB()?.sessionId; return Boolean(u&&room?.hostUid===u.uid&&(!room?.hostSessionId||!sid||room.hostSessionId===sid)); }
 
   function opponentUid() {
@@ -243,21 +256,38 @@
   }
 
   async function ensureReady() {
+    if (readySyncPromise) return readySyncPromise;
+    readySyncPromise = (async () => {
     if (!roomCode || !user() || !selected) return false;
-    if (room?.clientReady?.[user().uid]?.ready) { readyRoom = roomCode; return true; }
-    if (readyRoom === roomCode) return true;
-    setOnlineStatus('Validando ROM neste aparelho…', 'loading');
-    if (!await validate(selected)) { readyRoom = ''; return false; }
-    readyRoom = roomCode;
+    const uid = user().uid, sid = FB()?.sessionId;
+    if (!playerOnline(uid)) {
+      readyRoom = '';
+      setOnlineStatus('Reconectando este aparelho ao Firebase…', 'loading');
+      return false;
+    }
+    const serverReady = room?.clientReady?.[uid];
+    const expected = expectedSession(uid);
+    if (serverReady?.ready && (!expected || !serverReady.sessionId || String(serverReady.sessionId) === expected) && (!sid || !expected || sid === expected)) {
+      readyRoom = roomCode;
+      return true;
+    }
+    // Nunca confie apenas no cache local. O Firebase remove clientReady no
+    // onDisconnect; após reconectar é obrigatório gravar o estado pronto de novo.
+    readyRoom = '';
+    setOnlineStatus('Verificando este aparelho…', 'loading');
+    if (!await validate(selected)) return false;
     try {
       const ok = await FB()?.markFightReady?.(roomCode, true);
-      if (ok) setOnlineStatus('ROM validada. Aguardando o outro jogador…', 'ok');
-      return ok;
+      if (ok) { readyRoom = roomCode; setOnlineStatus('Aparelho pronto. Aguardando o outro jogador…', 'ok'); }
+      return Boolean(ok);
     } catch (e) {
       readyRoom = '';
       setOnlineStatus(e?.message || 'Falha ao marcar este aparelho como pronto.', 'error');
       return false;
     }
+    })();
+    try { return await readySyncPromise; }
+    finally { readySyncPromise = null; }
   }
 
   function renderRoom() {
@@ -270,25 +300,29 @@
     if(boundToOtherSession){setOnlineStatus('Esta conta já ocupa esta sala em outro aparelho. Use outra conta no segundo dispositivo.', 'error');}
     $('arcadeRoomCode').textContent = room.code || roomCode;
     $('arcadeRoomGame').textContent = `${g?.icon || '🎮'} ${g?.title || selected} • ${isHost() ? 'HOST / PLAYER 1' : 'CONVIDADO / PLAYER 2'}`;
-    $('arcadeRoomPlayers').innerHTML = Object.values(room.players || {}).map(p => `
+    $('arcadeRoomPlayers').innerHTML = Object.values(room.players || {}).map(p => {
+      const online = playerOnline(p.uid), ready = playerReady(p.uid);
+      const state = !online ? '🟡 reconectando ao Firebase' : ready ? '🎮 pronto' : '🔎 verificando aparelho';
+      return `
       <div class="kof-player-row arcade-player-row-v2">
         <span>${p.uid === room.hostUid ? '👑' : '🥊'}</span>
         <b>${esc(p.name)}</b>
-        <small>${playerOnline(p.uid) ? '🟢 online' : '🟡 reconectando'} • ${room.clientReady?.[p.uid]?.ready ? '🎮 pronto' : '🔎 validando ROM'}</small>
-      </div>`).join('');
+        <small>${online ? '🟢 online' : '🟡 offline'} • ${state}</small>
+      </div>`;
+    }).join('');
 
     const count = playerCount(), connected = connectedCount(), ready = readyCount();
     const status = $('arcadeRoomStatus');
     if (status) {
       if (count < 2) status.textContent = '⏳ 1/2 jogadores • compartilhe o código da sala';
       else if (connected < 2) status.textContent = `🟡 2/2 jogadores • ${connected}/2 online`;
-      else if (ready < 2) status.textContent = `🔎 ${ready}/2 aparelhos prontos • validando ROM`;
+      else if (ready < 2) status.textContent = `🔎 ${ready}/2 aparelhos prontos • sincronizando estado`;
       else status.textContent = '✅ 2/2 jogadores online e prontos para iniciar';
     }
 
     if (count < 2) setOnlineStatus('Sala criada. Compartilhe o código com seu rival.', 'ok');
-    else if (connected < 2) setOnlineStatus('Rival encontrado. Aguardando conexão estável…', 'loading');
-    else if (ready < 2) setOnlineStatus('Dois jogadores online. Validando os aparelhos…', 'loading');
+    else if (connected < 2) setOnlineStatus('Rival encontrado. Reconectando presença no Firebase…', 'loading');
+    else if (ready < 2) setOnlineStatus('Dois jogadores online. Sincronizando o estado de pronto…', 'loading');
     else setOnlineStatus(isHost() ? 'Tudo pronto. Clique em INICIAR ONLINE X1.' : 'Tudo pronto. Aguarde o host iniciar.', 'ok');
 
     const launch = $('arcadeLaunchButton');
@@ -298,7 +332,7 @@
         launch.textContent = launching ? '⏳ INICIANDO…' : '🚀 INICIAR ONLINE X1';
       } else {
         launch.disabled = true;
-        launch.textContent = ready >= 2 ? '✅ PRONTO • AGUARDE O HOST' : '🔎 VALIDANDO…';
+        launch.textContent = ready >= 2 ? '✅ PRONTO • AGUARDE O HOST' : (connected < 2 ? '🟡 RECONECTANDO…' : '🔎 SINCRONIZANDO…');
       }
     }
 
@@ -352,7 +386,7 @@
     try {
       if (!await validate()) return;
       roomCode = await FB().createFightRoom({ arcadeGame:selected, ranked:true });
-      sessionArmed = true; launched = false; launching = false; lastLaunchAt = 0; readyRoom = ''; processedFinishedRoom = '';
+      sessionArmed = true; launched = false; launching = false; lastLaunchAt = 0; readyRoom = ''; readySyncPromise = null; processedFinishedRoom = '';
       watch(roomCode);
       setOnlineStatus(`Sala ${roomCode} criada. Compartilhe o código.`, 'ok');
       toast('Sala criada', `Código ${roomCode}`);
@@ -381,7 +415,7 @@
     try {
       if (!await validate()) return;
       roomCode = await FB().joinFightRoom(code, selected);
-      sessionArmed = true; launched = false; launching = false; lastLaunchAt = 0; readyRoom = ''; processedFinishedRoom = '';
+      sessionArmed = true; launched = false; launching = false; lastLaunchAt = 0; readyRoom = ''; readySyncPromise = null; processedFinishedRoom = '';
       watch(roomCode);
       setOnlineStatus(`Conectado à sala ${roomCode}. Validando aparelhos…`, 'ok');
       toast('Conectado', `Você entrou na sala ${roomCode}`);
@@ -394,7 +428,7 @@
   async function leaveRoom(goBack=true) {
     if (roomCode && room?.status !== 'finished') await FB()?.leaveFightRoom?.(roomCode).catch(() => {});
     if (unsub) { try { unsub(); } catch {} unsub = null; }
-    roomCode = ''; room = null; sessionArmed = false; launched = false; launching = false; lastLaunchAt = 0; readyRoom = ''; processedFinishedRoom = ''; resultSubmitting = false;
+    roomCode = ''; room = null; sessionArmed = false; launched = false; launching = false; lastLaunchAt = 0; readyRoom = ''; readySyncPromise = null; processedFinishedRoom = ''; resultSubmitting = false;
     $('arcadeRoomPanel')?.classList.add('hidden');
     $('arcadeMatchResultActions')?.classList.add('hidden');
     $('arcadeMatchResultActions')?.classList.remove('active');
@@ -463,7 +497,7 @@
     show('arcadeOnlineScreen');
     if (!await validate(selected)) throw new Error('A ROM deste jogo não passou na validação.');
     roomCode = await FB().joinFightRoom(normalized, selected);
-    sessionArmed = true; launched = false; launching = false; lastLaunchAt = 0; readyRoom = ''; processedFinishedRoom = '';
+    sessionArmed = true; launched = false; launching = false; lastLaunchAt = 0; readyRoom = ''; readySyncPromise = null; processedFinishedRoom = '';
     watch(roomCode);
     setOnlineStatus(`Confronto ${roomCode} sincronizado. Aguarde os dois aparelhos ficarem prontos.`, 'ok');
     return roomCode;

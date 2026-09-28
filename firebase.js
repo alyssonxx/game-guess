@@ -361,18 +361,67 @@ function fightRtcRoomName(code){
   return `GG-${String(code||'').toUpperCase()}-${suffix}`.slice(0,20);
 }
 function fightActiveSessions(room,uid){return Object.keys(room?.presence?.[uid]||{});}
+function fightBoundSession(room,uid){if(uid===room?.hostUid)return String(room?.hostSessionId||'');if(uid===room?.guestUid)return String(room?.guestSessionId||'');return '';}
+function fightPlayerOnline(room,uid){const sessions=fightActiveSessions(room,uid),bound=fightBoundSession(room,uid);return Boolean(sessions.length&&(!bound||sessions.includes(bound)));}
+function fightPlayerReady(room,uid){const ready=room?.clientReady?.[uid],bound=fightBoundSession(room,uid);return Boolean(ready?.ready&&fightPlayerOnline(room,uid)&&(!bound||!ready.sessionId||String(ready.sessionId)===bound));}
 
+async function restoreFightPresence(h){
+  if(!h||!db||!currentUser||currentUser.uid!==h.uid)return false;
+  await h.dp.remove();
+  await h.dl.set(serverTimestamp());
+  await h.dr.remove();
+  await set(h.pr,{sessionId:CLIENT_SESSION_ID,connectedAt:serverTimestamp(),heartbeatAt:serverTimestamp()});
+  await set(h.lr,serverNow()).catch(()=>{});
+  return true;
+}
 async function attachFightPresence(code){
-  if(!currentUser||!db||!code)return;code=String(code).toUpperCase();const key=`${code}:${currentUser.uid}`;if(fightPresence.has(key))return;
-  const pr=ref(db,`fightRooms/${code}/presence/${currentUser.uid}/${CLIENT_SESSION_ID}`),lr=ref(db,`fightRooms/${code}/players/${currentUser.uid}/lastSeen`),rr=ref(db,`fightRooms/${code}/clientReady/${currentUser.uid}`);
-  const dp=onDisconnect(pr),dl=onDisconnect(lr),dr=onDisconnect(rr);await dp.remove();await dl.set(serverTimestamp());await dr.remove();
-  await set(pr,{sessionId:CLIENT_SESSION_ID,connectedAt:serverTimestamp(),heartbeatAt:serverTimestamp()});
-  const timer=setInterval(()=>{update(pr,{heartbeatAt:serverTimestamp()}).catch(()=>{});set(lr,serverNow()).catch(()=>{});},8000);
-  fightPresence.set(key,{pr,lr,rr,dp,dl,dr,timer});
+  if(!currentUser||!db||!code)return false;
+  code=String(code).toUpperCase();
+  const uid=currentUser.uid,key=`${code}:${uid}`;
+  let h=fightPresence.get(key);
+  if(!h){
+    const pr=ref(db,`fightRooms/${code}/presence/${uid}/${CLIENT_SESSION_ID}`),lr=ref(db,`fightRooms/${code}/players/${uid}/lastSeen`),rr=ref(db,`fightRooms/${code}/clientReady/${uid}`);
+    const dp=onDisconnect(pr),dl=onDisconnect(lr),dr=onDisconnect(rr);
+    h={code,uid,pr,lr,rr,dp,dl,dr,timer:null,attaching:null};
+    // Registra o handle antes da primeira escrita. Se a rede cair durante o attach,
+    // o listener de .info/connected ainda consegue restaurar a presença depois.
+    fightPresence.set(key,h);
+  }
+  if(h.attaching)return h.attaching;
+  h.attaching=(async()=>{
+    let lastError=null;
+    for(let attempt=1;attempt<=3;attempt++){
+      try{
+        if(!currentUser||currentUser.uid!==uid)throw new Error('A conta mudou durante a conexão da sala.');
+        await restoreFightPresence(h);
+        if(!h.timer){
+          h.timer=setInterval(()=>{
+            if(!currentUser||currentUser.uid!==uid)return;
+            update(h.pr,{heartbeatAt:serverTimestamp()}).catch(()=>{});
+            set(h.lr,serverNow()).catch(()=>{});
+          },8000);
+        }
+        return true;
+      }catch(e){
+        lastError=e;
+        if(attempt<3)await new Promise(r=>setTimeout(r,350*attempt));
+      }
+    }
+    throw lastError||new Error('Não foi possível registrar a presença na sala.');
+  })().finally(()=>{h.attaching=null;});
+  return h.attaching;
 }
 async function detachFightPresence(code){
-  if(!currentUser||!db||!code)return;code=String(code).toUpperCase();const key=`${code}:${currentUser.uid}`,h=fightPresence.get(key);if(!h)return;
-  clearInterval(h.timer);await h.dp.cancel().catch(()=>{});await h.dl.cancel().catch(()=>{});if(h.dr)await h.dr.cancel().catch(()=>{});await remove(h.pr).catch(()=>{});if(h.rr)await remove(h.rr).catch(()=>{});fightPresence.delete(key);
+  if(!db||!code)return;
+  code=String(code).toUpperCase();
+  const uid=currentUser?.uid;
+  const entries=[...fightPresence.entries()].filter(([key,h])=>h.code===code&&(!uid||h.uid===uid));
+  for(const [key,h] of entries){
+    clearInterval(h.timer);
+    await h.dp.cancel().catch(()=>{});await h.dl.cancel().catch(()=>{});await h.dr.cancel().catch(()=>{});
+    await remove(h.pr).catch(()=>{});await remove(h.rr).catch(()=>{});
+    fightPresence.delete(key);
+  }
 }
 async function createFightRoom(options={}){
   if(!currentUser)throw new Error('Faça login antes de criar uma luta.');
@@ -385,8 +434,13 @@ async function createFightRoom(options={}){
     const tournamentCode=/^[A-Z2-9]{6}$/.test(String(options?.tournamentCode||'').toUpperCase())?String(options.tournamentCode).toUpperCase():'';
     const tournamentMatchId=String(options?.tournamentMatchId||'').replace(/[^a-zA-Z0-9_-]/g,'').slice(0,40);
     const room={code,protocolVersion:FIGHT_PROTOCOL_VERSION,game:'kf2k2mp2',arcadeGame,gameId:fightGameId(code),hostUid:currentUser.uid,guestUid:'',hostSessionId:CLIENT_SESSION_ID,guestSessionId:'',rtcRoomName:'',status:'waiting',launchState:'waiting',launchAt:0,createdAt:now,updatedAt:now,expiresAt:now+WAITING_TTL_MS,ranked:options?.ranked!==false,tournamentCode,tournamentMatchId,players:{[currentUser.uid]:{uid:currentUser.uid,name,role:'host',joinedAt:now,lastSeen:now}},resultVotes:{},winnerUid:''};
-    try{await set(rr,room);}catch(e){if(String(e?.code||e?.message||'').toLowerCase().includes('permission'))throw new Error('O Firebase recusou a sala KOF. Publique as regras V17.');throw e;}
-    attachFightPresence(code).catch(e=>console.warn('KOF presence:',e));return code;
+    try{await set(rr,room);}catch(e){if(String(e?.code||e?.message||'').toLowerCase().includes('permission'))throw new Error('O Firebase recusou a sala KOF. Publique o database.rules.json atual.');throw e;}
+    try{await attachFightPresence(code);}catch(e){
+      console.warn('KOF presence host:',e);
+      await remove(rr).catch(()=>{});
+      throw new Error('A sala foi criada, mas este aparelho não conseguiu registrar presença no Firebase. Verifique as regras e a conexão e tente novamente.');
+    }
+    return code;
   }
   throw new Error('Não consegui gerar a sala KOF. Tente novamente.');
 }
@@ -409,14 +463,25 @@ async function joinFightRoom(code,expectedGame=''){
     }
     if(!active.length&&ownsHost&&boundSession!==CLIENT_SESSION_ID)await update(rr,{hostSessionId:CLIENT_SESSION_ID,updatedAt:now});
     if(!active.length&&ownsGuest&&boundSession!==CLIENT_SESSION_ID)await update(rr,{guestSessionId:CLIENT_SESSION_ID,updatedAt:now});
-    attachFightPresence(code).catch(()=>{});return code;
+    try{await attachFightPresence(code);}catch(e){
+      console.warn('KOF presence resume:',e);
+      throw new Error('Você está na sala, mas a presença online não pôde ser restaurada. Verifique as regras do Firebase e tente novamente.');
+    }
+    return code;
   }
   const guestRef=ref(db,`fightRooms/${code}/guestUid`),claim=await runTransaction(guestRef,current=>{if(current===currentUser.uid)return current;if(current===null||current===undefined||current==='')return currentUser.uid;return;},{applyLocally:false});
   if(!claim.committed||claim.snapshot?.val()!==currentUser.uid)throw new Error('A sala KOF acabou de ficar cheia.');
   const name=cleanName(localProfile()?.nickname||currentUser.displayName||currentUser.email?.split('@')[0]),playerRef=ref(db,`fightRooms/${code}/players/${currentUser.uid}`);
   try{await set(playerRef,{uid:currentUser.uid,name,role:'guest',joinedAt:now,lastSeen:now});await update(rr,{guestSessionId:CLIENT_SESSION_ID,status:'ready',updatedAt:now,expiresAt:now+PLAYING_TTL_MS});}
-  catch(e){await runTransaction(guestRef,current=>current===currentUser.uid?'':current,{applyLocally:false}).catch(()=>{});await remove(playerRef).catch(()=>{});if(String(e?.code||e?.message||'').toLowerCase().includes('permission'))throw new Error('O Firebase recusou a entrada no KOF. Publique as regras V17.');throw e;}
-  attachFightPresence(code).catch(e=>console.warn('KOF presence:',e));return code;
+  catch(e){await runTransaction(guestRef,current=>current===currentUser.uid?'':current,{applyLocally:false}).catch(()=>{});await remove(playerRef).catch(()=>{});if(String(e?.code||e?.message||'').toLowerCase().includes('permission'))throw new Error('O Firebase recusou a entrada no X1. Publique o database.rules.json atual.');throw e;}
+  try{await attachFightPresence(code);}catch(e){
+    console.warn('KOF presence guest:',e);
+    await runTransaction(guestRef,current=>current===currentUser.uid?'':current,{applyLocally:false}).catch(()=>{});
+    await remove(playerRef).catch(()=>{});
+    await update(rr,{guestSessionId:'',status:'waiting',updatedAt:serverNow()}).catch(()=>{});
+    throw new Error('Entrou na sala, mas este aparelho não conseguiu registrar presença online. Verifique as regras do Firebase e tente novamente.');
+  }
+  return code;
 }
 function watchFightRoom(code,cb){if(!db)return()=>{};return onValue(ref(db,`fightRooms/${String(code).toUpperCase()}`),s=>cb(s.val()),e=>cb(null,e));}
 async function markFightReady(code,ready=true){
@@ -426,6 +491,8 @@ async function markFightReady(code,ready=true){
   if(!room?.players?.[currentUser.uid])return false;
   const target=ref(db,`fightRooms/${code}/clientReady/${currentUser.uid}`);
   if(!ready){await remove(target).catch(()=>{});return true;}
+  // Ready só é válido se a presença deste mesmo aparelho estiver registrada.
+  await attachFightPresence(code);
   await set(target,{ready:true,at:serverNow(),sessionId:CLIENT_SESSION_ID});
   return true;
 }
@@ -437,10 +504,10 @@ async function requestFightLaunch(code){
   if(room.hostUid!==currentUser.uid||String(room.hostSessionId||CLIENT_SESSION_ID)!==CLIENT_SESSION_ID)throw new Error('Somente o aparelho HOST que criou esta sala pode iniciar a luta.');
   const ids=Object.keys(room.players||{});
   if(ids.length!==2)throw new Error('Aguarde o segundo jogador entrar.');
-  const online=ids.filter(uid=>Object.keys(room.presence?.[uid]||{}).length>0);
-  if(online.length!==2)throw new Error('Os dois jogadores precisam estar online na sala.');
-  const notReady=ids.filter(uid=>!room.clientReady?.[uid]?.ready);
-  if(notReady.length)throw new Error('Aguarde os dois aparelhos concluírem a verificação do KOF.');
+  const online=ids.filter(uid=>fightPlayerOnline(room,uid));
+  if(online.length!==2)throw new Error('Os dois aparelhos precisam estar online na sessão correta.');
+  const notReady=ids.filter(uid=>!fightPlayerReady(room,uid));
+  if(notReady.length)throw new Error('Aguarde os dois aparelhos sincronizarem o estado de pronto.');
   const now=serverNow(),rtcRoomName=fightRtcRoomName(code);
   try{await update(rr,{status:'playing',launchState:'starting',launchAt:now,rtcRoomName,updatedAt:now,expiresAt:now+PLAYING_TTL_MS});}
   catch(e){
@@ -996,7 +1063,11 @@ if(configured){
           }catch{}
         }
         for(const h of fightPresence.values()){
-          try{await h.dp.remove();await h.dl.set(serverTimestamp());await set(h.pr,{sessionId:CLIENT_SESSION_ID,connectedAt:serverTimestamp(),heartbeatAt:serverTimestamp()});}catch{}
+          try{
+            await restoreFightPresence(h);
+            // clientReady é removido pelo onDisconnect. Não o recriamos aqui: o
+            // frontend valida o aparelho novamente e grava uma nova sessão pronta.
+          }catch(e){console.warn('Fight presence restore:',h.code,e);}
         }
         for(const h of geoPresence.values()){
           try{
@@ -1006,7 +1077,7 @@ if(configured){
             await update(h.playerRef,{lastSeen:serverNow(),connectionState:'online'});
           }catch{}
         }
-        if(socialPresenceHandle){try{await socialPresenceHandle.d.remove();await set(socialPresenceHandle.pr,{sessionId:CLIENT_SESSION_ID,online:true,at:serverTimestamp()});}catch{}}
+        if(socialPresenceHandle&&currentUser?.uid===socialPresenceHandle.uid){try{await socialPresenceHandle.d.remove();await set(socialPresenceHandle.pr,{sessionId:CLIENT_SESSION_ID,online:true,at:serverTimestamp()});}catch(e){console.warn('Social presence restore:',e);}}
       }
     });
     seasonUnsub=onValue(ref(db,'rankedConfig/currentSeason'),snap=>{currentSeason=normalizeSeason(snap.val()||DEFAULT_SEASON);if($('rankingSeasonBanner'))$('rankingSeasonBanner').innerHTML=`<b>🏁 ${escapeHtml(currentSeasonLabel())}</b><span>${escapeHtml(currentSeason.description||'Ranking da temporada atual')}</span>`;},()=>{currentSeason={...DEFAULT_SEASON};});
@@ -1036,8 +1107,28 @@ async function detachSocialPresence(){
   const h=socialPresenceHandle;if(!h)return;socialPresenceHandle=null;clearInterval(h.timer);try{await h.d.cancel()}catch{}try{await remove(h.pr)}catch{}
 }
 async function attachSocialPresence(){
-  if(!currentUser||!db)return;const uid=currentUser.uid;if(socialPresenceHandle?.uid===uid)return;if(socialPresenceHandle)await detachSocialPresence();
-  const pr=ref(db,`userPresence/${uid}/${CLIENT_SESSION_ID}`),d=onDisconnect(pr);await d.remove();await set(pr,{sessionId:CLIENT_SESSION_ID,online:true,at:serverTimestamp()});const timer=setInterval(()=>update(pr,{at:serverTimestamp(),online:true}).catch(()=>{}),12000);socialPresenceHandle={uid,pr,d,timer};
+  if(!currentUser||!db)return false;
+  const uid=currentUser.uid;
+  if(socialPresenceHandle?.uid===uid)return true;
+  if(socialPresenceHandle)await detachSocialPresence();
+  const pr=ref(db,`userPresence/${uid}/${CLIENT_SESSION_ID}`),d=onDisconnect(pr);
+  try{
+    await d.remove();
+    // Evita escrever no UID antigo quando a conta muda enquanto uma operação async
+    // de presença ainda está em andamento.
+    if(!currentUser||currentUser.uid!==uid||auth?.currentUser?.uid!==uid){await d.cancel().catch(()=>{});return false;}
+    await set(pr,{sessionId:CLIENT_SESSION_ID,online:true,at:serverTimestamp()});
+    const timer=setInterval(()=>{
+      if(!currentUser||currentUser.uid!==uid)return;
+      update(pr,{at:serverTimestamp(),online:true}).catch(()=>{});
+    },12000);
+    socialPresenceHandle={uid,pr,d,timer};
+    return true;
+  }catch(e){
+    await d.cancel().catch(()=>{});
+    console.warn('Social presence unavailable:',e);
+    return false;
+  }
 }
 async function searchPlayers(term=''){
   if(!currentUser||!db)return[];term=String(term||'').trim().toLowerCase();if(term.length<2)return[];const [ps,fs,prs]=await Promise.all([get(ref(db,'publicProfiles')),get(ref(db,`friends/${currentUser.uid}`)),get(ref(db,'userPresence'))]);const friends=fs.val()||{},presence=prs.val()||{};return Object.values(ps.val()||{}).filter(x=>x?.uid&&x.uid!==currentUser.uid&&String(x.name||x.nickname||'').toLowerCase().includes(term)).slice(0,20).map(x=>({...x,isFriend:Boolean(friends[x.uid]),online:Boolean(Object.keys(presence[x.uid]||{}).length)}));

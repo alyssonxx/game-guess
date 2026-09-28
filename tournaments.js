@@ -129,6 +129,11 @@
       const template = TOURNAMENT_TEMPLATES[templateId];
       if (!template) throw new Error(`Template não encontrado: ${templateId}`);
 
+      // Copia as opções do template sem compartilhar objetos mutáveis entre torneios.
+      Object.assign(this, template, {
+        rules: { ...(template.rules || {}) },
+        prizes: { ...(template.prizes || {}) }
+      });
       this.id = `${templateId}-${Date.now()}`;
       this.templateId = templateId;
       this.name = template.name;
@@ -139,7 +144,6 @@
       this.brackets = [];
       this.results = {};
       this.prizeDistribution = {};
-      ...template
     }
 
     addPlayer(playerId, playerName, rating) {
