@@ -56,6 +56,14 @@
   let EJS_DATA = EJS_PROXY_DATA;
   const PUBLIC_NETPLAY_SERVER = 'https://netplay.emulatorjs.org';
   const rtcRoomName = rtcParam || `GG-${room}-${launchToken}`.slice(0, 20);
+  // Cada dispositivo online controla somente o seu port local no core.
+  // HOST = port 0 (P1); GUEST = port 1 (P2).
+  const onlineInputPort = role === 'guest' ? 1 : 0;
+  // Guardamos a API real de gamepads antes do EmulatorJS carregar. O nosso player
+  // faz o polling diretamente e esconde essa API do EmulatorJS para evitar que o
+  // mesmo controle físico seja lido duas vezes (input duplicado / movimento pesado).
+  const nativeGetGamepads = typeof navigator.getGamepads === 'function' ? navigator.getGamepads.bind(navigator) : null;
+  let nativeGamepadIsolation = false;
 
   const $ = id => document.getElementById(id);
   const boot = $('boot');
@@ -446,7 +454,7 @@
   }
 
   function gm() { return window.EJS_emulator?.gameManager || null; }
-  function emuPlayer(localPlayer) { return online ? 0 : localPlayer; }
+  function emuPlayer(localPlayer) { return online ? onlineInputPort : localPlayer; }
   function simulate(localPlayer, input, value) {
     const manager = gm();
     if (!manager || typeof manager.simulateInput !== 'function') return false;
@@ -496,7 +504,7 @@
     rebuildKeyboardMaps();
     addEventListener('keydown', e => {
       if (pendingKeyCapture) {
-        e.preventDefault(); e.stopPropagation();
+        e.preventDefault(); e.stopImmediatePropagation();
         keyConfig[String(pendingKeyCapture.player)][pendingKeyCapture.input] = e.code;
         pendingKeyCapture = null; saveKeyConfig(); renderCustomize('keys'); return;
       }
@@ -505,7 +513,7 @@
       for (const p of players) {
         const input = keyboardMaps[p]?.get(e.code);
         if (input === undefined) continue;
-        e.preventDefault(); e.stopPropagation(); setActionSource(p, input, `key:${p}:${e.code}`, true); return;
+        e.preventDefault(); e.stopImmediatePropagation(); setActionSource(p, input, `key:${p}:${e.code}`, true); return;
       }
     }, { capture: true });
     addEventListener('keyup', e => {
@@ -514,7 +522,7 @@
       for (const p of players) {
         const input = keyboardMaps[p]?.get(e.code);
         if (input === undefined) continue;
-        e.preventDefault(); e.stopPropagation(); setActionSource(p, input, `key:${p}:${e.code}`, false); return;
+        e.preventDefault(); e.stopImmediatePropagation(); setActionSource(p, input, `key:${p}:${e.code}`, false); return;
       }
     }, { capture: true });
     addEventListener('blur', () => releasePrefix('key:'));
@@ -680,6 +688,21 @@
     if (started) showTopbar(8000);
   }
 
+  function isolateNativeGamepadsFromEmulator() {
+    if (nativeGamepadIsolation || !nativeGetGamepads) return;
+    try {
+      Object.defineProperty(navigator, 'getGamepads', {
+        configurable: true,
+        enumerable: false,
+        value: () => []
+      });
+      nativeGamepadIsolation = true;
+      console.info('[GameGuess Arcade] camada nativa de gamepad do EmulatorJS isolada; usando input direto.');
+    } catch (e) {
+      console.warn('[GameGuess Arcade] não foi possível isolar navigator.getGamepads; mantendo captura direta.', e);
+    }
+  }
+
   function buttonPressed(gp, idx) { return !!gp?.buttons?.[idx]?.pressed; }
   function updatePad(player, gp) {
     const prefix = `pad:${player}:`;
@@ -699,11 +722,14 @@
   }
   function padLoop() {
     const max = online ? 1 : localPlayers;
-    const pads = [...(navigator.getGamepads?.() || [])].filter(Boolean).slice(0, max);
+    const pads = [...(nativeGetGamepads?.() || [])].filter(Boolean).slice(0, max);
     for (let p = 0; p < max; p++) updatePad(p, pads[p]);
     if (started) {
       if (pads.length) {
-        const names = pads.map((g, i) => `P${i + 1}: ${String(g.id).split('(')[0].trim().slice(0, 24)}`);
+        const names = pads.map((g, i) => {
+          const slot = online ? onlineInputPort + 1 : i + 1;
+          return `P${slot}: ${String(g.id).split('(')[0].trim().slice(0, 24)}`;
+        });
         if (online) showStatus(`🎮 ${names.join(' • ')} • PVP ${room}`);
       }
       padFrame = requestAnimationFrame(padLoop);
@@ -755,8 +781,13 @@
       try {
         const players = Object.keys(np.players || {}).length;
         if (np.emu?.isNetplay && players >= 2 && np.webRtcReady) {
-          showStatus(`✅ PVP conectado • ${role === 'host' ? 'PLAYER 1' : 'PLAYER 2'} • ${game.title}`);
-          post('arcade-netplay-status', 'PVP conectado', { state: 'connected', role, room });
+          const localPlayerLabel = `PLAYER ${onlineInputPort + 1}`;
+          showStatus(`✅ PVP conectado • ${localPlayerLabel} • ${game.title}`);
+          console.info('[GameGuess Arcade] PVP input atribuído', {
+            role, localInputPort: onlineInputPort, localPlayer: onlineInputPort + 1,
+            room, rtcRoomName, netplayPlayers: players
+          });
+          post('arcade-netplay-status', 'PVP conectado', { state: 'connected', role, room, localInputPort: onlineInputPort, localPlayer: onlineInputPort + 1 });
           clearInterval(netplayWatchTimer); netplayWatchTimer = 0;
         } else if (np.emu?.isNetplay && role === 'host') showStatus(`🟡 Sala ${rtcRoomName} criada • aguardando rival…`);
         else if (np.emu?.isNetplay) showStatus(`🟡 Entrando na sala ${rtcRoomName}…`);
@@ -981,6 +1012,9 @@
       const server = String(cfg?.netplayServer || PUBLIC_NETPLAY_SERVER).trim().replace(/\/+$/, '') || PUBLIC_NETPLAY_SERVER;
       const ice = Array.isArray(cfg?.iceServers) && cfg.iceServers.length ? cfg.iceServers : [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }];
 
+      // Nosso teclado/touch/gamepad convergem para uma única camada de simulateInput.
+      // Isole o polling nativo antes de carregar o loader para não somar dois inputs físicos.
+      isolateNativeGamepadsFromEmulator();
       window.EJS_player = '#game'; window.EJS_core = game.core; window.EJS_gameUrl = game.url; window.EJS_gameID = online ? gameId : game.localId;
       window.EJS_pathtodata = EJS_DATA; window.EJS_language = 'pt-BR'; window.EJS_disableAutoLang = true; window.EJS_startOnLoaded = true; window.EJS_noAutoFocus = true;
 
@@ -1016,7 +1050,7 @@
         if (online) showStatus('🟡 Jogo carregado • conectando PVP…'); else hideStatus();
         cancelAnimationFrame(padFrame); padLoop(); if (online) startAutomaticNetplay();
         startReplayRecording();
-        post('arcade-player-ready', `${game.title} carregado.`, { online, players: online ? 2 : localPlayers, role, room });
+        post('arcade-player-ready', `${game.title} carregado.`, { online, players: online ? 2 : localPlayers, role, room, localInputPort: online ? onlineInputPort : 0, localPlayer: online ? onlineInputPort + 1 : 1 });
       };
 
       const loadLoader = (dataPath, label) => new Promise((resolve, reject) => {
@@ -1025,7 +1059,7 @@
         document.querySelectorAll('script[data-gg-ejs-loader="1"]').forEach(el => el.remove());
         const script = document.createElement('script');
         script.dataset.ggEjsLoader = '1';
-        script.src = `${dataPath}loader.js?v=gg255`;
+        script.src = `${dataPath}loader.js?v=gg256`;
         script.async = true;
         script.onload = () => resolve(label);
         script.onerror = () => { script.remove(); reject(new Error(`Falha ao carregar loader (${label})`)); };
@@ -1041,6 +1075,7 @@
   }
 
   setupUi(); bindKeyboard();
+  if (online) console.info('[GameGuess Arcade] papel do netplay', { role, localInputPort: onlineInputPort, localPlayer: onlineInputPort + 1, room, rtcRoomName });
   startButton?.addEventListener('click', bootGame);
   helpButton?.addEventListener('click', () => { showTopbar(0); renderHelp(); });
   customizeButton?.addEventListener('click', () => { showTopbar(0); renderCustomize('layout'); });
