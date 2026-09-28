@@ -8,46 +8,62 @@
   <style>
     *{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;overflow:hidden;background:#050913;color:#fff;font-family:Inter,Arial,sans-serif;overscroll-behavior:none}body{user-select:none;-webkit-user-select:none}
     #game{position:fixed;inset:0;background:#050913;overflow:hidden}#game canvas,#game iframe,#game video,#game object{max-width:100%!important;max-height:100%!important;touch-action:none!important}
-    .topbar{position:fixed;z-index:80;top:max(8px,env(safe-area-inset-top));left:max(8px,env(safe-area-inset-left));right:max(8px,env(safe-area-inset-right));display:flex;justify-content:space-between;gap:8px;pointer-events:none}.group{display:flex;gap:6px;flex-wrap:wrap;pointer-events:auto}.tool,.badge{border:1px solid rgba(66,232,255,.45);background:rgba(5,9,19,.84);color:#fff;padding:8px 10px;border-radius:14px;font-weight:900;backdrop-filter:blur(8px)}.tool{cursor:pointer}.badge{color:#bdf8ff}
+
+    .topbar{position:fixed;z-index:84;top:max(8px,env(safe-area-inset-top));left:max(8px,env(safe-area-inset-left));right:max(8px,env(safe-area-inset-right));display:flex;justify-content:space-between;gap:8px;pointer-events:none}.group{display:flex;gap:6px;flex-wrap:wrap;pointer-events:auto}.tool,.badge{border:1px solid rgba(66,232,255,.42);background:rgba(5,9,19,.78);color:#fff;padding:8px 10px;border-radius:14px;font-weight:900;backdrop-filter:blur(8px)}.tool{cursor:pointer}.badge{color:#bdf8ff}
+
     #boot{position:fixed;inset:0;z-index:90;display:grid;place-items:center;padding:22px;background:radial-gradient(circle at 50% 22%,#1b3556 0,#11172b 44%,#050913 78%)}
     .panel{width:min(760px,95vw);max-height:94vh;overflow:auto;padding:24px;border:1px solid rgba(66,232,255,.3);border-radius:20px;background:rgba(5,9,19,.9);box-shadow:0 20px 70px rgba(0,0,0,.48);text-align:center}.panel h1{margin:0 0 8px;font-size:clamp(1.5rem,5vw,2.5rem)}.panel p{color:#bfc9df;line-height:1.5;margin:8px auto;max-width:650px}
     #startButton{margin-top:14px;border:0;border-radius:14px;padding:14px 22px;background:linear-gradient(135deg,#42e8ff,#7d72ff);color:#03131b;font-size:1rem;font-weight:1000;letter-spacing:.04em;cursor:pointer;box-shadow:0 12px 34px rgba(66,232,255,.2)}#startButton:disabled{opacity:.6;cursor:wait}
     .controls-summary{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;text-align:left}.controls-summary.one{grid-template-columns:1fr}.controls-summary div{padding:12px;border:1px solid rgba(255,255,255,.11);border-radius:12px;background:rgba(255,255,255,.04)}.controls-summary b{display:block;margin-bottom:5px}.controls-summary small{color:#aeb9d2;line-height:1.45}
-    .modal{position:fixed;z-index:95;inset:0;display:none;place-items:center;padding:16px;background:rgba(2,6,14,.74)}.modal.open{display:grid}.modal-card{width:min(920px,96vw);max-height:92vh;overflow:auto;padding:18px;border-radius:20px;border:1px solid rgba(66,232,255,.28);background:rgba(7,12,24,.96);box-shadow:0 18px 60px rgba(0,0,0,.48)}.modal-head{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:10px}.modal-head h2{margin:0;font-size:1.2rem}.close-btn{border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);color:#fff;border-radius:12px;padding:8px 12px;font-weight:900;cursor:pointer}
-    .hint{color:#b9c4da;line-height:1.45}.pill-list{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 14px}.pill{padding:8px 10px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);font-size:.82rem}
-    .custom-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.card{border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);padding:14px;border-radius:16px}.card h3,.card h4{margin:0 0 8px}.card p{margin:.25rem 0 .5rem;color:#bcc7dc}.field{display:grid;grid-template-columns:130px 1fr auto;gap:10px;align-items:center;margin:10px 0}.field label{font-size:.9rem;color:#dbe8ff}.field output{min-width:48px;text-align:right;color:#8df5ff;font-weight:800}.field input[type="range"]{width:100%}.stack{display:grid;gap:10px}.btn-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.small-btn{border:1px solid rgba(66,232,255,.24);background:rgba(12,18,34,.9);color:#fff;border-radius:12px;padding:9px 12px;font-weight:800;cursor:pointer}.small-btn.primary{background:linear-gradient(135deg,#42e8ff,#7d72ff);color:#04121a;border:none}.small-btn.warn{border-color:rgba(255,90,90,.4)}
-    .map-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.map-row{display:grid;grid-template-columns:1fr 140px 100px;gap:8px;align-items:center;margin:8px 0}.map-row code{display:inline-flex;align-items:center;justify-content:center;min-height:38px;border-radius:10px;padding:8px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12)}.map-row .capture{width:100%}
-    #touchWrap{display:none;position:fixed;z-index:64;left:0;right:0;bottom:0;height:min(42vh,330px);pointer-events:none;background:linear-gradient(180deg,transparent,rgba(5,9,19,.28) 24%,rgba(5,9,19,.62))}.touch-player{position:absolute;bottom:max(8px,env(safe-area-inset-bottom));height:88%;pointer-events:none}.touch-player.single{left:0;width:100%}.touch-player.p1{left:0;width:50%}.touch-player.p2{right:0;width:50%}.player-label{position:absolute;left:50%;top:0;transform:translateX(-50%);font-weight:1000;font-size:.76rem;letter-spacing:.08em;opacity:.85}
-    .control-box{position:absolute;pointer-events:auto;opacity:var(--opacity,.92);transform:scale(var(--scale,1));}.control-box.left{left:var(--x,5%)}.control-box.right{right:var(--x,5%)}.control-box{bottom:var(--y,8%)}
-    .dpad{width:min(31vw,148px);height:min(31vw,148px);max-width:42%;max-height:75%}.single .dpad{width:min(34vw,164px);height:min(34vw,164px)}
-    .actions{width:min(28vw,154px);height:min(28vw,154px);max-width:46%}.single .actions{width:min(34vw,192px);height:min(34vw,192px)}
-    .mini-actions{display:flex;gap:6px;align-items:center}.single .mini-actions{gap:8px}
-    .dpad button,.actions button,.mini-actions button{position:absolute;border:1px solid rgba(255,255,255,.32);background:rgba(5,9,19,.52);backdrop-filter:blur(4px);color:#fff;font-weight:1000;touch-action:none;box-shadow:0 5px 18px rgba(0,0,0,.22)}
-    .mini-actions button{position:static;border-radius:12px;padding:8px 10px;font-size:.7rem}
-    .dpad button{width:34%;height:34%;border-radius:16px;font-size:1.05rem}.dpad .up{left:33%;top:0}.dpad .down{left:33%;bottom:0}.dpad .left{left:0;top:33%}.dpad .right{right:0;top:33%}
-    .actions button{border-radius:50%;font-size:.78rem;width:32%;height:32%}.actions.four .b0{left:0;bottom:10%}.actions.four .b1{left:34%;bottom:0}.actions.four .b2{left:34%;top:0}.actions.four .b3{right:0;top:10%}.actions.six .b0{left:0;top:0}.actions.six .b1{left:34%;top:0}.actions.six .b2{right:0;top:0}.actions.six .b3{left:0;bottom:0}.actions.six .b4{left:34%;bottom:0}.actions.six .b5{right:0;bottom:0}
-    .pressed{transform:scale(.93)!important;filter:brightness(1.35)}
-    #status{position:fixed;z-index:66;left:50%;bottom:10px;transform:translateX(-50%);max-width:min(760px,92vw);padding:8px 12px;border-radius:999px;background:rgba(5,9,19,.8);border:1px solid rgba(255,255,255,.12);font-size:.78rem;color:#d9e2f2;pointer-events:none;text-align:center}
-    .subtle{opacity:.75}
-    @media (hover:none) and (pointer:coarse){#touchWrap{display:block}.badge{display:none}.topbar{opacity:.82}.tool{padding:7px 8px;font-size:.72rem}#status{bottom:calc(min(42vh,330px) + 8px)}}
-    @media (max-width:780px){.custom-grid,.map-grid{grid-template-columns:1fr}.controls-summary{grid-template-columns:1fr}.map-row{grid-template-columns:1fr 110px 90px}.topbar .group:last-child{justify-content:flex-end}.tool{padding:7px 8px;font-size:.75rem}.dpad{width:min(33vw,142px);height:min(33vw,142px)}.actions{width:min(31vw,145px);height:min(31vw,145px)}.single .dpad{width:min(36vw,156px);height:min(36vw,156px)}.single .actions{width:min(36vw,170px);height:min(36vw,170px)}}
+
+    .modal{position:fixed;z-index:96;inset:0;display:none;place-items:center;padding:14px;background:rgba(2,6,14,.78)}.modal.open{display:grid}.modal-card{width:min(960px,96vw);max-height:92vh;overflow:auto;padding:18px;border-radius:20px;border:1px solid rgba(66,232,255,.28);background:rgba(7,12,24,.97);box-shadow:0 18px 60px rgba(0,0,0,.48)}.modal-head{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:12px}.modal-head h2{margin:0;font-size:1.2rem}.close-btn{border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);color:#fff;border-radius:12px;padding:8px 12px;font-weight:900;cursor:pointer}
+    .hint{color:#b9c4da;line-height:1.45}.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 16px}.tab{border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);color:#fff;padding:9px 12px;border-radius:12px;font-weight:900;cursor:pointer}.tab.active{border-color:#42e8ff;background:rgba(66,232,255,.12);color:#baf9ff}.cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.card{border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);padding:14px;border-radius:16px}.card h3,.card h4{margin:0 0 8px}.card p{margin:.25rem 0 .5rem;color:#bcc7dc}.btn-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.small-btn{border:1px solid rgba(66,232,255,.24);background:rgba(12,18,34,.9);color:#fff;border-radius:12px;padding:9px 12px;font-weight:800;cursor:pointer}.small-btn.primary{background:linear-gradient(135deg,#42e8ff,#7d72ff);color:#04121a;border:none}.small-btn.warn{border-color:rgba(255,90,90,.4)}
+    .choice-row{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}.choice{border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);color:#fff;padding:10px 12px;border-radius:12px;font-weight:850;cursor:pointer}.choice.active{border-color:#7d72ff;background:rgba(125,114,255,.16)}
+    .map-row{display:grid;grid-template-columns:minmax(130px,1fr) 132px 98px;gap:8px;align-items:center;margin:8px 0}.map-row code{display:flex;align-items:center;justify-content:center;min-height:38px;border-radius:10px;padding:8px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12)}.map-row select{width:100%;min-height:38px;border-radius:10px;background:#0d1426;color:#fff;border:1px solid rgba(255,255,255,.14);padding:7px}
+
+    /* Controles touch: posicionamento livre em toda a viewport */
+    #touchWrap{display:none;position:fixed;z-index:64;inset:0;pointer-events:none}.touch-player{position:absolute;inset:0;pointer-events:none}.touch-control{position:absolute;left:var(--x);top:var(--y);width:var(--size);height:var(--size);transform:translate(-50%,-50%);pointer-events:auto;opacity:var(--opacity,.9);touch-action:none}.touch-control button{width:100%;height:100%;border:1px solid rgba(255,255,255,.34);background:rgba(5,9,19,.52);backdrop-filter:blur(4px);color:#fff;font-weight:1000;box-shadow:0 5px 18px rgba(0,0,0,.24);touch-action:none}.touch-control.action button,.touch-control.system button,.touch-control.arrow button{border-radius:50%}.touch-control.system{width:auto!important;height:auto!important}.touch-control.system button{min-width:62px;min-height:42px;border-radius:14px;padding:8px 10px}.touch-control.arrow button{border-radius:16px;font-size:1.05rem}.touch-control.action button{font-size:.86rem}.touch-control.pressed,.touch-control button.pressed{filter:brightness(1.35)}.touch-control button.pressed{transform:scale(.92)}
+    .touch-control.editing{outline:2px dashed rgba(66,232,255,.75);outline-offset:3px}.touch-control.edit-selected{outline-color:#ffd75e}.touch-control .edit-label{display:none;position:absolute;left:50%;bottom:calc(100% + 5px);transform:translateX(-50%);white-space:nowrap;background:#0b1120;border:1px solid rgba(255,255,255,.16);padding:4px 7px;border-radius:8px;font-size:.65rem;color:#fff}.edit-mode .touch-control .edit-label{display:block}
+
+    .arcade-stick{border-radius:50%;border:2px solid rgba(255,255,255,.34);background:radial-gradient(circle at 50% 50%,rgba(255,80,100,.26),rgba(255,255,255,.04) 55%,rgba(5,9,19,.58));box-shadow:inset 0 0 24px rgba(255,40,70,.13),0 8px 24px rgba(0,0,0,.28)}.arcade-stick .stick-knob{position:absolute;left:50%;top:50%;width:44%;height:44%;transform:translate(-50%,-50%);border-radius:50%;background:linear-gradient(145deg,#ff304f,#90051d);border:2px solid rgba(255,255,255,.22);box-shadow:0 7px 14px rgba(0,0,0,.3);pointer-events:none}.arcade-stick .stick-base-dot{position:absolute;left:50%;top:50%;width:10%;height:10%;transform:translate(-50%,-50%);border-radius:50%;background:rgba(255,255,255,.18);pointer-events:none}
+
+    #editDock{position:fixed;z-index:100;left:max(8px,env(safe-area-inset-left));right:max(8px,env(safe-area-inset-right));bottom:max(8px,env(safe-area-inset-bottom));display:none;gap:8px;align-items:center;flex-wrap:wrap;padding:10px;border:1px solid rgba(66,232,255,.35);border-radius:16px;background:rgba(5,9,19,.94);box-shadow:0 12px 42px rgba(0,0,0,.42)}body.edit-mode #editDock{display:flex}#editDock strong{margin-right:auto}.dock-range{display:flex;gap:6px;align-items:center}.dock-range input{width:min(180px,34vw)}
+
+    #status{position:fixed;z-index:66;left:50%;bottom:10px;transform:translateX(-50%);max-width:min(760px,92vw);padding:8px 12px;border-radius:999px;background:rgba(5,9,19,.8);border:1px solid rgba(255,255,255,.12);font-size:.78rem;color:#d9e2f2;pointer-events:none;text-align:center}.status-hidden{display:none!important}
+
+    @media (hover:none) and (pointer:coarse){#touchWrap{display:block}.badge{display:none}.tool{padding:7px 8px;font-size:.73rem}.topbar{opacity:.86}}
+    @media (max-width:760px){.cards{grid-template-columns:1fr}.controls-summary{grid-template-columns:1fr}.map-row{grid-template-columns:minmax(115px,1fr) 112px 86px}.tool .txt{display:none}.tool{min-width:43px}.modal-card{padding:14px}.tabs{position:sticky;top:-14px;z-index:2;background:#070c18;padding:8px 0}}
   </style>
 </head>
 <body>
   <div id="game"></div>
+
   <div class="topbar">
     <div class="group"><span class="badge" id="gameBadge">🎮 ARCADE</span></div>
     <div class="group">
-      <button class="tool" id="helpButton" type="button">❔ CONTROLES</button>
-      <button class="tool" id="layoutButton" type="button">🎛 LAYOUT</button>
-      <button class="tool" id="keysButton" type="button">⌨ TECLAS</button>
-      <button class="tool" id="fullscreenButton" type="button">⛶ CHEIA</button>
+      <button class="tool" id="helpButton" type="button" title="Controles">❔ <span class="txt">CONTROLES</span></button>
+      <button class="tool" id="customizeButton" type="button" title="Personalizar">🎛 <span class="txt">PERSONALIZAR</span></button>
+      <button class="tool" id="fullscreenButton" type="button" title="Tela cheia">⛶ <span class="txt">CHEIA</span></button>
+      <button class="tool" id="exitButton" type="button" title="Sair">↙ <span class="txt">SAIR</span></button>
     </div>
   </div>
+
   <div id="boot"><div class="panel"><div id="gameIcon" style="font-size:3rem">🎮</div><h1 id="gameTitle">Arcade</h1><p id="bootText">Preparando o emulador…</p><div class="controls-summary" id="controlsSummary"></div><p id="deviceHint"><strong>Entradas:</strong> teclado, gamepads/joysticks e touchscreen.</p><button id="startButton" type="button">▶ INICIAR</button></div></div>
-  <div id="overlay" class="modal"><div class="modal-card"><div class="modal-head"><h2 id="overlayTitle">Controles</h2><button id="overlayClose" class="close-btn" type="button">Fechar</button></div><div id="overlayBody"></div></div></div>
+
+  <div id="overlay" class="modal"><div class="modal-card"><div class="modal-head"><h2 id="overlayTitle">Personalização</h2><button id="overlayClose" class="close-btn" type="button">Fechar</button></div><div id="overlayBody"></div></div></div>
+
   <div id="touchWrap"></div>
-  <div id="status">Preparando o jogo automaticamente…</div>
-  <script src="/arcade-player.js?v=2.2.0"></script>
+
+  <div id="editDock">
+    <strong id="editSelectedName">Selecione e arraste um controle</strong>
+    <label class="dock-range">Tamanho <input id="editSize" type="range" min="28" max="220" step="1" value="64"><output id="editSizeOut">64px</output></label>
+    <label class="dock-range">Opacidade <input id="editOpacity" type="range" min="20" max="100" step="1" value="90"><output id="editOpacityOut">90%</output></label>
+    <button class="small-btn warn" id="editReset" type="button">↺ RESETAR</button>
+    <button class="small-btn" id="editCancel" type="button">CANCELAR</button>
+    <button class="small-btn primary" id="editDone" type="button">✓ SALVAR</button>
+  </div>
+
+  <div id="status" class="status-hidden"></div>
+  <script src="/arcade-player.js?v=2.3.0"></script>
 </body>
 </html>
