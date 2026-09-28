@@ -110,6 +110,7 @@
     }
   </style>
   <link rel="stylesheet" href="/design.css?v=21.3.1">
+  <link rel="stylesheet" href="/arcade-competitive.css?v=2.5.0">
 </head>
 <body class="redesign">
   <div class="bg-grid"></div>
@@ -169,6 +170,28 @@
         <div class="glance-card"><div><strong>Quiz + KOF + Termo</strong><span>Os modos mais pedidos em destaque</span></div><i>🔥</i></div>
         <div class="glance-card"><div><strong>Ranking e conta</strong><span>Continue de onde parou e dispute a temporada</span></div><i>🏆</i></div>
       </div>
+
+      <section class="home-section home-arcade-ranked" id="homeArcadeRankedSection">
+        <div class="home-ranked-head">
+          <div class="section-copy">
+            <p class="eyebrow">🕹 ARCADE RANKED</p>
+            <h2>Os melhores do X1<span class="brand-dot">.</span></h2>
+            <p>Vitórias, derrotas, RP e o jogo em que cada jogador mais se destaca.</p>
+          </div>
+          <div class="home-ranked-actions">
+            <button class="secondary-btn" id="homeArcadeRankingButton" type="button">RANKING COMPLETO</button>
+            <button class="secondary-btn" id="homeArcadeReplaysButton" type="button">🎥 REPLAYS</button>
+            <button class="primary-btn" id="homeArcadeTournamentButton" type="button">🏆 TORNEIO</button>
+          </div>
+        </div>
+        <div class="home-ranked-grid">
+          <div class="home-ranked-table" id="homeArcadeRankedList"><div class="home-ranked-empty">Entre na sua conta para carregar o Arcade Ranked.</div></div>
+          <aside class="home-ranked-side">
+            <h3>Seu Arcade Ranked</h3>
+            <div id="homeArcadeMyStats"><p>Conclua partidas online para registrar suas estatísticas.</p></div>
+          </aside>
+        </div>
+      </section>
 
       <section class="home-section">
         <div class="section-copy">
@@ -313,6 +336,13 @@
         </div>
       </div>
 
+      <div class="arcade-competitive-strip" aria-label="Competitivo Arcade">
+        <div class="arcade-comp-copy"><b>COMPETITIVO ARCADE</b><span>X1 ranqueado, torneios de luta e replay local. As configurações de touch, teclado e gamepad continuam disponíveis em todos os jogos.</span></div>
+        <button class="arcade-comp-btn tournament" id="arcadeTournamentButton" type="button"><strong>🏆 MODO TORNEIO</strong><small>4 ou 8 jogadores • MD1/MD3/MD5</small></button>
+        <button class="arcade-comp-btn ranked" id="arcadeRankingButton" type="button"><strong>🌍 ARCADE RANKED</strong><small>Vitórias, derrotas, RP e melhor jogo</small></button>
+        <button class="arcade-comp-btn replays" id="arcadeReplaysButton" type="button"><strong>🎥 REPLAYS</strong><small>Assista e salve as partidas deste aparelho</small></button>
+      </div>
+
       <div class="arcade-v2-grid" id="arcadeGameGrid">
         <article class="arcade-v2-card arcade-v2-featured" data-game-card="kf2k2mp2">
           <div class="arcade-v2-card-head">
@@ -407,8 +437,63 @@
     </section>
 
     <section class="screen kof-play-screen" id="arcadePlayScreen">
-      <div class="kof-play-top arcade-play-v2-head"><button class="back-link" id="arcadePlayBack" type="button">← Arcade</button><div><p class="eyebrow" id="arcadePlayTitle">🎮 ARCADE</p><b id="arcadePlayMode">1 PLAYER LOCAL</b></div><div id="arcadePlayConnection" class="arcade-play-v2-state">Preparando…</div></div>
+      <div class="kof-play-top arcade-play-v2-head">
+        <button class="back-link" id="arcadePlayBack" type="button">← Arcade</button>
+        <div><p class="eyebrow" id="arcadePlayTitle">🎮 ARCADE</p><b id="arcadePlayMode">1 PLAYER LOCAL</b></div>
+        <div id="arcadeMatchResultActions" class="arcade-match-result-actions hidden" aria-label="Confirmar resultado da partida">
+          <button type="button" class="win" id="arcadeReportWin">🏆 EU VENCI</button>
+          <button type="button" class="loss" id="arcadeReportLoss">🏳 RIVAL VENCEU</button>
+        </div>
+        <div id="arcadePlayConnection" class="arcade-play-v2-state">Preparando…</div>
+      </div>
       <div class="kof-emulator-shell arcade-emulator-shell"><iframe id="arcadePlayFrame" title="Arcade" allow="fullscreen; gamepad; autoplay" allowfullscreen referrerpolicy="same-origin"></iframe></div>
+    </section>
+
+    <section class="screen arcade-tournament-screen" id="arcadeTournamentScreen">
+      <div class="arcade-comp-heading">
+        <button class="back-link" id="arcadeTournamentBack" type="button">← Arcade</button>
+        <div><p class="eyebrow">🏆 MODO TORNEIO ARCADE</p><h2>Chave eliminatória online</h2><p>Crie um torneio privado, compartilhe o código e dispute séries MD1, MD3 ou MD5 usando o X1 WebRTC.</p></div>
+      </div>
+      <div class="arcade-tournament-layout">
+        <div class="arcade-comp-panel">
+          <h3>CRIAR TORNEIO</h3>
+          <label>Nome<input id="arcadeTournamentName" maxlength="42" placeholder="Torneio da galera"></label>
+          <label>Jogo<select id="arcadeTournamentGameSelect">
+            <option value="kf2k2mp2">🥊 KOF 2002 Magic Plus II</option>
+            <option value="samsh5spho">⚔️ Samurai Shodown V Special</option>
+            <option value="mvsc">🦸 Marvel vs. Capcom</option>
+            <option value="xmvsfur1">✖️ X-Men vs. Street Fighter</option>
+          </select></label>
+          <label>Participantes<select id="arcadeTournamentSize"><option value="4">4 jogadores</option><option value="8">8 jogadores</option></select></label>
+          <label>Série<select id="arcadeTournamentBestOf"><option value="1">MD1 • uma vitória</option><option value="3" selected>MD3 • duas vitórias</option><option value="5">MD5 • três vitórias</option></select></label>
+          <button class="primary-btn" id="arcadeTournamentCreate" type="button">🏆 CRIAR TORNEIO</button>
+          <hr style="border:0;border-top:1px solid rgba(255,255,255,.08);margin:18px 0">
+          <h3>ENTRAR COM CÓDIGO</h3>
+          <div style="display:flex;gap:8px"><input id="arcadeTournamentJoinCode" maxlength="6" placeholder="ABC123" autocomplete="off"><button class="secondary-btn" id="arcadeTournamentJoin" type="button">ENTRAR</button></div>
+          <div class="arcade-tournament-status" id="arcadeTournamentStatus" data-kind="info">Crie um torneio ou entre com um código.</div>
+        </div>
+
+        <div class="arcade-comp-panel hidden" id="arcadeTournamentLive">
+          <div class="arcade-tournament-code"><div><small>CÓDIGO DO TORNEIO</small><strong id="arcadeTournamentCode">------</strong></div><button class="secondary-btn" id="arcadeTournamentCopy" type="button">📋 COPIAR</button></div>
+          <div class="arcade-tournament-meta"><span id="arcadeTournamentGame">🎮 Jogo</span><span id="arcadeTournamentFormat">4 jogadores • MD3</span><span id="arcadeTournamentState">INSCRIÇÕES</span></div>
+          <div class="arcade-tournament-players" id="arcadeTournamentPlayers"></div>
+          <button class="primary-btn hidden" id="arcadeTournamentStart" type="button">🏁 INICIAR TORNEIO</button>
+          <div class="arcade-champion hidden" id="arcadeTournamentChampion"></div>
+          <h3 style="margin-top:18px">CHAVE</h3>
+          <div class="arcade-bracket" id="arcadeTournamentBracket"><div class="home-ranked-empty">A chave será criada quando o host iniciar.</div></div>
+          <button class="secondary-btn" id="arcadeTournamentLeaveView" type="button">VOLTAR AO ARCADE</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="screen arcade-replays-screen" id="arcadeReplaysScreen">
+      <div class="arcade-comp-heading">
+        <button class="back-link" id="arcadeReplaysBack" type="button">← Arcade</button>
+        <div><p class="eyebrow">🎥 REPLAYS ARCADE • BETA</p><h2>Suas partidas neste aparelho</h2><p>Os vídeos ficam apenas neste navegador e podem ser assistidos, baixados ou apagados.</p></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="secondary-btn" id="arcadeReplayToggle" type="button">● REPLAY AUTOMÁTICO: LIGADO</button><button class="secondary-btn" id="arcadeReplayRefresh" type="button">↻ ATUALIZAR</button></div>
+      </div>
+      <div class="arcade-replay-note">A gravação captura o vídeo do emulador automaticamente. Nesta versão beta o áudio não é gravado. O sistema mantém até 12 replays locais, com limite de aproximadamente 8 minutos por partida.</div>
+      <div class="arcade-replay-grid" id="arcadeReplayGrid"><div class="home-ranked-empty">Nenhum replay carregado.</div></div>
     </section>
 
     <section class="screen" id="setupScreen">
@@ -877,7 +962,7 @@
 
   <script src="/firebase-config.js?v=12.0.0" defer></script>
   <script src="/scoring.js?v=20.0.0" defer></script>
-  <script src="/app.js?v=20.0.0" defer></script>
+  <script src="/app.js?v=20.0.1" defer></script>
   <script src="/multiverse.js?v=17.0.0" defer></script>
   <script src="/termo.js?v=17.0.0" defer></script>
   <script src="/quiz-bank.js?v=17.0.0" defer></script>
@@ -891,11 +976,12 @@
   <script src="/tournaments.js?v=20.1.0" defer></script>
   <script src="/social.js?v=20.1.0" defer></script>
   <script src="/ranking.js?v=20.0.0" defer></script>
-  <script type="module" src="/firebase.js?v=19.11.3"></script>
+  <script type="module" src="/firebase.js?v=19.12.0"></script>
   <script src="/duel.js?v=17.0.0" defer></script>
   <script src="/kof-catalog.js?v=19.10.4" defer></script>
   <script src="/kof-catalog-ui.js?v=19.10.4" defer></script>
-  <script src="/arcade-x1.js?v=2.0.1" defer></script>
+  <script src="/arcade-x1.js?v=2.5.0" defer></script>
+  <script src="/arcade-competitive.js?v=2.5.0" defer></script>
     <script src="/friends.js?v=19.11.1" defer></script>
 
   <script data-portrait-fix-v19>

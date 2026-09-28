@@ -187,6 +187,7 @@
 
   const DEFAULT_PROFILE = {
     coins:120, highScore:0, gamesPlayed:0, gamesWon:0, bestStreak:0, sound:true,
+    arcadePlayed:0, arcadeWins:0, arcadeLosses:0, arcadeBestStreak:0, arcadeCurrentStreak:0, arcadeRating:1000, arcadeGames:{},
     achievements:{}, platformWins:{}, modeWins:{}, modeRecords:{survival:0,blitz:0}, recentGameIds:[], tutorialSeen:false
   };
 
@@ -212,6 +213,7 @@
         platformWins:{...DEFAULT_PROFILE.platformWins,...(saved.platformWins||{})},
         modeWins:{...DEFAULT_PROFILE.modeWins,...(saved.modeWins||{})},
         modeRecords:{...DEFAULT_PROFILE.modeRecords,...(saved.modeRecords||{})},
+        arcadeGames:{...DEFAULT_PROFILE.arcadeGames,...(saved.arcadeGames||{})},
         recentGameIds:Array.isArray(saved.recentGameIds)?saved.recentGameIds.slice(0,100):[]
       };
     } catch { return {...DEFAULT_PROFILE}; }

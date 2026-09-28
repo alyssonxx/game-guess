@@ -4,7 +4,7 @@
   const $ = id => document.getElementById(id);
   const CORE = () => window.GameGuessCore;
   const FB = () => window.GameGuessFirebase;
-  const VERSION = '2.0.1';
+  const VERSION = '2.5.0';
 
   const GAMES = {
     kf2k2mp2: {
@@ -38,6 +38,8 @@
   let launching = false;
   let lastLaunchAt = 0;
   let readyRoom = '';
+  let processedFinishedRoom = '';
+  let resultSubmitting = false;
 
   const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({
     '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
@@ -169,6 +171,76 @@
   function readyCount() { return Object.values(room?.clientReady || {}).filter(x => x?.ready).length; }
   function isHost() { return Boolean(user() && room?.hostUid === user().uid); }
 
+  function opponentUid() {
+    const me = user()?.uid;
+    return Object.keys(room?.players || {}).find(uid => uid !== me) || '';
+  }
+
+  function renderResultActions() {
+    const box = $('arcadeMatchResultActions');
+    const win = $('arcadeReportWin');
+    const loss = $('arcadeReportLoss');
+    if (!box) return;
+    const me = user()?.uid;
+    const active = Boolean(launched && roomCode && room && me && room.players?.[me]);
+    box.classList.toggle('hidden', !active);
+    box.classList.toggle('active', active);
+    if (!active) return;
+    const finished = room.status === 'finished' && Boolean(room.winnerUid);
+    const myVote = room.resultVotes?.[me] || '';
+    const rival = opponentUid();
+    if (win) {
+      win.disabled = resultSubmitting || finished;
+      win.classList.toggle('selected', myVote === me);
+      win.textContent = finished ? (room.winnerUid === me ? '🏆 VITÓRIA CONFIRMADA' : '✓ RESULTADO CONFIRMADO') : (myVote === me ? '✓ VOCÊ: EU VENCI' : '🏆 EU VENCI');
+    }
+    if (loss) {
+      loss.disabled = resultSubmitting || finished;
+      loss.classList.toggle('selected', Boolean(rival && myVote === rival));
+      loss.textContent = finished ? (room.winnerUid === rival ? '🏳 RIVAL VENCEU' : '✓ RESULTADO CONFIRMADO') : (rival && myVote === rival ? '✓ VOCÊ: RIVAL VENCEU' : '🏳 RIVAL VENCEU');
+    }
+  }
+
+  async function handleFinishedRoom() {
+    if (!roomCode || !room?.winnerUid || room.status !== 'finished' || processedFinishedRoom === roomCode) return;
+    processedFinishedRoom = roomCode;
+    renderResultActions();
+    try {
+      $('arcadePlayFrame')?.contentWindow?.postMessage({ type:'arcade-replay-stop', meta:{ reason:'confirmed-result', winnerUid:room.winnerUid, fightRoomCode:roomCode } }, location.origin);
+    } catch {}
+    const me = user()?.uid;
+    const won = Boolean(me && room.winnerUid === me);
+    setPlayStatus(won ? '🏆 Vitória confirmada pelos dois jogadores.' : 'Resultado confirmado pelos dois jogadores.', won ? 'ok' : 'info');
+    try {
+      const record = await FB()?.recordArcadeMatchResult?.(roomCode, selected);
+      if (record?.recorded) toast('Arcade Ranked', won ? 'Vitória adicionada ao seu ranking.' : 'Partida adicionada ao seu ranking.');
+    } catch (e) { console.warn('Arcade ranked result:', e); }
+    if (room.tournamentCode && room.tournamentMatchId) {
+      try {
+        await FB()?.recordArcadeTournamentFightResult?.(room.tournamentCode, room.tournamentMatchId, roomCode, room.winnerUid);
+        toast('Torneio', 'Resultado aplicado à série. Volte à chave para continuar.');
+      } catch (e) { console.warn('Tournament result:', e); }
+    }
+  }
+
+  async function submitMyResult(wonMe) {
+    if (!roomCode || !room || resultSubmitting) return;
+    const me = user()?.uid, rival = opponentUid();
+    if (!me || !rival) return setPlayStatus('Aguardando o segundo jogador para confirmar o resultado.', 'error');
+    const winnerUid = wonMe ? me : rival;
+    resultSubmitting = true; renderResultActions();
+    try {
+      setPlayStatus('Resultado enviado. Aguardando a confirmação do outro jogador…', 'loading');
+      const latest = await FB()?.submitFightResult?.(roomCode, winnerUid);
+      if (latest) room = latest;
+      renderResultActions();
+      if (room?.status === 'finished') await handleFinishedRoom();
+      else setPlayStatus('Seu voto foi registrado. O resultado só vale quando os dois jogadores concordarem.', 'info');
+    } catch (e) {
+      setPlayStatus(e?.message || 'Não foi possível enviar o resultado.', 'error');
+    } finally { resultSubmitting = false; renderResultActions(); }
+  }
+
   async function ensureReady() {
     if (!roomCode || !user() || !selected) return false;
     if (room?.clientReady?.[user().uid]?.ready) { readyRoom = roomCode; return true; }
@@ -231,7 +303,14 @@
       lastLaunchAt = launchAt;
       setTimeout(() => launchOnline(true, launchAt), 90);
     }
-    ensureReady();
+    renderResultActions();
+    if (launched && room.status !== 'finished') {
+      const ids = Object.keys(room.players || {}), votes = ids.map(uid => room.resultVotes?.[uid]).filter(Boolean);
+      if (votes.length === 2 && new Set(votes).size > 1) setPlayStatus('⚠️ Os jogadores informaram resultados diferentes. Ajustem a confirmação para o mesmo vencedor.', 'error');
+      else if (votes.length === 1) setPlayStatus('Um resultado foi enviado. Aguardando a confirmação do outro jogador…', 'info');
+    }
+    if (room.status === 'finished' && room.winnerUid) queueMicrotask(() => handleFinishedRoom());
+    else ensureReady();
   }
 
   function watch(code) {
@@ -268,8 +347,8 @@
     setOnlineStatus(`Preparando sala de ${g.title}…`, 'loading');
     try {
       if (!await validate()) return;
-      roomCode = await FB().createFightRoom({ arcadeGame:selected });
-      sessionArmed = true; launched = false; launching = false; lastLaunchAt = 0; readyRoom = '';
+      roomCode = await FB().createFightRoom({ arcadeGame:selected, ranked:true });
+      sessionArmed = true; launched = false; launching = false; lastLaunchAt = 0; readyRoom = ''; processedFinishedRoom = '';
       watch(roomCode);
       setOnlineStatus(`Sala ${roomCode} criada. Compartilhe o código.`, 'ok');
       toast('Sala criada', `Código ${roomCode}`);
@@ -298,7 +377,7 @@
     try {
       if (!await validate()) return;
       roomCode = await FB().joinFightRoom(code, selected);
-      sessionArmed = true; launched = false; launching = false; lastLaunchAt = 0; readyRoom = '';
+      sessionArmed = true; launched = false; launching = false; lastLaunchAt = 0; readyRoom = ''; processedFinishedRoom = '';
       watch(roomCode);
       setOnlineStatus(`Conectado à sala ${roomCode}. Validando aparelhos…`, 'ok');
       toast('Conectado', `Você entrou na sala ${roomCode}`);
@@ -309,10 +388,12 @@
   }
 
   async function leaveRoom(goBack=true) {
-    if (roomCode) await FB()?.leaveFightRoom?.(roomCode).catch(() => {});
+    if (roomCode && room?.status !== 'finished') await FB()?.leaveFightRoom?.(roomCode).catch(() => {});
     if (unsub) { try { unsub(); } catch {} unsub = null; }
-    roomCode = ''; room = null; sessionArmed = false; launched = false; launching = false; lastLaunchAt = 0; readyRoom = '';
+    roomCode = ''; room = null; sessionArmed = false; launched = false; launching = false; lastLaunchAt = 0; readyRoom = ''; processedFinishedRoom = ''; resultSubmitting = false;
     $('arcadeRoomPanel')?.classList.add('hidden');
+    $('arcadeMatchResultActions')?.classList.add('hidden');
+    $('arcadeMatchResultActions')?.classList.remove('active');
     setOnlineStatus('Escolha como entrar na partida.', 'info');
     if (goBack) show('kofScreen');
   }
@@ -340,11 +421,12 @@
     const g = game(); if (!g) return;
     launched = true; launching = false;
     $('arcadePlayTitle').textContent = `${g.icon} ${g.title.toUpperCase()}`;
-    $('arcadePlayMode').textContent = `SALA ${roomCode} • ${isHost() ? 'PLAYER 1 / HOST' : 'PLAYER 2 / CONVIDADO'}`;
+    $('arcadePlayMode').textContent = `RANKED • SALA ${roomCode} • ${isHost() ? 'PLAYER 1 / HOST' : 'PLAYER 2 / CONVIDADO'}`;
     $('arcadePlayFrame').title = `${g.title} • Online X1`;
     $('arcadePlayFrame').src = playUrl('online', launchAt);
     setPlayStatus('Carregando jogo e conectando WebRTC…', 'loading');
     show('arcadePlayScreen');
+    renderResultActions();
   }
 
   async function openOnline(key) {
@@ -353,16 +435,44 @@
     const g = game(); if (!g) return;
     $('arcadeOnlineIcon').textContent = g.icon;
     $('arcadeOnlineTitle').textContent = g.title;
-    $('arcadeOnlineSubtitle').textContent = `${g.system} • ONLINE 1x1 • um jogador por aparelho`;
+    $('arcadeOnlineSubtitle').textContent = `${g.system} • ONLINE 1x1 RANQUEADO • um jogador por aparelho`;
     $('arcadeJoinCode').value = '';
     $('arcadeRoomPanel')?.classList.add('hidden');
     setOnlineStatus('Crie uma sala ou digite o código recebido do seu rival.', 'info');
     show('arcadeOnlineScreen');
   }
 
+  async function openRoomCode(key, code) {
+    if (roomCode && roomCode !== String(code || '').toUpperCase()) await leaveRoom(false);
+    selected = String(key || '').toLowerCase();
+    const g = game();
+    const normalized = String(code || '').trim().toUpperCase();
+    if (!g || !/^[A-Z2-9]{6}$/.test(normalized)) throw new Error('Confronto Arcade inválido.');
+    if (!FB()?.ready?.() || !user()) throw new Error('Faça login para abrir o confronto.');
+    $('arcadeOnlineIcon').textContent = g.icon;
+    $('arcadeOnlineTitle').textContent = g.title;
+    $('arcadeOnlineSubtitle').textContent = `${g.system} • TORNEIO ONLINE • série ranqueada`;
+    $('arcadeJoinCode').value = normalized;
+    $('arcadeRoomPanel')?.classList.add('hidden');
+    setOnlineStatus(`Entrando no confronto ${normalized}…`, 'loading');
+    show('arcadeOnlineScreen');
+    if (!await validate(selected)) throw new Error('A ROM deste jogo não passou na validação.');
+    roomCode = await FB().joinFightRoom(normalized, selected);
+    sessionArmed = true; launched = false; launching = false; lastLaunchAt = 0; readyRoom = ''; processedFinishedRoom = '';
+    watch(roomCode);
+    setOnlineStatus(`Confronto ${roomCode} sincronizado. Aguarde os dois aparelhos ficarem prontos.`, 'ok');
+    return roomCode;
+  }
+
   function stopPlayer() {
     const frame = $('arcadePlayFrame');
-    if (frame) frame.src = 'about:blank';
+    if (frame) {
+      const oldSrc = frame.src;
+      try { frame.contentWindow?.postMessage({ type:'arcade-replay-stop', meta:{ reason:'player-exit', fightRoomCode:roomCode || '' } }, location.origin); } catch {}
+      setTimeout(() => { if (frame.src === oldSrc) frame.src = 'about:blank'; }, 1500);
+    }
+    $('arcadeMatchResultActions')?.classList.add('hidden');
+    $('arcadeMatchResultActions')?.classList.remove('active');
     setPlayStatus('Parado.', 'info');
   }
 
@@ -412,9 +522,13 @@
     $('arcadeLeaveRoom')?.addEventListener('click', () => leaveRoom(false));
     $('arcadeLaunchButton')?.addEventListener('click', requestLaunch);
     $('arcadeCopyRoom')?.addEventListener('click', copyRoom);
+    $('arcadeReportWin')?.addEventListener('click', () => submitMyResult(true));
+    $('arcadeReportLoss')?.addEventListener('click', () => submitMyResult(false));
     $('arcadePlayBack')?.addEventListener('click', () => {
+      const tournamentCode = room?.tournamentCode || '';
       stopPlayer();
-      if (roomCode) show('arcadeOnlineScreen'); else show('kofScreen');
+      if (tournamentCode && room?.status === 'finished' && window.GameGuessArcadeCompetitive?.openTournamentCode) window.GameGuessArcadeCompetitive.openTournamentCode(tournamentCode);
+      else if (roomCode) show('arcadeOnlineScreen'); else show('kofScreen');
     });
 
     window.addEventListener('message', e => {
@@ -436,10 +550,16 @@
           setPlayStatus(d.message || 'Falha no Netplay.', 'error');
         }
       }
+      if (d.type === 'arcade-replay-saved') {
+        window.dispatchEvent(new CustomEvent('gameguess:arcade-replay-saved', { detail:d }));
+      }
+      if (d.type === 'arcade-replay-status' && d.state === 'error') {
+        console.warn('Replay Arcade:', d.message || 'gravação indisponível');
+      }
     });
   }
 
-  window.GameGuessArcadeX1 = { open:openHub, openOnline, launchLocal, games:GAMES };
+  window.GameGuessArcadeX1 = { open:openHub, openOnline, openRoomCode, launchLocal, games:GAMES };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
   else bind();
 })();

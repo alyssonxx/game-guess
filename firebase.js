@@ -50,6 +50,11 @@ function cleanName(v){return String(v||'Jogador').trim().replace(/[<>]/g,'').sli
 function num(v){const n=Number(v);return Number.isFinite(n)&&n>0?n:0;}
 function mapMax(a={},b={}){const out={...a};for(const [k,v] of Object.entries(b||{}))out[k]=Math.max(num(out[k]),num(v));return out;}
 function mergeAchievements(a={},b={}){return {...a,...b};}
+function arcadeRating(wins=0,losses=0){return Math.max(800,1000+num(wins)*35-num(losses)*18);}
+function arcadeGameStat(v={}){const wins=num(v.wins),losses=num(v.losses),played=Math.max(num(v.played),wins+losses);return {played,wins,losses,rating:arcadeRating(wins,losses)};}
+function normalizeArcadeGames(map={}){const out={};for(const [k,v] of Object.entries(map&&typeof map==='object'?map:{})){const key=safeKey(k);out[key]=arcadeGameStat(v);}return out;}
+function mergeArcadeGames(a={},b={}){const A=normalizeArcadeGames(a),B=normalizeArcadeGames(b),out={};for(const k of new Set([...Object.keys(A),...Object.keys(B)])){const x=A[k]||{},y=B[k]||{},wins=Math.max(num(x.wins),num(y.wins)),losses=Math.max(num(x.losses),num(y.losses)),played=Math.max(num(x.played),num(y.played),wins+losses);out[k]={played,wins,losses,rating:arcadeRating(wins,losses)};}return out;}
+function bestArcadeGameKey(map={}){return Object.entries(normalizeArcadeGames(map)).sort((a,b)=>(num(b[1].rating)-num(a[1].rating))||(num(b[1].wins)-num(a[1].wins))||(num(b[1].played)-num(a[1].played)))[0]?.[0]||'';}
 
 function serverNow(){return Date.now()+Number(serverOffsetMs||0);}
 function isConnected(){return Boolean(firebaseConnected);}
@@ -113,6 +118,7 @@ function compactProfile(p={}){
     termBestStreak:num(p.termBestStreak), termCurrentStreak:num(p.termCurrentStreak), termModeWins:p.termModeWins||{}, duelWins:num(p.duelWins),
     duelLosses:num(p.duelLosses), duelPlayed:num(p.duelPlayed), duelBestScore:num(p.duelBestScore),
     kofPlayed:num(p.kofPlayed), kofWins:num(p.kofWins), kofLosses:num(p.kofLosses), kofBestStreak:num(p.kofBestStreak), kofCurrentStreak:num(p.kofCurrentStreak), kofRating:Math.max(1000,Number(p.kofRating)||1000),
+    arcadePlayed:Math.max(num(p.arcadePlayed),num(p.kofPlayed)), arcadeWins:Math.max(num(p.arcadeWins),num(p.kofWins)), arcadeLosses:Math.max(num(p.arcadeLosses),num(p.kofLosses)), arcadeBestStreak:Math.max(num(p.arcadeBestStreak),num(p.kofBestStreak)), arcadeCurrentStreak:num(p.arcadeCurrentStreak), arcadeRating:arcadeRating(Math.max(num(p.arcadeWins),num(p.kofWins)),Math.max(num(p.arcadeLosses),num(p.kofLosses))), arcadeGames:normalizeArcadeGames(p.arcadeGames),
     geoPlayed:num(p.geoPlayed), geoWins:num(p.geoWins), geoBestScore:num(p.geoBestScore), nickname:String(p.nickname||''), bio:String(p.bio||''), favoriteGame:String(p.favoriteGame||''), avatar:p.avatar&&typeof p.avatar==='object'?p.avatar:{}, avatarOwned:Array.isArray(p.avatarOwned)?p.avatarOwned.slice(0,1000):[], avatarSpent:num(p.avatarSpent),
     rankedStats:normalizeRankedStats(p.rankedStats)
   };
@@ -133,6 +139,7 @@ function mergeProfiles(local={},remote={}){
     duelWins:Math.max(l.duelWins,r.duelWins), duelLosses:Math.max(l.duelLosses,r.duelLosses), duelPlayed:Math.max(l.duelPlayed,r.duelPlayed),
     duelBestScore:Math.max(l.duelBestScore,r.duelBestScore),
     kofPlayed:Math.max(l.kofPlayed,r.kofPlayed),kofWins:Math.max(l.kofWins,r.kofWins),kofLosses:Math.max(l.kofLosses,r.kofLosses),kofBestStreak:Math.max(l.kofBestStreak,r.kofBestStreak),kofCurrentStreak:Math.max(l.kofCurrentStreak,r.kofCurrentStreak),kofRating:Math.max(l.kofRating,r.kofRating,1000),
+    arcadePlayed:Math.max(l.arcadePlayed,r.arcadePlayed,l.kofPlayed,r.kofPlayed),arcadeWins:Math.max(l.arcadeWins,r.arcadeWins,l.kofWins,r.kofWins),arcadeLosses:Math.max(l.arcadeLosses,r.arcadeLosses,l.kofLosses,r.kofLosses),arcadeBestStreak:Math.max(l.arcadeBestStreak,r.arcadeBestStreak,l.kofBestStreak,r.kofBestStreak),arcadeCurrentStreak:Math.max(l.arcadeCurrentStreak,r.arcadeCurrentStreak),arcadeRating:arcadeRating(Math.max(l.arcadeWins,r.arcadeWins,l.kofWins,r.kofWins),Math.max(l.arcadeLosses,r.arcadeLosses,l.kofLosses,r.kofLosses)),arcadeGames:mergeArcadeGames(l.arcadeGames,r.arcadeGames),
     geoPlayed:Math.max(l.geoPlayed,r.geoPlayed),geoWins:Math.max(l.geoWins,r.geoWins),geoBestScore:Math.max(l.geoBestScore,r.geoBestScore),nickname:l.nickname||r.nickname,bio:l.bio||r.bio,favoriteGame:l.favoriteGame||r.favoriteGame,avatar:Object.keys(l.avatar||{}).length?l.avatar:r.avatar,avatarOwned:[...new Set([...(l.avatarOwned||[]),...(r.avatarOwned||[])])],avatarSpent:Math.max(l.avatarSpent,r.avatarSpent),
     rankedStats:mergeRankedStats(l.rankedStats,r.rankedStats)
   };
@@ -141,13 +148,16 @@ function mergeProfiles(local={},remote={}){
 function ratingOf(p={}){
   const mv=Object.values(p.multiverseWins||{}).reduce((a,b)=>a+num(b),0);
   return Math.max(0,Math.round(
-    num(p.highScore) + num(p.gamesWon)*18 + num(p.bestStreak)*30 + num(p.termWins)*15 + mv*8 + num(p.duelWins)*350 + num(p.kofWins)*260 + num(p.geoWins)*120
+    num(p.highScore) + num(p.gamesWon)*18 + num(p.bestStreak)*30 + num(p.termWins)*15 + mv*8 + num(p.duelWins)*350 + Math.max(num(p.arcadeWins),num(p.kofWins))*260 + num(p.geoWins)*120
   ));
 }
 
 function leaderboardRow(profile, user=currentUser){
-  const p=compactProfile(profile),rs=normalizeRankedStats(p.rankedStats),best=rs.bestMatch||{},played=num(p.gamesPlayed)+num(p.termPlayed)+num(p.duelPlayed)+num(p.kofPlayed)+num(p.geoPlayed),wins=num(p.gamesWon)+num(p.termWins)+num(p.duelWins)+num(p.kofWins)+num(p.geoWins);
-  return {displayName:cleanName(p.nickname || user?.displayName || user?.email?.split('@')[0] || 'Jogador'),rating:ratingOf(p),wins:p.gamesWon,played:p.gamesPlayed,totalPlayed:played,totalWins:wins,bestStreak:p.bestStreak,duelWins:p.duelWins,duelLosses:p.duelLosses,bestScore:num(best.score)||p.highScore,bestMode:String(best.mode||bestStatKey(rs.modes)||bestNumericKey(p.modeRecords)||bestNumericKey(p.modeWins)||''),bestUniverse:String(best.universe||bestStatKey(rs.universes)||bestNumericKey(p.multiverseWins)||''),bestChallenge:String(best.challenge||bestStatKey(rs.challenges)||''),bestDifficulty:String(best.difficulty||bestStatKey(rs.difficulties)||''),arenaBestScore:num(rs.arena.bestScore)||p.duelBestScore,arenaMaxPlayers:num(rs.arena.maxPlayers),arenaPlayed:num(rs.arena.played)||p.duelPlayed,termBestMode:bestStatKey(rs.termo?.modes||{})||bestNumericKey(p.termModeWins),kofWins:p.kofWins,kofLosses:p.kofLosses,kofPlayed:p.kofPlayed,kofBestStreak:p.kofBestStreak,kofRating:p.kofRating,geoWins:p.geoWins,geoPlayed:p.geoPlayed,geoBestScore:p.geoBestScore,accuracy:played?Math.round(wins/played*100):0,updatedAt:serverNow()};
+  const p=compactProfile(profile),rs=normalizeRankedStats(p.rankedStats),best=rs.bestMatch||{};
+  const arcadePlayed=Math.max(num(p.arcadePlayed),num(p.kofPlayed)),arcadeWins=Math.max(num(p.arcadeWins),num(p.kofWins)),arcadeLosses=Math.max(num(p.arcadeLosses),num(p.kofLosses));
+  const played=num(p.gamesPlayed)+num(p.termPlayed)+num(p.duelPlayed)+arcadePlayed+num(p.geoPlayed),wins=num(p.gamesWon)+num(p.termWins)+num(p.duelWins)+arcadeWins+num(p.geoWins);
+  const bestArcadeGame=bestArcadeGameKey(p.arcadeGames)||(p.kofPlayed?'kf2k2mp2':'');
+  return {displayName:cleanName(p.nickname || user?.displayName || user?.email?.split('@')[0] || 'Jogador'),rating:ratingOf(p),wins:p.gamesWon,played:p.gamesPlayed,totalPlayed:played,totalWins:wins,bestStreak:p.bestStreak,duelWins:p.duelWins,duelLosses:p.duelLosses,bestScore:num(best.score)||p.highScore,bestMode:String(best.mode||bestStatKey(rs.modes)||bestNumericKey(p.modeRecords)||bestNumericKey(p.modeWins)||''),bestUniverse:String(best.universe||bestStatKey(rs.universes)||bestNumericKey(p.multiverseWins)||''),bestChallenge:String(best.challenge||bestStatKey(rs.challenges)||''),bestDifficulty:String(best.difficulty||bestStatKey(rs.difficulties)||''),arenaBestScore:num(rs.arena.bestScore)||p.duelBestScore,arenaMaxPlayers:num(rs.arena.maxPlayers),arenaPlayed:num(rs.arena.played)||p.duelPlayed,termBestMode:bestStatKey(rs.termo?.modes||{})||bestNumericKey(p.termModeWins),kofWins:p.kofWins,kofLosses:p.kofLosses,kofPlayed:p.kofPlayed,kofBestStreak:p.kofBestStreak,kofRating:p.kofRating,arcadeWins,arcadeLosses,arcadePlayed,arcadeBestStreak:Math.max(num(p.arcadeBestStreak),num(p.kofBestStreak)),arcadeRating:arcadeRating(arcadeWins,arcadeLosses),arcadeGames:normalizeArcadeGames(p.arcadeGames),bestArcadeGame,geoWins:p.geoWins,geoPlayed:p.geoPlayed,geoBestScore:p.geoBestScore,accuracy:played?Math.round(wins/played*100):0,updatedAt:serverNow()};
 }
 
 async function flushProfile(profile){
@@ -279,13 +289,13 @@ function ensureRankingUI(){
   }
   const list=$('rankingList');
   if(list&&!$('rankingSeasonBanner')){const b=document.createElement('div');b.id='rankingSeasonBanner';b.className='ranking-season-banner';b.innerHTML=`<b>🏁 ${escapeHtml(currentSeasonLabel())}</b><span>${escapeHtml(currentSeason.description||'Ranking da temporada atual')}</span>`;list.parentElement?.insertBefore(b,list);}
-  if(list&&!$('rankingV12Filters')){const bar=document.createElement('div');bar.id='rankingV12Filters';bar.className='ranking-v12-filters';bar.innerHTML=`<button data-rank-mode="rating" class="active">🌍 Geral</button><button data-rank-mode="bestScore">⭐ Melhor partida</button><button data-rank-mode="arenaBestScore">⚔️ Arena</button><button data-rank-mode="bestStreak">🔥 Sequência</button>`;list.parentElement?.insertBefore(bar,list);bar.addEventListener('click',e=>{const b=e.target.closest('[data-rank-mode]');if(!b)return;rankingMode=b.dataset.rankMode;bar.querySelectorAll('button').forEach(x=>x.classList.toggle('active',x===b));loadRanking();});}
+  if(list&&!$('rankingV12Filters')){const bar=document.createElement('div');bar.id='rankingV12Filters';bar.className='ranking-v12-filters';bar.innerHTML=`<button data-rank-mode="rating" class="active">🌍 Geral</button><button data-rank-mode="arcadeRating">🕹 Arcade Ranked</button><button data-rank-mode="bestScore">⭐ Melhor partida</button><button data-rank-mode="arenaBestScore">⚔️ Arena</button><button data-rank-mode="bestStreak">🔥 Sequência</button>`;list.parentElement?.insertBefore(bar,list);bar.addEventListener('click',e=>{const b=e.target.closest('[data-rank-mode]');if(!b)return;rankingMode=b.dataset.rankMode;bar.querySelectorAll('button').forEach(x=>x.classList.toggle('active',x===b));loadRanking();});}
   if(list&&!list.dataset.rankDetailsBound){list.dataset.rankDetailsBound='1';list.addEventListener('click',e=>{const btn=e.target.closest('.rank-detail-toggle');if(!btn)return;const entry=btn.closest('.ranking-entry');if(!entry)return;const open=entry.classList.toggle('open');btn.textContent=open?'FECHAR DETALHES':'VER DETALHES';btn.setAttribute('aria-expanded',String(open));});}
 }
 function labelKey(v){return String(v||'—').replace(/-/g,' ').replace(/\b\w/g,c=>c.toUpperCase());}
 function prettyRankLabel(v){
   const k=String(v||'').toLowerCase();
-  const map={classic:'Clássico',quick:'Rápido',survival:'Survival',blitz:'Blitz',mystery:'Mistério',decades:'Décadas',themed:'Temático',random:'Aleatório',chaos:'Caos',ladder:'Escalada',endless:'Maratona',single:'Uma Palavra',duet:'Dueto',quartet:'Quarteto',image:'Imagem',ability:'Habilidade',origin:'Origem/Nação',group:'Grupo/Afiliação',era:'Saga/Geração',role:'Classe/Papel',dossier:'Dossiê',blind:'Só Pistas',games:'Games',dragonball:'Dragon Ball',naruto:'Naruto',yugioh:'Yu-Gi-Oh!',saintseiya:'Cavaleiros',pokemon:'Pokémon',digimon:'Digimon',lol:'League of Legends',cartoons:'Desenhos',globinho:'TV Globinho',termo:'Termo',kof2002:'KOF 2002 Magic Plus II',arcade:'Arcade',kof:'KOF',easy:'Fácil',normal:'Normal',hard:'Difícil',insane:'Insano'};
+  const map={classic:'Clássico',quick:'Rápido',survival:'Survival',blitz:'Blitz',mystery:'Mistério',decades:'Décadas',themed:'Temático',random:'Aleatório',chaos:'Caos',ladder:'Escalada',endless:'Maratona',single:'Uma Palavra',duet:'Dueto',quartet:'Quarteto',image:'Imagem',ability:'Habilidade',origin:'Origem/Nação',group:'Grupo/Afiliação',era:'Saga/Geração',role:'Classe/Papel',dossier:'Dossiê',blind:'Só Pistas',games:'Games',dragonball:'Dragon Ball',naruto:'Naruto',yugioh:'Yu-Gi-Oh!',saintseiya:'Cavaleiros',pokemon:'Pokémon',digimon:'Digimon',lol:'League of Legends',cartoons:'Desenhos',globinho:'TV Globinho',termo:'Termo',kof2002:'KOF 2002 Magic Plus II',kf2k2mp2:'KOF 2002 Magic Plus II',samsh5spho:'Samurai Shodown V Special',mvsc:'Marvel vs. Capcom',xmvsfur1:'X-Men vs. Street Fighter',neobombe:'Neo Bomberman',arcade:'Arcade',kof:'KOF',easy:'Fácil',normal:'Normal',hard:'Difícil',insane:'Insano'};
   return map[k]||labelKey(v);
 }
 function escapeHtml(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
@@ -294,16 +304,22 @@ function rankingHTML(rows){
   return rows.map((x,i)=>{
     const medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':`#${i+1}`,me=currentUser&&x.uid===currentUser.uid;
     const arena=x.arenaPlayed?`${x.duelWins||0}V/${x.duelLosses||0}D • até ${x.arenaMaxPlayers||2} jogadores`:'Sem partidas nesta temporada';
-    const bestMode=prettyRankLabel(x.bestMode),bestUniverse=prettyRankLabel(x.bestUniverse),bestChallenge=prettyRankLabel(x.bestChallenge),bestDifficulty=prettyRankLabel(x.bestDifficulty),term=prettyRankLabel(x.termBestMode);
-    return `<article class="ranking-entry${me?' me':''}"><div class="ranking-entry-main"><b class="rank-pos">${medal}</b><div class="rank-player"><span>${escapeHtml(x.displayName)}</span><small>⭐ ${x.bestScore||0} melhor • 🎯 ${x.accuracy||0}% aproveitamento</small><div class="rank-player-meta"><span class="rank-chip">🎮 ${escapeHtml(bestMode)}</span><span class="rank-chip">🌌 ${escapeHtml(bestUniverse)}</span><span class="rank-chip">🧩 ${escapeHtml(bestChallenge)}</span></div></div><strong>${x.rating||0}</strong><button type="button" class="rank-detail-toggle" aria-expanded="false">VER DETALHES</button></div><div class="ranking-detail"><div><small>Melhor modalidade</small><b>${escapeHtml(bestMode)}</b></div><div><small>Melhor universo</small><b>${escapeHtml(bestUniverse)}</b></div><div><small>Melhor desafio</small><b>${escapeHtml(bestChallenge)}</b></div><div><small>Dificuldade de destaque</small><b>${escapeHtml(bestDifficulty)}</b></div><div><small>Melhor pontuação</small><b>${x.bestScore||0} pts</b></div><div><small>Maior sequência</small><b>🔥 ${x.bestStreak||0}</b></div><div><small>Arena</small><b>${escapeHtml(arena)}</b></div><div><small>KOF 2002</small><b>🥊 ${x.kofWins||0}V/${x.kofLosses||0}D • Elo ${x.kofRating||1000}</b></div><div><small>Termo de destaque</small><b>${escapeHtml(term)}</b></div></div></article>`;
+    const bestMode=prettyRankLabel(x.bestMode),bestUniverse=prettyRankLabel(x.bestUniverse),bestChallenge=prettyRankLabel(x.bestChallenge),bestDifficulty=prettyRankLabel(x.bestDifficulty),term=prettyRankLabel(x.termBestMode),bestArcade=prettyRankLabel(x.bestArcadeGame||'');
+    const mainValue=rankingMode==='arcadeRating'?(x.arcadeRating||1000):(x[rankingMode]??x.rating??0);
+    const mainLabel=rankingMode==='arcadeRating'?`${mainValue} RP`:String(mainValue);
+    return `<article class="ranking-entry${me?' me':''}"><div class="ranking-entry-main"><b class="rank-pos">${medal}</b><div class="rank-player"><span>${escapeHtml(x.displayName)}</span><small>🕹 ${x.arcadeWins||0}V/${x.arcadeLosses||0}D • ⭐ ${x.bestScore||0} melhor • 🎯 ${x.accuracy||0}%</small><div class="rank-player-meta"><span class="rank-chip">🕹 ${escapeHtml(bestArcade||'Sem partidas')}</span><span class="rank-chip">🎮 ${escapeHtml(bestMode)}</span><span class="rank-chip">🌌 ${escapeHtml(bestUniverse)}</span></div></div><strong>${escapeHtml(mainLabel)}</strong><button type="button" class="rank-detail-toggle" aria-expanded="false">VER DETALHES</button></div><div class="ranking-detail"><div><small>Arcade Ranked</small><b>🕹 ${x.arcadeWins||0}V/${x.arcadeLosses||0}D • ${x.arcadeRating||1000} RP</b></div><div><small>Melhor jogo Arcade</small><b>${escapeHtml(bestArcade||'—')}</b></div><div><small>Partidas Arcade</small><b>${x.arcadePlayed||0}</b></div><div><small>Melhor modalidade</small><b>${escapeHtml(bestMode)}</b></div><div><small>Melhor universo</small><b>${escapeHtml(bestUniverse)}</b></div><div><small>Melhor desafio</small><b>${escapeHtml(bestChallenge)}</b></div><div><small>Dificuldade de destaque</small><b>${escapeHtml(bestDifficulty)}</b></div><div><small>Melhor pontuação</small><b>${x.bestScore||0} pts</b></div><div><small>Maior sequência</small><b>🔥 ${x.bestStreak||0}</b></div><div><small>Arena</small><b>${escapeHtml(arena)}</b></div><div><small>KOF legado</small><b>🥊 ${x.kofWins||0}V/${x.kofLosses||0}D • Elo ${x.kofRating||1000}</b></div><div><small>Termo de destaque</small><b>${escapeHtml(term)}</b></div></div></article>`;
   }).join('');
 }
-function loadRanking(){
-  showScreen('rankingScreen');ensureRankingUI();if(rankingUnsub){rankingUnsub();rankingUnsub=null;}
+function loadRanking(mode=''){
+  if(mode)rankingMode=String(mode);
+  showScreen('rankingScreen');ensureRankingUI();
+  const bar=$('rankingV12Filters');if(bar)bar.querySelectorAll('button').forEach(x=>x.classList.toggle('active',x.dataset.rankMode===rankingMode));
+  if(rankingUnsub){rankingUnsub();rankingUnsub=null;}
   if(!configured){$('rankingList').innerHTML='<div class="ranking-empty">Configure o Firebase para ativar o ranking global.</div>';return;}
   if(!currentUser){$('rankingList').innerHTML='<div class="ranking-empty">Entre na sua conta para carregar o ranking.</div>';$('myRankCard').innerHTML='<span>Faça login para aparecer no ranking.</span>';return;}
-  const q=query(ref(db,`rankedSeasons/${currentSeasonId()}/leaderboard`),orderByChild('rating'),limitToLast(100));
-  rankingUnsub=onValue(q,snap=>{const raw=snap.val()||{},rows=Object.entries(raw).map(([uid,v])=>({uid,...v})).sort((a,b)=>(Number(b[rankingMode]||0)-Number(a[rankingMode]||0))||((b.rating||0)-(a.rating||0)));if($('rankingList'))$('rankingList').innerHTML=rankingHTML(rows);const idx=rows.findIndex(x=>x.uid===currentUser.uid),mine=rows[idx];if($('myRankCard'))$('myRankCard').innerHTML=mine?`<b>#${idx+1}</b><span>${escapeHtml(mine.displayName)}</span><strong>${mine.rating} pts</strong><small>⭐ ${mine.bestScore||0} • ⚔️ ${mine.duelWins||0} vitórias • ${mine.accuracy||0}% aproveitamento</small>`:'<span>Jogue uma partida para entrar no ranking.</span>';},e=>{$('rankingList').innerHTML=`<div class="ranking-empty">Não consegui ler o ranking: ${escapeHtml(e.message)}</div>`;});
+  const orderField=['rating','arcadeRating','bestScore','arenaBestScore','bestStreak'].includes(rankingMode)?rankingMode:'rating';
+  const q=query(ref(db,`rankedSeasons/${currentSeasonId()}/leaderboard`),orderByChild(orderField),limitToLast(100));
+  rankingUnsub=onValue(q,snap=>{const raw=snap.val()||{},rows=Object.entries(raw).map(([uid,v])=>({uid,...v})).sort((a,b)=>(Number(b[rankingMode]||0)-Number(a[rankingMode]||0))||((b.rating||0)-(a.rating||0)));if($('rankingList'))$('rankingList').innerHTML=rankingHTML(rows);const idx=rows.findIndex(x=>x.uid===currentUser.uid),mine=rows[idx];if($('myRankCard'))$('myRankCard').innerHTML=mine?`<b>#${idx+1}</b><span>${escapeHtml(mine.displayName)}</span><strong>${rankingMode==='arcadeRating'?(mine.arcadeRating||1000)+' RP':(mine.rating||0)+' pts'}</strong><small>🕹 ${mine.arcadeWins||0}V/${mine.arcadeLosses||0}D • ${escapeHtml(prettyRankLabel(mine.bestArcadeGame||''))}</small>`:'<span>Jogue uma partida para entrar no ranking.</span>';},e=>{$('rankingList').innerHTML=`<div class="ranking-empty">Não consegui ler o ranking: ${escapeHtml(e.message)}</div>`;});
 }
 
 
@@ -360,7 +376,9 @@ async function createFightRoom(options={}){
     const arcadeGame=String(options?.arcadeGame||'kf2k2mp2').trim().toLowerCase().slice(0,32)||'kf2k2mp2';
     // `game` permanece kf2k2mp2 para compatibilidade com as regras Firebase V17 já publicadas.
     // `arcadeGame` identifica o título real sem exigir nova função serverless nem mudança imediata das rules.
-    const room={code,protocolVersion:FIGHT_PROTOCOL_VERSION,game:'kf2k2mp2',arcadeGame,gameId:fightGameId(code),hostUid:currentUser.uid,guestUid:'',status:'waiting',launchState:'waiting',launchAt:0,createdAt:now,updatedAt:now,expiresAt:now+WAITING_TTL_MS,players:{[currentUser.uid]:{uid:currentUser.uid,name,role:'host',joinedAt:now,lastSeen:now}},resultVotes:{},winnerUid:''};
+    const tournamentCode=/^[A-Z2-9]{6}$/.test(String(options?.tournamentCode||'').toUpperCase())?String(options.tournamentCode).toUpperCase():'';
+    const tournamentMatchId=String(options?.tournamentMatchId||'').replace(/[^a-zA-Z0-9_-]/g,'').slice(0,40);
+    const room={code,protocolVersion:FIGHT_PROTOCOL_VERSION,game:'kf2k2mp2',arcadeGame,gameId:fightGameId(code),hostUid:currentUser.uid,guestUid:'',status:'waiting',launchState:'waiting',launchAt:0,createdAt:now,updatedAt:now,expiresAt:now+WAITING_TTL_MS,ranked:options?.ranked!==false,tournamentCode,tournamentMatchId,players:{[currentUser.uid]:{uid:currentUser.uid,name,role:'host',joinedAt:now,lastSeen:now}},resultVotes:{},winnerUid:''};
     try{await set(rr,room);}catch(e){if(String(e?.code||e?.message||'').toLowerCase().includes('permission'))throw new Error('O Firebase recusou a sala KOF. Publique as regras V17.');throw e;}
     attachFightPresence(code).catch(e=>console.warn('KOF presence:',e));return code;
   }
@@ -525,6 +543,131 @@ async function mutateDuel(code,fn){
   if(!currentUser)throw new Error('Sessão expirada. Entre novamente.');const result=await runTransaction(ref(db,`duels/${code}`),room=>{if(!room)return;const uid=currentUser.uid,p=room.players?.[uid];if(!p||p.left)return;if(p.controlSessionId&&p.controlSessionId!==CLIENT_SESSION_ID)return;const before=JSON.stringify(room),next=fn(room,uid);if(!next)return;if(JSON.stringify(next)===before)return;next.updatedAt=serverNow();return next;},{applyLocally:false});return {committed:result.committed,value:result.snapshot?.val()||null};
 }
 async function deleteDuel(code){if(!currentUser||!code)return;code=String(code).toUpperCase();await detachDuelPresence(code).catch(()=>{});const snap=await get(ref(db,`duels/${code}`)),room=snap.val();if(room?.hostUid===currentUser.uid||Number(room?.expiresAt||0)<=serverNow())await remove(ref(db,`duels/${code}`));}
+
+
+// ===== Arcade Ranked / Torneios =====
+const ARCADE_TOURNAMENT_PROTOCOL_VERSION=1;
+const ARCADE_TOURNAMENT_TTL_MS=36*60*60*1000;
+function arcadeTournamentCode(){return fightRoomCode();}
+function arcadeTournamentRef(code){return ref(db,`arcadeTournaments/${String(code||'').trim().toUpperCase()}`);}
+function validArcadeTournamentGame(game){return ['kf2k2mp2','samsh5spho','mvsc','xmvsfur1'].includes(String(game||'').toLowerCase());}
+function arcadeProfileBump(target={},gameKey='',won=false){
+  gameKey=safeKey(gameKey,'arcade');
+  const games=normalizeArcadeGames(target.arcadeGames||{}),g=arcadeGameStat(games[gameKey]||{});
+  g.played+=1;if(won)g.wins+=1;else g.losses+=1;g.rating=arcadeRating(g.wins,g.losses);games[gameKey]=g;
+  target.arcadeGames=games;target.arcadePlayed=num(target.arcadePlayed)+1;
+  if(won){target.arcadeWins=num(target.arcadeWins)+1;target.arcadeCurrentStreak=num(target.arcadeCurrentStreak)+1;target.arcadeBestStreak=Math.max(num(target.arcadeBestStreak),num(target.arcadeCurrentStreak));}
+  else{target.arcadeLosses=num(target.arcadeLosses)+1;target.arcadeCurrentStreak=0;}
+  target.arcadeRating=arcadeRating(target.arcadeWins,target.arcadeLosses);
+  if(gameKey==='kf2k2mp2'){
+    target.kofPlayed=num(target.kofPlayed)+1;
+    if(won){target.kofWins=num(target.kofWins)+1;target.kofCurrentStreak=num(target.kofCurrentStreak)+1;target.kofBestStreak=Math.max(num(target.kofBestStreak),num(target.kofCurrentStreak));}
+    else{target.kofLosses=num(target.kofLosses)+1;target.kofCurrentStreak=0;}
+    target.kofRating=Math.max(1000,1000+num(target.kofWins)*35-num(target.kofLosses)*22);
+  }
+  return target;
+}
+async function recordArcadeMatchResult(code,gameKey=''){
+  if(!currentUser||!db||!code)throw new Error('Faça login para registrar a partida ranqueada.');
+  code=String(code).toUpperCase();
+  const room=(await get(ref(db,`fightRooms/${code}`))).val();
+  if(!room?.players?.[currentUser.uid]||room.status!=='finished'||!room.winnerUid)throw new Error('A partida ainda não possui resultado confirmado.');
+  if(room.ranked===false)return {recorded:false,reason:'casual'};
+  const claimed=await claimFightRankedRecord(code);if(!claimed)return {recorded:false,reason:'already-recorded'};
+  const actualGame=safeKey(gameKey||room.arcadeGame||'kf2k2mp2');
+  const won=room.winnerUid===currentUser.uid;
+  const displayName=cleanName(localProfile()?.nickname||currentUser.displayName||currentUser.email?.split('@')[0]||'Jogador');
+  const pref=ref(db,`profiles/${currentUser.uid}`);
+  const tx=await runTransaction(pref,current=>{
+    const root=current&&typeof current==='object'?current:{};
+    const p={...(root.profile||{})};arcadeProfileBump(p,actualGame,won);
+    let season=(root.seasonProfile&&String(root.seasonProfile.seasonId||'').toUpperCase()===currentSeasonId())?{...root.seasonProfile}:{...freshSeasonProfile()};
+    arcadeProfileBump(season,actualGame,won);season.seasonId=currentSeasonId();season.seasonLabel=currentSeasonLabel();
+    return {...root,displayName,email:currentUser.email||'',profile:p,seasonProfile:season,updatedAt:serverNow()};
+  },{applyLocally:false});
+  const saved=tx.snapshot?.val()||{},merged=mergeProfiles(localProfile(),saved.profile||{}),season=mergeSeasonProfiles(localProfile()?.seasonProfile||{},saved.seasonProfile||{});
+  CORE()?.replaceProfile?.({...merged,seasonProfile:season});
+  await Promise.all([
+    set(ref(db,`leaderboard/${currentUser.uid}`),leaderboardRow(saved.profile||merged,currentUser)),
+    set(ref(db,`rankedSeasons/${currentSeasonId()}/leaderboard/${currentUser.uid}`),{...leaderboardRow(saved.seasonProfile||season,currentUser),seasonId:currentSeasonId(),seasonLabel:currentSeasonLabel()})
+  ]);
+  return {recorded:true,won,game:actualGame,profile:saved.profile||merged};
+}
+async function createArcadeTournament(options={}){
+  if(!currentUser)throw new Error('Faça login para criar um torneio.');
+  if(!await waitFirebaseOnline())throw new Error('Firebase offline.');
+  const game=String(options.game||'kf2k2mp2').toLowerCase();if(!validArcadeTournamentGame(game))throw new Error('Este jogo não está habilitado para torneios de luta.');
+  const maxPlayers=[4,8].includes(Number(options.maxPlayers))?Number(options.maxPlayers):4;
+  const bestOf=[1,3,5].includes(Number(options.bestOf))?Number(options.bestOf):3;
+  const name=String(options.name||'Torneio Arcade').trim().slice(0,42)||'Torneio Arcade';
+  for(let tries=0;tries<12;tries++){
+    const code=arcadeTournamentCode(),rr=arcadeTournamentRef(code);if((await get(rr)).exists())continue;
+    const now=serverNow(),playerName=cleanName(localProfile()?.nickname||currentUser.displayName||currentUser.email?.split('@')[0]);
+    const room={code,protocolVersion:ARCADE_TOURNAMENT_PROTOCOL_VERSION,name,hostUid:currentUser.uid,game,maxPlayers,bestOf,format:'single_elimination',status:'waiting',createdAt:now,updatedAt:now,expiresAt:now+ARCADE_TOURNAMENT_TTL_MS,championUid:'',participants:{[currentUser.uid]:{uid:currentUser.uid,name:playerName,joinedAt:now,seed:1}},matches:{}};
+    await set(rr,room);return code;
+  }
+  throw new Error('Não consegui gerar o código do torneio.');
+}
+async function joinArcadeTournament(code){
+  if(!currentUser)throw new Error('Faça login para entrar no torneio.');code=String(code||'').trim().toUpperCase();if(!/^[A-Z2-9]{6}$/.test(code))throw new Error('Código inválido.');
+  const rr=arcadeTournamentRef(code),name=cleanName(localProfile()?.nickname||currentUser.displayName||currentUser.email?.split('@')[0]);
+  const tx=await runTransaction(rr,t=>{
+    if(!t||Number(t.protocolVersion)!==ARCADE_TOURNAMENT_PROTOCOL_VERSION||t.status!=='waiting'||Number(t.expiresAt||0)<serverNow())return;
+    t.participants=t.participants||{};if(t.participants[currentUser.uid])return t;
+    const count=Object.keys(t.participants).length;if(count>=Number(t.maxPlayers||4))return;
+    t.participants[currentUser.uid]={uid:currentUser.uid,name,joinedAt:serverNow(),seed:count+1};t.updatedAt=serverNow();return t;
+  },{applyLocally:false});
+  if(!tx.committed||!tx.snapshot?.val()?.participants?.[currentUser.uid])throw new Error('O torneio não existe, já iniciou ou está cheio.');return code;
+}
+function watchArcadeTournament(code,cb){if(!db)return()=>{};return onValue(arcadeTournamentRef(code),s=>cb?.(s.val()||null,null),e=>cb?.(null,e));}
+function buildArcadeTournamentMatches(t){
+  const players=Object.values(t.participants||{}).sort((a,b)=>Number(a.seed||999)-Number(b.seed||999)||Number(a.joinedAt||0)-Number(b.joinedAt||0));
+  const size=Number(t.maxPlayers||4),rounds=Math.log2(size),matches={};
+  for(let r=1;r<=rounds;r++){
+    const count=size/Math.pow(2,r);
+    for(let i=0;i<count;i++){
+      const id=`r${r}m${i+1}`;matches[id]={id,round:r,index:i+1,status:'waiting',player1Uid:r===1?(players[i*2]?.uid||''):'',player2Uid:r===1?(players[i*2+1]?.uid||''):'',score1:0,score2:0,winnerUid:'',fightRoomCode:'',completedFightRooms:{}};
+    }
+  }
+  return matches;
+}
+async function startArcadeTournament(code){
+  if(!currentUser)throw new Error('Faça login.');code=String(code||'').toUpperCase();
+  const tx=await runTransaction(arcadeTournamentRef(code),t=>{
+    if(!t||t.hostUid!==currentUser.uid||t.status!=='waiting')return;
+    if(Object.keys(t.participants||{}).length!==Number(t.maxPlayers||0))return;
+    t.matches=buildArcadeTournamentMatches(t);t.status='playing';t.startedAt=serverNow();t.updatedAt=serverNow();return t;
+  },{applyLocally:false});
+  if(!tx.committed)throw new Error('Somente o host pode iniciar quando todas as vagas estiverem preenchidas.');return tx.snapshot?.val()||null;
+}
+async function linkArcadeTournamentFightRoom(code,matchId,fightCode){
+  if(!currentUser)throw new Error('Faça login.');code=String(code||'').toUpperCase();matchId=String(matchId||'');fightCode=String(fightCode||'').toUpperCase();
+  const tx=await runTransaction(arcadeTournamentRef(code),t=>{
+    const m=t?.matches?.[matchId];if(!m||t.status!=='playing'||m.winnerUid||m.player1Uid!==currentUser.uid)return;
+    if(m.fightRoomCode&&m.fightRoomCode!==fightCode)return;
+    m.fightRoomCode=fightCode;m.status='playing';m.updatedAt=serverNow();t.updatedAt=serverNow();return t;
+  },{applyLocally:false});
+  if(!tx.committed)throw new Error('Não foi possível vincular a sala ao confronto.');return tx.snapshot?.val()||null;
+}
+async function recordArcadeTournamentFightResult(code,matchId,fightCode,winnerUid){
+  if(!currentUser||!code||!matchId||!fightCode||!winnerUid)return null;code=String(code).toUpperCase();fightCode=String(fightCode).toUpperCase();
+  const tx=await runTransaction(arcadeTournamentRef(code),t=>{
+    const m=t?.matches?.[matchId];if(!m||t.status!=='playing'||m.winnerUid||![m.player1Uid,m.player2Uid].includes(winnerUid)||![m.player1Uid,m.player2Uid].includes(currentUser.uid))return;
+    m.completedFightRooms=m.completedFightRooms||{};if(m.completedFightRooms[fightCode])return t;
+    m.completedFightRooms[fightCode]={winnerUid,at:serverNow()};if(winnerUid===m.player1Uid)m.score1=num(m.score1)+1;else m.score2=num(m.score2)+1;
+    const target=Math.ceil(Number(t.bestOf||3)/2);m.fightRoomCode='';m.status='waiting';m.updatedAt=serverNow();
+    if(Number(m.score1)>=target||Number(m.score2)>=target){
+      m.winnerUid=winnerUid;m.status='finished';const rounds=Math.log2(Number(t.maxPlayers||4));
+      if(Number(m.round)>=rounds){t.championUid=winnerUid;t.status='finished';t.finishedAt=serverNow();}
+      else{
+        const nextId=`r${Number(m.round)+1}m${Math.floor((Number(m.index)-1)/2)+1}`,next=t.matches?.[nextId];
+        if(next){if(Number(m.index)%2===1)next.player1Uid=winnerUid;else next.player2Uid=winnerUid;next.updatedAt=serverNow();}
+      }
+    }
+    t.updatedAt=serverNow();return t;
+  },{applyLocally:false});
+  return tx.snapshot?.val()||null;
+}
 
 // ===== GeoGuess Arena =====
 // Scores are still calculated by the game client, but room access, lifecycle and
@@ -813,7 +956,7 @@ function bind(){
   $('authCloseButton')?.addEventListener('click',()=>closeOverlay('authOverlay'));
   $('loginTabButton')?.addEventListener('click',()=>setAuthMode('login'));
   $('registerTabButton')?.addEventListener('click',()=>setAuthMode('register'));
-  $('rankingButton')?.addEventListener('click',loadRanking);$('homeRankingButton')?.addEventListener('click',loadRanking);
+  $('rankingButton')?.addEventListener('click',()=>loadRanking());$('homeRankingButton')?.addEventListener('click',()=>loadRanking());
   $('rankingBackButton')?.addEventListener('click',()=>showScreen('homeScreen'));$('rankingLoginButton')?.addEventListener('click',()=>openAuth('login'));
   $('authForm')?.addEventListener('submit',async e=>{e.preventDefault();hideAuthError();const email=$('authEmail').value.trim(),pass=$('authPassword').value;try{if(authMode==='register')await register(email,pass,$('authDisplayName').value);else await login(email,pass);closeOverlay('authOverlay');toast('Conta conectada','Seu progresso agora pode aparecer no ranking.');}catch(err){showAuthError(authErrorMessage(err));}});
   $('googleLoginButton')?.addEventListener('click',async()=>{hideAuthError();try{await googleLogin();closeOverlay('authOverlay');toast('Conta conectada','Login com Google concluído.');}catch(err){showAuthError(authErrorMessage(err));}});
@@ -932,6 +1075,18 @@ async function listenToRanking(limit=100,cb){
   return unsub;
 }
 
+function listenToArcadeRanking(limit=10,cb){
+  if(!currentUser||!db)return()=>{};
+  const take=Math.max(3,Math.min(100,Number(limit)||10));
+  const q=query(ref(db,`rankedSeasons/${currentSeasonId()}/leaderboard`),orderByChild('arcadeRating'),limitToLast(Math.max(take,25)));
+  const unsub=onValue(q,snap=>{
+    const rows=Object.entries(snap.val()||{}).map(([uid,v])=>({uid,...v,arcadeWins:num(v.arcadeWins),arcadeLosses:num(v.arcadeLosses),arcadePlayed:num(v.arcadePlayed),arcadeRating:Number(v.arcadeRating||1000),bestArcadeGame:String(v.bestArcadeGame||'')}))
+      .sort((a,b)=>(Number(b.arcadeRating||1000)-Number(a.arcadeRating||1000))||(Number(b.arcadeWins||0)-Number(a.arcadeWins||0))||(Number(a.arcadeLosses||0)-Number(b.arcadeLosses||0))).slice(0,take);
+    cb?.(rows,null);
+  },e=>cb?.([],e));
+  return unsub;
+}
+
 window.GameGuessRanked={record:recordRankedResult};
 window.GameGuessFirebase={
   configured, appVersion:APP_VERSION, protocolVersion:PROTOCOL_VERSION, sessionId:CLIENT_SESSION_ID,
@@ -939,7 +1094,8 @@ window.GameGuessFirebase={
   syncLocalProfile, ratingOf, serverNow, isConnected, newSubmissionId, recordRankedResult, getSeason:()=>({...currentSeason}), getQuizHistory, markQuizHistory,
   createDuelRoom, joinDuelRoom, startDuelRoom, leaveDuelRoom, ensureDuelHost, attachDuelPresence, detachDuelPresence, cleanupExpiredDuel,
   watchDuel, mutateDuel, deleteDuel,getRoom:async code=>configured?(await get(ref(db,`duels/${String(code||'').toUpperCase()}`))).val():null,
-  fightProtocolVersion:FIGHT_PROTOCOL_VERSION, createFightRoom, joinFightRoom, watchFightRoom, markFightReady, requestFightLaunch, submitFightResult, claimFightRankedRecord, leaveFightRoom, attachFightPresence, detachFightPresence, getFightRoom:async code=>configured?(await get(ref(db,`fightRooms/${String(code||'').toUpperCase()}`))).val():null,
+  fightProtocolVersion:FIGHT_PROTOCOL_VERSION, createFightRoom, joinFightRoom, watchFightRoom, markFightReady, requestFightLaunch, submitFightResult, claimFightRankedRecord, recordArcadeMatchResult, leaveFightRoom, attachFightPresence, detachFightPresence, getFightRoom:async code=>configured?(await get(ref(db,`fightRooms/${String(code||'').toUpperCase()}`))).val():null,
+  arcadeTournamentProtocolVersion:ARCADE_TOURNAMENT_PROTOCOL_VERSION, createArcadeTournament, joinArcadeTournament, watchArcadeTournament, startArcadeTournament, linkArcadeTournamentFightRoom, recordArcadeTournamentFightResult, getArcadeTournament:async code=>configured?(await get(arcadeTournamentRef(code))).val():null, listenToArcadeRanking,
   geoProtocolVersion:GEO_PROTOCOL_VERSION, createGeoRoom, joinGeoRoom, watchGeoRoom, startGeoRoom, mutateGeoRoom, ensureGeoHost, leaveGeoRoom, attachGeoPresence, detachGeoPresence, cleanupExpiredGeoRoom, getGeoRoom:async code=>configured?(await get(ref(db,'geoRooms/'+String(code||'').toUpperCase()))).val():null,
   syncPublicProfile, searchPlayers, sendFriendRequest, respondFriendRequest, removeFriend, getSocialData, sendGameInvite, dismissGameInvite, watchSocialInbox, listenToRanking
 };

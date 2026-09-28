@@ -806,6 +806,163 @@
     if (!foreignTouchObserver) { foreignTouchObserver = new MutationObserver(scan); foreignTouchObserver.observe(root, { subtree: true, childList: true }); }
   }
 
+  // ----- Replay local em vídeo (beta) -----
+  // Grava somente o canvas do emulador. O arquivo fica no IndexedDB deste navegador
+  // e não usa Firebase Storage nem cria custo/Serverless Function na Vercel.
+  const REPLAY_DB = 'GameGuessArcadeReplays';
+  const REPLAY_STORE = 'replays';
+  const REPLAY_MAX_MS = 8 * 60 * 1000;
+  const REPLAY_MAX_BYTES = 80 * 1024 * 1024;
+  let replayRecorder = null;
+  let replayStream = null;
+  let replayChunks = [];
+  let replayBytes = 0;
+  let replayStartedAt = 0;
+  let replayLimitTimer = 0;
+  let replayStopMeta = {};
+
+  function openReplayDb() {
+    return new Promise((resolve, reject) => {
+      if (!('indexedDB' in window)) return reject(new Error('IndexedDB indisponível.'));
+      const req = indexedDB.open(REPLAY_DB, 1);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(REPLAY_STORE)) {
+          const store = db.createObjectStore(REPLAY_STORE, { keyPath: 'id' });
+          store.createIndex('createdAt', 'createdAt');
+          store.createIndex('game', 'game');
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error || new Error('Falha ao abrir banco de replays.'));
+    });
+  }
+
+  async function saveReplayRecord(record) {
+    const db = await openReplayDb();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(REPLAY_STORE, 'readwrite');
+      tx.objectStore(REPLAY_STORE).put(record);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error || new Error('Falha ao salvar replay.'));
+      tx.onabort = () => reject(tx.error || new Error('Gravação abortada pelo navegador.'));
+    });
+    // Mantém os 12 replays mais recentes para não lotar o armazenamento do celular.
+    const all = await new Promise((resolve, reject) => {
+      const tx = db.transaction(REPLAY_STORE, 'readonly');
+      const req = tx.objectStore(REPLAY_STORE).getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => reject(req.error);
+    });
+    const old = all.sort((a,b) => Number(b.createdAt || 0) - Number(a.createdAt || 0)).slice(12);
+    if (old.length) {
+      await new Promise(resolve => {
+        const tx = db.transaction(REPLAY_STORE, 'readwrite'), store = tx.objectStore(REPLAY_STORE);
+        old.forEach(item => store.delete(item.id));
+        tx.oncomplete = () => resolve(); tx.onerror = () => resolve(); tx.onabort = () => resolve();
+      });
+    }
+    try { db.close(); } catch {}
+  }
+
+  function bestReplayMime() {
+    if (!window.MediaRecorder) return '';
+    const types = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
+    return types.find(t => !MediaRecorder.isTypeSupported || MediaRecorder.isTypeSupported(t)) || '';
+  }
+
+  function bestReplayCanvas() {
+    const list = [...document.querySelectorAll('#game canvas')].filter(c => Number(c.width || c.clientWidth) > 0 && Number(c.height || c.clientHeight) > 0);
+    return list.sort((a,b) => ((b.width || b.clientWidth) * (b.height || b.clientHeight)) - ((a.width || a.clientWidth) * (a.height || a.clientHeight)))[0] || null;
+  }
+
+  async function waitReplayCanvas(timeout = 8000) {
+    const end = Date.now() + timeout;
+    while (Date.now() < end) {
+      const canvas = bestReplayCanvas();
+      if (canvas?.captureStream) return canvas;
+      await new Promise(r => setTimeout(r, 120));
+    }
+    return null;
+  }
+
+  function resetReplayState() {
+    clearTimeout(replayLimitTimer); replayLimitTimer = 0;
+    try { replayStream?.getTracks?.().forEach(t => t.stop()); } catch {}
+    replayStream = null; replayRecorder = null; replayChunks = []; replayBytes = 0; replayStartedAt = 0; replayStopMeta = {};
+  }
+
+  async function startReplayRecording() {
+    if (replayRecorder || !game) return;
+    if (localStorage.getItem('gg_arcade_replay_enabled') === '0') {
+      post('arcade-replay-status', 'Replay automático desativado nas configurações.', { state:'disabled' });
+      return;
+    }
+    if (!window.MediaRecorder || !HTMLCanvasElement.prototype.captureStream) {
+      post('arcade-replay-status', 'Replay automático não é suportado neste navegador.', { state:'error' });
+      return;
+    }
+    try {
+      const canvas = await waitReplayCanvas();
+      if (!canvas) throw new Error('Canvas do emulador não ficou disponível para gravação.');
+      replayStream = canvas.captureStream(24);
+      const mimeType = bestReplayMime();
+      const options = { videoBitsPerSecond: 1000000 };
+      if (mimeType) options.mimeType = mimeType;
+      replayChunks = []; replayBytes = 0; replayStopMeta = {}; replayStartedAt = Date.now();
+      const recorder = new MediaRecorder(replayStream, options);
+      replayRecorder = recorder;
+      recorder.ondataavailable = event => {
+        if (!event.data || !event.data.size) return;
+        replayChunks.push(event.data); replayBytes += event.data.size;
+        if (replayBytes >= REPLAY_MAX_BYTES && recorder.state !== 'inactive') stopReplayRecording({ reason:'size-limit' });
+      };
+      recorder.onerror = event => post('arcade-replay-status', event?.error?.message || 'Falha ao gravar replay.', { state:'error' });
+      recorder.onstop = async () => {
+        const chunks = replayChunks.slice();
+        const startedAt = replayStartedAt || Date.now();
+        const meta = { ...replayStopMeta };
+        const finalMime = recorder.mimeType || mimeType || 'video/webm';
+        const durationMs = Math.max(0, Date.now() - startedAt);
+        try {
+          if (chunks.length) {
+            const blob = new Blob(chunks, { type: finalMime });
+            if (blob.size > 1024) {
+              const createdAt = Date.now();
+              const id = `arcade-${gameKey}-${createdAt}-${Math.random().toString(36).slice(2,8)}`;
+              await saveReplayRecord({
+                id, game:gameKey, title:game.title, online, role, room:online ? room : 'LOCAL',
+                players:online ? 2 : localPlayers, createdAt, startedAt, durationMs, size:blob.size,
+                mimeType:blob.type || finalMime, version:'2.5.0', meta, blob
+              });
+              post('arcade-replay-saved', 'Replay salvo neste dispositivo.', { state:'saved', replayId:id, size:blob.size, durationMs, room:online ? room : 'LOCAL' });
+            }
+          }
+        } catch (e) {
+          post('arcade-replay-status', e?.message || 'Não foi possível salvar o replay.', { state:'error' });
+        } finally { resetReplayState(); }
+      };
+      recorder.start(1000);
+      replayLimitTimer = setTimeout(() => stopReplayRecording({ reason:'time-limit' }), REPLAY_MAX_MS);
+      post('arcade-replay-status', 'Replay em vídeo sendo gravado localmente.', { state:'recording' });
+    } catch (e) {
+      resetReplayState();
+      post('arcade-replay-status', e?.message || 'Replay indisponível.', { state:'error' });
+    }
+  }
+
+  function stopReplayRecording(meta = {}) {
+    if (!replayRecorder) return;
+    replayStopMeta = { ...replayStopMeta, ...(meta && typeof meta === 'object' ? meta : {}) };
+    clearTimeout(replayLimitTimer); replayLimitTimer = 0;
+    try {
+      if (replayRecorder.state !== 'inactive') {
+        try { replayRecorder.requestData(); } catch {}
+        replayRecorder.stop();
+      }
+    } catch { resetReplayState(); }
+  }
+
   async function bootGame() {
     if (loading || started || !game) return;
     loading = true; startButton.disabled = true; startButton.textContent = 'CARREGANDO…';
@@ -835,6 +992,7 @@
         startTopbarMinuteCountdown();
         if (online) showStatus('🟡 Jogo carregado • conectando PVP…'); else hideStatus();
         cancelAnimationFrame(padFrame); padLoop(); if (online) startAutomaticNetplay();
+        startReplayRecording();
         post('arcade-player-ready', `${game.title} carregado.`, { online, players: online ? 2 : localPlayers, role, room });
       };
 
@@ -877,7 +1035,12 @@
   editCancel?.addEventListener('click', () => exitEditMode(false));
   editDone?.addEventListener('click', () => exitEditMode(true));
 
-  addEventListener('pagehide', () => { releaseAll(); stopNetplayTimers(); clearTopbarTimer(); cancelAnimationFrame(padFrame); });
+  addEventListener('message', e => {
+    if (e.origin !== location.origin) return;
+    const d = e.data || {};
+    if (d.type === 'arcade-replay-stop') stopReplayRecording(d.meta || {});
+  });
+  addEventListener('pagehide', () => { stopReplayRecording({ reason:'pagehide' }); releaseAll(); stopNetplayTimers(); clearTopbarTimer(); cancelAnimationFrame(padFrame); });
   addEventListener('unhandledrejection', e => { if (!started && e?.reason) fail(e.reason?.message || String(e.reason)); });
   setTimeout(() => { if (game && !started && !loading) bootGame(); }, 220);
 })();

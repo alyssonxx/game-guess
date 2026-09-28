@@ -20,7 +20,8 @@
         "duelWins",
         "bestScore",
         "arenaBestScore",
-        "bestStreak"
+        "bestStreak",
+        "arcadeRating"
       ],
       "$uid": {
         ".write": "auth != null && auth.uid === $uid",
@@ -145,7 +146,8 @@
             "duelWins",
             "bestScore",
             "arenaBestScore",
-            "bestStreak"
+            "bestStreak",
+            "arcadeRating"
           ],
           "$uid": {
             ".write": "auth != null && auth.uid === $uid",
@@ -173,6 +175,13 @@
         ".read": "auth != null",
         ".write": "auth != null && ((!data.exists() && newData.child('hostUid').val() === auth.uid) || data.child('hostUid').val() === auth.uid || data.child('guestUid').val() === auth.uid || (!data.child('guestUid').exists() && newData.child('guestUid').val() === auth.uid) || (data.child('guestUid').val() === '' && newData.child('guestUid').val() === auth.uid))",
         ".validate": "!newData.exists() || (newData.hasChildren(['hostUid','status','protocolVersion','game','gameId','players','expiresAt']) && newData.child('protocolVersion').val() === 2 && newData.child('game').val() === 'kf2k2mp2' && newData.child('gameId').isNumber())"
+      }
+    },
+    "arcadeTournaments": {
+      "$code": {
+        ".read": "auth != null",
+        ".write": "auth != null && ((!data.exists() && newData.child('hostUid').val() === auth.uid) || data.child('participants').child(auth.uid).exists() || newData.child('participants').child(auth.uid).exists())",
+        ".validate": "!newData.exists() || (newData.child('code').val() === $code && newData.child('protocolVersion').val() === 1 && newData.child('hostUid').isString() && newData.child('game').isString() && (newData.child('maxPlayers').val() === 4 || newData.child('maxPlayers').val() === 8) && (newData.child('bestOf').val() === 1 || newData.child('bestOf').val() === 3 || newData.child('bestOf').val() === 5) && newData.child('participants').child(newData.child('hostUid').val()).exists())"
       }
     },
     "publicProfiles": {
