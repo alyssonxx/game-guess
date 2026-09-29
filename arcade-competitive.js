@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.7.0';
+  const VERSION = '3.0.0';
   const $ = id => document.getElementById(id);
   const CORE = () => window.GameGuessCore;
   const FB = () => window.GameGuessFirebase;
@@ -57,6 +57,7 @@
     if (!ensureLogin()) return;
     show('arcadeTournamentScreen');
     if (!tournament) setTournamentStatus('Crie um torneio ou entre com um código.', 'info');
+    renderPublicTournaments();
   }
 
   function openTournamentCode(code) {
@@ -150,7 +151,7 @@
     live.classList.remove('hidden');
     $('arcadeTournamentCode').textContent = tournament.code || tournamentCode;
     $('arcadeTournamentGame').textContent = `${gameIcon(tournament.game)} ${gameTitle(tournament.game)}`;
-    $('arcadeTournamentFormat').textContent = `${tournament.maxPlayers} jogadores • MD${tournament.bestOf} • eliminação simples`;
+    $('arcadeTournamentFormat').textContent = `${tournament.maxPlayers} jogadores • MD${tournament.bestOf} • ${tournament.visibility==='private'?'privado':'público'}`;
     $('arcadeTournamentState').textContent = tournament.status === 'waiting' ? 'INSCRIÇÕES' : tournament.status === 'playing' ? 'EM ANDAMENTO' : 'FINALIZADO';
     renderParticipants();
     renderBracket();
@@ -189,6 +190,12 @@
     });
   }
 
+
+  async function renderPublicTournaments(){
+    const root=$('arcadePublicTournamentList');if(!root)return;root.innerHTML='<div class="home-ranked-empty">Carregando torneios públicos…</div>';
+    try{const rows=await FB()?.listArcadePublicTournaments?.()||[];root.innerHTML=rows.length?rows.map(t=>`<article class="arcade-public-tournament"><div><b>${gameIcon(t.game)} ${esc(t.name||'Torneio Arcade')}</b><small>${Number(Object.keys(t.participants||{}).length)}/${Number(t.maxPlayers||4)} jogadores • MD${Number(t.bestOf||3)} • ${t.status==='waiting'?'inscrições':'em andamento'}</small></div><button type="button" data-public-tournament="${esc(t.code)}">${t.status==='waiting'?'ENTRAR':'VER CHAVE'}</button></article>`).join(''):'<div class="home-ranked-empty">Nenhum torneio público aberto agora.</div>';root.querySelectorAll('[data-public-tournament]').forEach(btn=>btn.addEventListener('click',async()=>{const code=btn.dataset.publicTournament;if((await FB()?.getArcadeTournament?.(code))?.status==='waiting'){try{await FB()?.joinArcadeTournament?.(code);}catch(e){if(!String(e?.message||'').includes('já'))console.warn(e);}}openTournamentCode(code);}));}catch(e){root.innerHTML=`<div class="home-ranked-empty">Não consegui carregar torneios: ${esc(e?.message||String(e))}</div>`;}
+  }
+
   async function createTournament() {
     if (!ensureLogin()) return;
     const btn = $('arcadeTournamentCreate');
@@ -196,9 +203,10 @@
     const maxPlayers = Number($('arcadeTournamentSize')?.value || 4);
     const bestOf = Number($('arcadeTournamentBestOf')?.value || 3);
     const name = String($('arcadeTournamentName')?.value || '').trim();
+    const visibility = String($('arcadeTournamentVisibility')?.value || 'public');
     btn.disabled = true; btn.textContent = 'CRIANDO…';
     try {
-      const code = await FB().createArcadeTournament({ game, maxPlayers, bestOf, name });
+      const code = await FB().createArcadeTournament({ game, maxPlayers, bestOf, name, visibility });
       watchTournament(code);
       toast('Torneio criado', `Código ${code}`);
     } catch (e) { setTournamentStatus(e?.message || String(e), 'error'); }
@@ -307,14 +315,15 @@
   // ----- Recompensas Arcade -----
   function rewardState(){ return FB()?.getArcadeRewards?.() || {coins:0,earned:0,spent:0,unlocks:{},equipped:{},seasonBadges:{},trophies:{tournaments:0}}; }
   function rewardItem(id){ return (FB()?.arcadeRewardCatalog?.()||[]).find(x=>x.id===id); }
-  function rewardTypeLabel(type){ return ({title:'Título',frame:'Moldura',banner:'Banner',effect:'Efeito'})[type]||type; }
+  function rewardTypeLabel(type){ return ({title:'Título',frame:'Moldura',banner:'Banner',effect:'Efeito',avatar:'Avatar 3D',badge:'Emblema'})[type]||type; }
   function currentCompetitive(){
     const local=CORE()?.getProfile?.()||{},seasonId=String(FB()?.getSeason?.()?.id||'').toUpperCase(),seasonLocal=local.seasonProfile&&String(local.seasonProfile.seasonId||'').toUpperCase()===seasonId?local.seasonProfile:local;
     return seasonLocal.arcadeCompetitive&&Number(seasonLocal.arcadeCompetitive.version)===2?seasonLocal.arcadeCompetitive:{rp:0,played:0,wins:0,losses:0,currentStreak:0,bestStreak:0,games:{}};
   }
   function cosmeticCard(item,state){
     const owned=Boolean(state.unlocks?.[item.id]),equipped=state.equipped?.[item.type]===item.id,shop=item.source==='shop';
-    const action=owned?(equipped?'<button type="button" disabled>EQUIPADO</button>':`<button type="button" data-reward-equip="${esc(item.id)}">EQUIPAR</button>`):(shop?`<button type="button" data-reward-buy="${esc(item.id)}">🪙 ${Number(item.price||0)} AC</button>`:'<button type="button" disabled>🔒 BLOQUEADO</button>');
+    const avatarLike=item.type==='avatar'||item.type==='badge';
+    const action=owned?(avatarLike?(item.type==='avatar'?'<button type="button" data-open-avatar-editor>USAR NO AVATAR</button>':'<button type="button" disabled>COLECIONADO</button>'):(equipped?'<button type="button" disabled>EQUIPADO</button>':`<button type="button" data-reward-equip="${esc(item.id)}">EQUIPAR</button>`)):(shop?`<button type="button" data-reward-buy="${esc(item.id)}">🪙 ${Number(item.price||0)} AC</button>`:'<button type="button" disabled>🔒 BLOQUEADO</button>');
     return `<article class="arcade-reward-item${owned?' owned':''}${equipped?' equipped':''}"><div class="reward-item-icon">${esc(item.icon||'🎁')}</div><div><small>${esc(rewardTypeLabel(item.type))}</small><b>${esc(item.name)}</b><span>${shop?'Loja Arcade':owned?'Desbloqueado':'Recompensa competitiva'}</span></div>${action}</article>`;
   }
   function renderRewards(){
@@ -328,6 +337,11 @@
     const next=(FB()?.arcadeRewardRanks?.()||[]).find(r=>Number(r.min)>Number(comp.rp||0));
     if($('arcadeRewardNext'))$('arcadeRewardNext').textContent=next?`${next.icon} ${next.label}: faltam ${Math.max(0,Number(next.min)-Number(comp.rp||0))} RP • +${next.coins} AC`:'👑 Rank máximo alcançado';
     const ranks=$('arcadeRewardRankRoadmap');if(ranks){ranks.innerHTML=(FB()?.arcadeRewardRanks?.()||[]).map(r=>{const claimed=Boolean(state.rankClaims?.[`${seasonId}_${r.key}`])||r.key==='rookie',reached=Number(comp.rp||0)>=Number(r.min);return `<article class="arcade-rank-reward${reached?' reached':''}${claimed?' claimed':''}"><div>${r.icon}</div><b>${esc(r.label)}</b><small>${Number(r.min)} RP</small><span>${r.coins?`🪙 +${r.coins} AC`:'Entrada'}</span><em>${claimed?'✓ resgatado':reached?'aguardando sincronização':'bloqueado'}</em></article>`;}).join('');}
+    const pass=state.seasonPass||{xp:0,level:1,claims:{}},passInfo=FB()?.arcadeBattlePass?.()||{maxLevel:30,rewards:[]};
+    if($('arcadeBattlePassLevel'))$('arcadeBattlePassLevel').textContent=`Nível ${Number(pass.level||1)}/${Number(passInfo.maxLevel||30)}`;
+    if($('arcadeBattlePassXp'))$('arcadeBattlePassXp').textContent=`${Number(pass.xp||0)} XP`;
+    if($('arcadeBattlePassBar'))$('arcadeBattlePassBar').style.width=`${Math.max(0,Math.min(100,Number(pass.xp||0)%100))}%`;
+    const passGrid=$('arcadeBattlePassRewards');if(passGrid){passGrid.innerHTML=(passInfo.rewards||[]).map(r=>{const done=Number(pass.level||1)>=Number(r.level),claimed=Boolean(pass.claims?.[r.level]);return `<article class="arcade-rank-reward${done?' reached':''}${claimed?' claimed':''}"><div>🎫</div><b>Nível ${Number(r.level)}</b><small>${Number(r.coins||0)?`🪙 +${Number(r.coins)} AC`:'Cosmético'}</small><span>${(r.unlocks||[]).map(id=>rewardItem(id)?.name||id).join(' • ')||'Recompensa'}</span><em>${claimed?'✓ recebido':done?'sincronizando':'bloqueado'}</em></article>`;}).join('');}
     const gameBadges=$('arcadeRewardGameBadges');if(gameBadges){gameBadges.innerHTML=Object.entries(FIGHT_GAMES).map(([key,g])=>{const gs=comp.games?.[key]||{rp:0,played:0,wins:0,losses:0},gi=FB()?.arcadeRankInfo?.(Number(gs.rp||0),Number(gs.played||0))||{icon:'🎮',label:'Recruta'};return `<article class="arcade-rank-reward reached"><div>${g.icon}</div><b>${esc(g.title)}</b><small>${Number(gs.rp||0)} RP • ${Number(gs.wins||0)}V/${Number(gs.losses||0)}D</small><span>${gi.icon} ${esc(gi.label)}</span><em>${Number(gs.played||0)} partidas</em></article>`;}).join('');}
     const catalog=FB()?.arcadeRewardCatalog?.()||[],inventory=$('arcadeRewardInventory'),shop=$('arcadeRewardShop');
     if(inventory){const owned=catalog.filter(i=>state.unlocks?.[i.id]);inventory.innerHTML=owned.length?owned.map(i=>cosmeticCard(i,state)).join(''):'<div class="home-ranked-empty">Nenhum cosmético desbloqueado.</div>';}
@@ -406,8 +420,8 @@
     $('arcadeRewardsButton')?.addEventListener('click', openRewards);
     $('homeArcadeRewardsButton')?.addEventListener('click', openRewards);
     $('arcadeRewardsBack')?.addEventListener('click', ()=>{stopRewardsWatch();show('kofScreen');});
-    $('arcadeRewardInventory')?.addEventListener('click',e=>{const equip=e.target.closest('[data-reward-equip]');if(equip)equipReward(equip.dataset.rewardEquip);});
-    $('arcadeRewardShop')?.addEventListener('click',e=>{const buy=e.target.closest('[data-reward-buy]'),equip=e.target.closest('[data-reward-equip]');if(buy)buyReward(buy.dataset.rewardBuy);else if(equip)equipReward(equip.dataset.rewardEquip);});
+    $('arcadeRewardInventory')?.addEventListener('click',e=>{const avatar=e.target.closest('[data-open-avatar-editor]'),equip=e.target.closest('[data-reward-equip]');if(avatar)window.GameGuessCompetitiveUI?.openAvatar?.();else if(equip)equipReward(equip.dataset.rewardEquip);});
+    $('arcadeRewardShop')?.addEventListener('click',e=>{const avatar=e.target.closest('[data-open-avatar-editor]'),buy=e.target.closest('[data-reward-buy]'),equip=e.target.closest('[data-reward-equip]');if(avatar)window.GameGuessCompetitiveUI?.openAvatar?.();else if(buy)buyReward(buy.dataset.rewardBuy);else if(equip)equipReward(equip.dataset.rewardEquip);});
 
     $('arcadeReplaysButton')?.addEventListener('click', openReplays);
     $('homeArcadeReplaysButton')?.addEventListener('click', openReplays);
@@ -426,7 +440,7 @@
   }
 
   window.GameGuessArcadeCompetitive = {
-    version:VERSION, openTournament, openTournamentCode, openReplays, openRewards, renderReplays, renderRewards, subscribeHomeRanking,
+    version:VERSION, openTournament, openTournamentCode, openReplays, openRewards, listReplays, renderReplays, renderRewards, subscribeHomeRanking,
     onTournamentFinishedRoom(code){ if(tournamentCode && code===tournamentCode) renderTournament(); }
   };
 

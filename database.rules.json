@@ -149,12 +149,24 @@
             "arenaBestScore",
             "bestStreak",
             "arcadeRating",
-            "arcadeRp"
+            "arcadeRp",
+            "arcadeGames/kf2k2mp2/rp",
+            "arcadeGames/samsh5spho/rp",
+            "arcadeGames/mvsc/rp",
+            "arcadeGames/xmvsfur1/rp"
           ],
           "$uid": {
             ".write": "auth != null && auth.uid === $uid",
             ".validate": "newData.hasChildren(['displayName','rating','wins','played','bestStreak','duelWins','duelLosses','updatedAt']) && newData.child('rating').isNumber() && newData.child('rating').val() >= 0 && newData.child('wins').isNumber() && newData.child('played').isNumber() && newData.child('duelWins').isNumber() && newData.child('duelLosses').isNumber() && (!newData.child('bestScore').exists() || newData.child('bestScore').isNumber()) && (!newData.child('arenaBestScore').exists() || newData.child('arenaBestScore').isNumber()) && (!newData.child('arenaMaxPlayers').exists() || newData.child('arenaMaxPlayers').isNumber())"
           }
+        },
+        "meta": {
+          ".read": "auth != null",
+          ".write": false
+        },
+        "finalRanks": {
+          ".read": "auth != null",
+          ".write": false
         }
       }
     },
@@ -197,7 +209,7 @@
       "$code": {
         ".read": "auth != null",
         ".write": "auth != null && ((!data.exists() && newData.child('hostUid').val() === auth.uid) || data.child('participants').child(auth.uid).exists() || newData.child('participants').child(auth.uid).exists())",
-        ".validate": "!newData.exists() || (newData.child('code').val() === $code && newData.child('protocolVersion').val() === 1 && newData.child('hostUid').isString() && newData.child('game').isString() && (newData.child('maxPlayers').val() === 4 || newData.child('maxPlayers').val() === 8) && (newData.child('bestOf').val() === 1 || newData.child('bestOf').val() === 3 || newData.child('bestOf').val() === 5) && newData.child('participants').child(newData.child('hostUid').val()).exists())"
+        ".validate": "!newData.exists() || (newData.child('code').val() === $code && newData.child('protocolVersion').val() === 2 && newData.child('hostUid').isString() && newData.child('game').isString() && (newData.child('maxPlayers').val() === 4 || newData.child('maxPlayers').val() === 8 || newData.child('maxPlayers').val() === 16) && (newData.child('bestOf').val() === 1 || newData.child('bestOf').val() === 3 || newData.child('bestOf').val() === 5) && (!newData.child('visibility').exists() || newData.child('visibility').val() === 'public' || newData.child('visibility').val() === 'private') && newData.child('participants').child(newData.child('hostUid').val()).exists())"
       }
     },
     "publicProfiles": {
@@ -274,7 +286,23 @@
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
         ".write": "auth != null && auth.uid === $uid",
-        ".validate": "!newData.exists() || (newData.child('version').val() === 1 && newData.child('coins').isNumber() && newData.child('coins').val() >= 0 && newData.child('coins').val() <= 9999999 && newData.child('earned').isNumber() && newData.child('earned').val() >= 0 && newData.child('spent').isNumber() && newData.child('spent').val() >= 0 && newData.child('earned').val() >= newData.child('spent').val() && newData.child('coins').val() === newData.child('earned').val() - newData.child('spent').val() && newData.child('revision').isNumber() && newData.child('revision').val() >= 0 && newData.child('updatedAt').isNumber() && newData.child('unlocks').exists() && newData.child('equipped').exists() && newData.child('trophies').child('tournaments').isNumber() && newData.child('trophies').child('tournaments').val() >= 0)"
+        ".validate": "!newData.exists() || (newData.child('version').val() === 1 && newData.child('coins').isNumber() && newData.child('coins').val() >= 0 && newData.child('coins').val() <= 9999999 && newData.child('earned').isNumber() && newData.child('earned').val() >= 0 && newData.child('spent').isNumber() && newData.child('spent').val() >= 0 && newData.child('earned').val() >= newData.child('spent').val() && newData.child('coins').val() === newData.child('earned').val() - newData.child('spent').val() && newData.child('revision').isNumber() && newData.child('revision').val() >= 0 && newData.child('updatedAt').isNumber() && newData.child('unlocks').exists() && newData.child('equipped').exists() && newData.child('trophies').child('tournaments').isNumber() && newData.child('trophies').child('tournaments').val() >= 0 && (!newData.child('seasonPass').exists() || (newData.child('seasonPass').child('seasonId').isString() && newData.child('seasonPass').child('xp').isNumber() && newData.child('seasonPass').child('level').isNumber())) && (!newData.child('seasonPlacementClaims').exists() || newData.child('seasonPlacementClaims').hasChildren()))"
+      }
+    },
+    "arcadeAvatars": {
+      "$uid": {
+        ".read": "auth != null",
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "!newData.exists() || (newData.child('version').val() === 1 && newData.child('uid').val() === $uid && newData.child('name').isString() && newData.child('body').isString() && newData.child('skin').isString() && newData.child('hair').isString() && newData.child('hairColor').isString() && newData.child('top').isString() && newData.child('topColor').isString() && newData.child('pants').isString() && newData.child('pantsColor').isString() && newData.child('shoes').isString() && newData.child('gloves').isString() && newData.child('accent').isString() && newData.child('accessory').isString() && newData.child('aura').isString() && newData.child('pose').isString() && newData.child('updatedAt').isNumber() && (newData.child('body').val() === 'classic' || newData.child('body').val() === 'athletic' || newData.child('body').val() === 'compact') && (newData.child('hair').val() === 'short' || newData.child('hair').val() === 'spiky' || newData.child('hair').val() === 'mohawk' || newData.child('hair').val() === 'long' || newData.child('hair').val() === 'pixel') && (newData.child('top').val() === 'fighter' || newData.child('top').val() === 'jacket' || newData.child('top').val() === 'hoodie' || newData.child('top').val() === 'samurai' || newData.child('top').val() === 'cyber' || newData.child('top').val() === 'neon' || newData.child('top').val() === 'retrowave' || newData.child('top').val() === 'season') && (newData.child('pants').val() === 'fighter' || newData.child('pants').val() === 'street' || newData.child('pants').val() === 'samurai' || newData.child('pants').val() === 'cyber' || newData.child('pants').val() === 'neon') && (newData.child('shoes').val() === 'classic' || newData.child('shoes').val() === 'gold' || newData.child('shoes').val() === 'neon' || newData.child('shoes').val() === 'high') && (newData.child('gloves').val() === 'classic' || newData.child('gloves').val() === 'bronze' || newData.child('gloves').val() === 'neon' || newData.child('gloves').val() === 'cyber') && (newData.child('accessory').val() === 'none' || newData.child('accessory').val() === 'visor' || newData.child('accessory').val() === 'mask' || newData.child('accessory').val() === 'arcade-mask' || newData.child('accessory').val() === 'crown') && (newData.child('aura').val() === 'none' || newData.child('aura').val() === 'diamond' || newData.child('aura').val() === 'flame' || newData.child('aura').val() === 'neon' || newData.child('aura').val() === 'season' || newData.child('aura').val() === 'dragon') && (newData.child('pose').val() === 'idle' || newData.child('pose').val() === 'guard' || newData.child('pose').val() === 'victory' || newData.child('pose').val() === 'master') && (newData.child('hair').val() !== 'pixel' || root.child('arcadeRewardProfiles').child($uid).child('unlocks').child('avatar_hair_pixel').exists() || root.child('arcadeRewardProfiles').child($uid).child('unlocks').child('avatar_hair_season').exists()) && (newData.child('top').val() !== 'jacket' || root.child('arcadeRewardProfiles').child($uid).child('unlocks').child('avatar_jacket_competitor').exists()) && (newData.child('top').val() !== 'cyber' || root.child('arcadeRewardProfiles').child($uid).child('unlocks').child('avatar_jacket_cyber').exists()) && (newData.child('top').val() !== 'neon' || root.child('arcadeRewardProfiles').child($uid).child('unlocks').child('avatar_outfit_neon').exists()) && (newData.child('top').val() !== 'retrowave' || root.child('arcadeRewardProfiles').child($uid).child('unlocks').child('avatar_outfit_retrowave').exists()) && (newData.child('top').val() !== 'season' || root.child('arcadeRewardProfiles').child($uid).child('unlocks').child('avatar_jacket_season').exists()) && (newData.child('pants').val() !== 'neon' || root.child('arcadeRewardProfiles').child($uid).child('unlocks').child('avatar_outfit_neon').exists()) && (newData.child('shoes').val() !== 'gold' || root.child('arcadeRewardProfiles').child($uid).child('unlocks').child('avatar_shoes_gold').exists()) && (newData.child('shoes').val() !== 'neon' || root.child('arcadeRewardProfiles').child($uid).child('unlocks').child('avatar_outfit_neon').exists()) && (newData.child('gloves').val() !== 'bronze' || root.child('arcadeRewardProfiles').child($uid).child('unlocks').child('avatar_gloves_bronze').exists()) && (newData.child('gloves').val() !== 'neon' || root.child('arcadeRewardProfiles').child($uid).child('unlocks').child('avatar_outfit_neon').exists()) && (newData.child('gloves').val() !== 'cyber' || root.child('arcadeRewardProfiles').child($uid).child('unlocks').child('avatar_jacket_cyber').exists()) && (newData.child('accessory').val() !== 'mask' || root.child('arcadeRewardProfiles').child($uid).child('unlocks').child('avatar_mask_shadow').exists()) && (newData.child('accessory').val() !== 'arcade-mask' || root.child('arcadeRewardProfiles').child($uid).child('unlocks').child('avatar_mask_arcade').exists()) && (newData.child('accessory').val() !== 'crown' || root.child('arcadeRewardProfiles').child($uid).child('unlocks').child('avatar_crown_grandmaster').exists()) && (newData.child('aura').val() !== 'diamond' || root.child('arcadeRewardProfiles').child($uid).child('unlocks').child('avatar_aura_diamond').exists()) && (newData.child('aura').val() !== 'flame' || root.child('arcadeRewardProfiles').child($uid).child('unlocks').child('effect_flame').exists()) && (newData.child('aura').val() !== 'neon' || root.child('arcadeRewardProfiles').child($uid).child('unlocks').child('avatar_aura_neon').exists()) && (newData.child('aura').val() !== 'season' || root.child('arcadeRewardProfiles').child($uid).child('unlocks').child('avatar_aura_season').exists()) && (newData.child('aura').val() !== 'dragon' || root.child('arcadeRewardProfiles').child($uid).child('unlocks').child('avatar_dragon_aura').exists()) && (newData.child('pose').val() !== 'victory' || root.child('arcadeRewardProfiles').child($uid).child('unlocks').child('avatar_pose_victory').exists()) && (newData.child('pose').val() !== 'master' || root.child('arcadeRewardProfiles').child($uid).child('unlocks').child('avatar_pose_master').exists()))"
+      }
+    },
+    "arcadeSeasonHistory": {
+      "$uid": {
+        ".read": "auth != null",
+        ".write": "auth != null && auth.uid === $uid",
+        "$seasonId": {
+          ".validate": "!newData.exists() || (newData.child('seasonId').val() === $seasonId && newData.child('currentRp').isNumber() && newData.child('peakRp').isNumber() && newData.child('played').isNumber() && newData.child('wins').isNumber() && newData.child('losses').isNumber() && newData.child('updatedAt').isNumber())"
+        }
       }
     }
   }

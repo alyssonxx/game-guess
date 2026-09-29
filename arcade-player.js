@@ -113,7 +113,8 @@
 
   const storageMode = online ? 'online' : localPlayers === 2 ? '2p' : '1p';
   const LS_TOUCH = `gg_arcade_touch_v230_${gameKey}_${storageMode}`;
-  const LS_KEYS = `gg_arcade_keys_v230_${game ? game.profile : 'default'}`;
+  const LS_KEYS = `gg_arcade_keys_v300_${gameKey || 'default'}`;
+  const LS_KEYS_LEGACY = `gg_arcade_keys_v230_${game ? game.profile : 'default'}`;
 
   function clone(obj) { return JSON.parse(JSON.stringify(obj)); }
   function clamp(v, min, max) { return Math.max(min, Math.min(max, Number(v) || 0)); }
@@ -255,9 +256,13 @@
   function loadKeyConfig() {
     const base = defaultKeyConfig();
     try {
-      const raw = JSON.parse(localStorage.getItem(LS_KEYS) || 'null');
+      const currentRaw = localStorage.getItem(LS_KEYS);
+      const legacyRaw = localStorage.getItem(LS_KEYS_LEGACY);
+      const raw = JSON.parse(currentRaw || legacyRaw || 'null');
       if (!raw) return base;
       ['0', '1'].forEach(p => { if (raw[p]) Object.assign(base[p], raw[p]); });
+      // A partir da V3 cada jogo mantém o próprio mapa de teclado.
+      if (!currentRaw) localStorage.setItem(LS_KEYS, JSON.stringify(base));
       return base;
     } catch { return base; }
   }
@@ -1177,7 +1182,7 @@
   }
 
   window.GG_ARCADE_INPUT_DIAG = () => ({
-    version: '2.5.7', online, role, room, rtcRoomName, started, directReady,
+    version: '3.0.0', inputEngine: '2.5.7-stable', online, role, room, rtcRoomName, started, directReady,
     pvpReady: online ? onlineInputReady() : true,
     player: online ? actualOnlinePlayer() + 1 : 1,
     held: [...held.entries()].map(([key, sources]) => ({ key, sources: [...sources] })),
@@ -1186,7 +1191,7 @@
   });
 
   setupUi(); bindKeyboard();
-  if (online) console.info('[GameGuess Arcade] papel do netplay', { role, expectedInputPort: onlineInputPort, expectedPlayer: onlineInputPort + 1, room, rtcRoomName, inputVersion: '2.5.7' });
+  if (online) console.info('[GameGuess Arcade] papel do netplay', { role, expectedInputPort: onlineInputPort, expectedPlayer: onlineInputPort + 1, room, rtcRoomName, inputVersion: '2.5.7-stable', playerVersion: '3.0.0' });
   startButton?.addEventListener('click', bootGame);
   helpButton?.addEventListener('click', () => { showTopbar(0); renderHelp(); });
   customizeButton?.addEventListener('click', () => { showTopbar(0); renderCustomize('layout'); });

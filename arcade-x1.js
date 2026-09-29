@@ -4,7 +4,7 @@
   const $ = id => document.getElementById(id);
   const CORE = () => window.GameGuessCore;
   const FB = () => window.GameGuessFirebase;
-  const VERSION = '2.5.3';
+  const VERSION = '3.0.0';
 
   const GAMES = {
     kf2k2mp2: {
@@ -41,6 +41,11 @@
   let readySyncPromise = null;
   let processedFinishedRoom = '';
   let resultSubmitting = false;
+  const diagEvents = [];
+  function masked(v=''){v=String(v||'');return v?`${v.slice(0,6)}…${v.slice(-4)}`:'';}
+  function diag(event,data={}){diagEvents.push({at:new Date().toISOString(),event:String(event||'event'),...data});if(diagEvents.length>250)diagEvents.splice(0,diagEvents.length-250);}
+  function diagnosticReport(){const me=user()?.uid||'';return {version:VERSION,generatedAt:new Date().toISOString(),userAgent:navigator.userAgent,online:navigator.onLine,firebaseConnected:Boolean(FB()?.isConnected?.()),selected,roomCode,role:roomCode?(isHost()?'host':'guest'):'none',me:masked(me),launched,sessionArmed,readyRoom,room:room?{code:room.code,status:room.status,launchState:room.launchState,rtcRoomName:room.rtcRoomName||'',hostUid:masked(room.hostUid),guestUid:masked(room.guestUid),players:Object.keys(room.players||{}).map(masked),clientReady:Object.fromEntries(Object.entries(room.clientReady||{}).map(([k,v])=>[masked(k),{ready:Boolean(v?.ready),sessionId:masked(v?.sessionId)}])),presence:Object.fromEntries(Object.entries(room.presence||{}).map(([k,v])=>[masked(k),Object.keys(v||{}).length]))}:null,events:[...diagEvents]};}
+  function downloadDiagnostic(){try{const report=diagnosticReport(),blob=new Blob([JSON.stringify(report,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`game-guess-x1-${roomCode||'sem-sala'}-${Date.now()}.json`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),800);toast('Diagnóstico X1','Relatório baixado. Envie o JSON para análise.','achievement');}catch(e){toast('Diagnóstico X1',e?.message||String(e),'error');}}
 
   const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({
     '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
@@ -225,8 +230,9 @@
     const me = user()?.uid;
     const won = Boolean(me && room.winnerUid === me);
     setPlayStatus(won ? '🏆 Vitória confirmada pelos dois jogadores.' : 'Resultado confirmado pelos dois jogadores.', won ? 'ok' : 'info');
+    let rankedRecord=null;
     try {
-      const record = await FB()?.recordArcadeMatchResult?.(roomCode, selected);
+      const record = await FB()?.recordArcadeMatchResult?.(roomCode, selected);rankedRecord=record;
       if (record?.recorded) {
         const sign = Number(record.delta||0) > 0 ? '+' : '';
         const placement = Number(record.placement||0) < Number(record.placementTotal||10) ? ` • classificação ${record.placement}/${record.placementTotal||10}` : '';
@@ -242,6 +248,7 @@
         toast('Torneio', 'Resultado aplicado à série. Volte à chave para continuar.');
       } catch (e) { console.warn('Tournament result:', e); }
     }
+    if(rankedRecord?.recorded){try{window.GameGuessCompetitiveUI?.showPostMatch?.({record:rankedRecord,room,game:selected});}catch(e){console.warn('Post-match:',e);}}
   }
 
   async function submitMyResult(wonMe) {
@@ -362,11 +369,13 @@
     if (unsub) { try { unsub(); } catch {} }
     unsub = FB()?.watchFightRoom?.(code, (r, e) => {
       if (e) {
+        diag('room:error',{message:e?.message||String(e)});
         setOnlineStatus(e?.message || 'Falha ao sincronizar a sala.', 'error');
         toast('Sala Arcade', 'Falha ao sincronizar sala.', 'error');
         return;
       }
       room = r;
+      diag('room:snapshot',{status:room?.status||'',launchState:room?.launchState||'',players:Object.keys(room?.players||{}).length,rtcRoomName:room?.rtcRoomName||''});
       if (!room) { leaveRoom(false); return; }
       const roomGame = String(room.arcadeGame || 'kf2k2mp2');
       if (roomGame !== selected) {
@@ -380,6 +389,7 @@
   }
 
   async function createRoom() {
+    diag('create-room:start',{game:selected});
     const g = game();
     if (!g) return;
     if (!FB()?.ready?.() || !user()) {
@@ -393,6 +403,8 @@
     try {
       if (!await validate()) return;
       roomCode = await FB().createFightRoom({ arcadeGame:selected, ranked:true });
+      diag('create-room:success',{code:roomCode,game:selected});
+      try{localStorage.setItem('gameGuessLastArcadeRoom',roomCode);localStorage.setItem('gameGuessLastArcadeGame',selected);}catch{}
       sessionArmed = true; launched = false; launching = false; lastLaunchAt = 0; readyRoom = ''; readySyncPromise = null; processedFinishedRoom = '';
       watch(roomCode);
       setOnlineStatus(`Sala ${roomCode} criada. Compartilhe o código.`, 'ok');
@@ -404,6 +416,7 @@
   }
 
   async function joinRoom() {
+    diag('join-room:start',{game:selected});
     const g = game();
     if (!g) return;
     const code = String($('arcadeJoinCode')?.value || '').trim().toUpperCase();
@@ -422,6 +435,7 @@
     try {
       if (!await validate()) return;
       roomCode = await FB().joinFightRoom(code, selected);
+      diag('join-room:success',{code:roomCode,game:selected});
       sessionArmed = true; launched = false; launching = false; lastLaunchAt = 0; readyRoom = ''; readySyncPromise = null; processedFinishedRoom = '';
       watch(roomCode);
       setOnlineStatus(`Conectado à sala ${roomCode}. Validando aparelhos…`, 'ok');
@@ -463,6 +477,7 @@
   }
 
   async function launchOnline(fromRoom=false, launchAt=0) {
+    diag('launch-online',{fromRoom:Boolean(fromRoom),launchAt:Number(launchAt||0),role:isHost()?'host':'guest',rtcRoomName:room?.rtcRoomName||''});
     if (!fromRoom || !sessionArmed || !roomCode || !room || launched) return;
     const g = game(); if (!g) return;
     launched = true; launching = false;
@@ -470,9 +485,10 @@
     $('arcadePlayMode').textContent = `RANKED • SALA ${roomCode} • ${isHost() ? 'PLAYER 1 / HOST' : 'PLAYER 2 / CONVIDADO'}`;
     $('arcadePlayFrame').title = `${g.title} • Online X1`;
     $('arcadePlayFrame').src = playUrl('online', launchAt);
-    setPlayStatus('Carregando jogo e conectando WebRTC…', 'loading');
+    setPlayStatus('Preparando confronto e conectando WebRTC…', 'loading');
     show('arcadePlayScreen');
     renderResultActions();
+    try{await window.GameGuessCompetitiveUI?.showVS?.({room,game:selected,meUid:user()?.uid});}catch(e){console.warn('VS screen:',e);}
   }
 
   async function openOnline(key) {
@@ -568,6 +584,7 @@
     $('arcadeLeaveRoom')?.addEventListener('click', () => leaveRoom(false));
     $('arcadeLaunchButton')?.addEventListener('click', requestLaunch);
     $('arcadeCopyRoom')?.addEventListener('click', copyRoom);
+    $('arcadeRoomDiagnostic')?.addEventListener('click', downloadDiagnostic);
     $('arcadeReportWin')?.addEventListener('click', () => submitMyResult(true));
     $('arcadeReportLoss')?.addEventListener('click', () => submitMyResult(false));
     $('arcadePlayBack')?.addEventListener('click', () => {
@@ -605,7 +622,7 @@
     });
   }
 
-  window.GameGuessArcadeX1 = { open:openHub, openOnline, openRoomCode, launchLocal, games:GAMES };
+  window.GameGuessArcadeX1 = { open:openHub, openOnline, openRoomCode, launchLocal, games:GAMES, getState:()=>({selected,roomCode,room,launched,isHost:isHost()}), diagnosticReport, downloadDiagnostic };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
   else bind();
 })();

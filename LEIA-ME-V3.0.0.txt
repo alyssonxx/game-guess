@@ -1,0 +1,156 @@
+GAME GUESS V3.0.0 — COMPETITIVE HUB
+====================================
+
+BASE ESPERADA
+- Arcade Online Input V2.5.7 aplicado e funcionando.
+- Arcade Ranked V2.6.0 aplicado.
+- Arcade Rewards V2.7.0 aplicado.
+
+OBJETIVO DA V3
+A V3 mantém o multiplayer/input estável e transforma os jogos de luta já escolhidos em um ecossistema competitivo. Ela NÃO cria suporte genérico para qualquer ROM e NÃO adiciona Serverless Functions /api.
+
+IMPLEMENTADO
+1. ESTABILIDADE / DIAGNÓSTICO
+- O input online da V2.5.7 foi preservado.
+- Botão "DIAGNÓSTICO" na sala X1 gera JSON com estado da sala/Firebase/WebRTC sem expor o UID completo.
+- GG_ARCADE_INPUT_DIAG() continua disponível no player.
+- Controles touch continuam salvos por jogo/modo; mapeamento de teclado agora também é salvo por jogo, com migração automática do perfil antigo.
+
+2. ARCADE CURADO + CONTROLES POR JOGO
+- Competitivo focado em KOF 2002 Magic Plus II, Samurai Shodown V Special, Marvel vs. Capcom e X-Men vs. Street Fighter.
+- Neo Bomberman permanece no Arcade, mas fora do Ranked/Torneio de luta.
+- Nenhuma lógica para aceitar ROM arbitrária foi adicionada.
+
+3. RANKED COMPETITIVO
+- Todos começam em 0 RP.
+- 10 partidas iniciais de classificação.
+- RP varia conforme a diferença de força entre os jogadores.
+- RP geral + RP individual por jogo.
+- Recruta, Bronze, Prata, Ouro, Platina, Diamante, Mestre e Grão-Mestre.
+- Histórico de partidas, streak, win rate, melhor jogo e rankings por jogo.
+
+4. TORNEIOS
+- 4, 8 ou 16 jogadores.
+- MD1 / MD3 / MD5.
+- Eliminação simples.
+- Público ou privado.
+- Lista de torneios públicos.
+- Confrontos usam o mesmo X1/WebRTC já estabilizado.
+- Campeão recebe troféu, Arcade Coins e XP do Passe.
+
+5. PERFIL COMPETITIVO
+- Avatar 3D, divisão, RP, campanha, streak e troféus.
+- Abas: visão geral, jogos, partidas, replays, rivais, temporadas e coleção.
+- Perfil público pode ser aberto pelo ranking.
+- Rivalidades são calculadas a partir das partidas Ranked.
+
+6. RECOMPENSAS / ARCADE COINS
+- Vitória Ranked: 10 AC.
+- Derrota Ranked: 3 AC.
+- Recompensas únicas por rank/temporada.
+- Recompensas por marcos e zebra (+300/+500/+700 RP de diferença).
+- Loja cosmética sem vantagem de gameplay.
+- Emblemas de rank específicos de cada jogo.
+
+7. AVATAR 3D V1
+- Renderização real em Three.js/WebGL.
+- Corpo, pele, cabelo, parte de cima, calça, calçado, luvas, acessórios, aura, pose e cores.
+- Drag para girar.
+- Itens bloqueados exigem rank, Passe ou compra com AC.
+- Regras do Firebase também validam a posse dos itens 3D bloqueados.
+- A V1 usa geometria 3D procedural para não depender de arquivos GLB pesados. Modelos artísticos GLB podem substituir as peças depois sem mudar o banco.
+
+8. LOJA 3D + RECOMPENSAS DE RANK
+- Itens 3D compráveis com AC.
+- Bronze: Luvas Bronze.
+- Prata: Jaqueta Competidor.
+- Ouro: Golden Fighter.
+- Platina: Conjunto Neon.
+- Diamante: Aura Diamante.
+- Mestre: Pose Mestre.
+- Grão-Mestre: Coroa 3D.
+
+9. REPLAYS
+- Replay continua local via IndexedDB, até 12 vídeos (~8 min cada), sem áudio nesta beta.
+- Perfil competitivo possui aba Replays e associa vídeos locais ao código da sala Ranked quando possível.
+
+10. TEMPORADAS
+- Ranking, recompensas, Passe e histórico são separados por seasonId.
+- Ao trocar rankedConfig/currentSeason, o novo Passe começa do nível 1 e o ranking da nova temporada usa seu próprio caminho.
+- Maior rank/pico de RP da temporada é preservado no histórico.
+- Top 100 / 50 / 10 / 3 / #1 possuem recompensas preparadas.
+
+IMPORTANTE SOBRE O FECHAMENTO DE TEMPORADA
+O fechamento Top 100/50/10/3/#1 é propositalmente administrativo para evitar que um navegador declare a própria posição. Antes de liberar a premiação final, publique no Firebase:
+- rankedSeasons/<SEASON>/meta/finalized = true
+- rankedSeasons/<SEASON>/finalRanks/<UID>/rank = posição final
+Depois o jogador pode usar "RESGATAR TEMPORADA".
+Não automatize isso no navegador sem um backend confiável.
+
+Exemplo para a temporada atual em rankedConfig/currentSeason:
+{
+  "id": "S1",
+  "label": "Temporada 1",
+  "description": "Primeira temporada Arcade",
+  "startsAt": 0,
+  "endsAt": 0
+}
+Use timestamps em milissegundos em startsAt/endsAt quando definir datas reais.
+
+11. PASSE ARCADE GRATUITO
+- 30 níveis.
+- 100 XP por nível.
+- Ranked: +35 XP vitória / +20 XP derrota.
+- Campeão de torneio: +150 XP.
+- Recompensas automáticas nos níveis 2, 5, 10, 15, 20, 25 e 30.
+
+12. TELA VS / PÓS-PARTIDA
+- Antes do X1: Avatar 3D + nome + rank + RP dos dois jogadores.
+- Falha no Three.js NÃO impede o jogo de iniciar.
+- Depois do resultado confirmado: vitória/derrota, delta RP, RP total, AC, XP, streak, perfil, recompensas e revanche.
+
+13. SOCIAL / RIVALIDADES
+- Mantém amigos, pedidos e convites existentes.
+- Perfil mostra rivais mais enfrentados e retrospecto V/D.
+- Botão Desafiar leva para a área Arcade para iniciar um novo X1.
+
+14. RANKINGS
+- Geral Arcade.
+- KOF 2002.
+- Samurai Shodown.
+- Marvel vs. Capcom.
+- X-Men vs. Street Fighter.
+- Torneios.
+- Maior streak.
+
+15. HOME / BARRA SUPERIOR
+- Os números antigos foram rotulados: GG = pontos Game Guess, REC = recorde.
+- A barra também mostra AC = Arcade Coins e RP = Arcade Ranked.
+- Home recebe card de identidade competitiva com Avatar 3D, rank, RP, AC e Passe.
+
+INSTALAÇÃO
+1. Na raiz do projeto:
+   git apply --check game-guess-competitive-hub-v3.0.0.patch
+2. Se não houver erro:
+   git apply game-guess-competitive-hub-v3.0.0.patch
+3. Confira:
+   git status
+4. Commit/push:
+   git add .
+   git commit -m "feat: competitive hub v3.0.0"
+   git push
+
+FIREBASE — OBRIGATÓRIO
+Após o deploy, abra Firebase Console > Realtime Database > Regras e publique o conteúdo novo de database.rules.json.
+Novos/alterados caminhos principais:
+- arcadeAvatars
+- arcadeSeasonHistory
+- arcadeRewardProfiles (Passe/recompensas)
+- arcadeTournaments (protocolo 2; 4/8/16; público/privado)
+- rankedSeasons/<season>/finalRanks e meta (somente administração)
+
+CACHE
+Depois do deploy, use Ctrl+Shift+R no PC e feche/reabra a aba no celular.
+
+VERCEL
+A V3 adiciona ZERO arquivos em /api. Portanto, não aumenta a quantidade de Serverless Functions do plano Hobby.

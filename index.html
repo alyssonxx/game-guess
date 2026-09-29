@@ -117,6 +117,7 @@
     @media(max-width:900px){.arcade-rewards-hero{grid-template-columns:repeat(2,minmax(0,1fr))}.arcade-rank-roadmap{grid-template-columns:repeat(2,minmax(0,1fr))}.arcade-reward-equipped{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:560px){.arcade-rewards-hero{grid-template-columns:1fr 1fr}.arcade-reward-grid{grid-template-columns:1fr}.arcade-rank-roadmap{grid-template-columns:1fr 1fr}.arcade-reward-item{grid-template-columns:38px 1fr}.arcade-reward-item button{grid-column:1/-1}.arcade-reward-section{padding:13px}}
   </style>
 
+  <link rel="stylesheet" href="/arcade-meta.css?v=3.0.0">
 </head>
 <body class="redesign">
   <div class="bg-grid"></div>
@@ -132,8 +133,10 @@
       </button>
       <div class="top-actions">
         <span class="status-pill" id="apiStatus"><i></i> Pronto</span>
-        <button class="mini-pill" id="coinsTop" title="Pontos acumulados">🪙 <b>0</b></button>
-        <button class="mini-pill" id="recordTop" title="Recorde">🏆 <b>0</b></button>
+        <button class="mini-pill" id="coinsTop" title="Pontos dos modos Game Guess">🎟 <small>GG</small> <b>0</b></button>
+        <button class="mini-pill" id="recordTop" title="Recorde dos modos Game Guess">⭐ <small>REC</small> <b>0</b></button>
+        <button class="mini-pill arcade-meta-pill" id="arcadeCoinsTop" title="Arcade Coins cosméticos">🪙 <small>AC</small> <b>0</b></button>
+        <button class="mini-pill arcade-meta-pill" id="arcadeRpTop" title="RP do Arcade Ranked">🏆 <small>RP</small> <b>0</b></button>
         <button class="mini-pill online-pill" id="duelButton" title="Duelo 1x1">⚔️ <b>1x1</b></button>
         <button class="mini-pill" id="rankingButton" title="Ranking global">🌍 <b>Ranking</b></button>
         <button class="mini-pill account-pill" id="accountButton" title="Conta"><span>👤</span> <b id="accountLabel">Entrar</b></button>
@@ -188,6 +191,9 @@
             <button class="secondary-btn" id="homeArcadeRankingButton" type="button">RANKING COMPLETO</button>
             <button class="secondary-btn" id="homeArcadeReplaysButton" type="button">🎥 REPLAYS</button>
             <button class="secondary-btn" id="homeArcadeRewardsButton" type="button">🎁 RECOMPENSAS</button>
+            <button class="secondary-btn" id="homeArcadeProfileButton" type="button">👤 PERFIL</button>
+            <button class="secondary-btn" id="homeArcadeAvatarButton" type="button">🧍 AVATAR 3D</button>
+            <button class="secondary-btn" id="homeArcadeRankHubButton" type="button">📊 RANKINGS</button>
             <button class="primary-btn" id="homeArcadeTournamentButton" type="button">🏆 TORNEIO</button>
           </div>
         </div>
@@ -198,6 +204,7 @@
             <div id="homeArcadeMyStats"><p>Conclua partidas online para registrar suas estatísticas.</p></div>
           </aside>
         </div>
+        <div class="home-arcade-identity" id="homeArcadeIdentityCard"><div class="meta-empty">Carregando identidade competitiva…</div></div>
       </section>
 
       <section class="home-section">
@@ -437,7 +444,7 @@
           </div>
           <div id="arcadeRoomPlayers" class="kof-players arcade-room-v2-players"></div>
           <div id="arcadeRoomStatus" class="arcade-room-v2-status">Aguardando...</div>
-          <div class="arcade-room-v2-buttons"><button class="primary-btn" id="arcadeLaunchButton" type="button">🚀 INICIAR ONLINE X1</button><button class="secondary-btn" id="arcadeLeaveRoom" type="button">SAIR DA SALA</button></div>
+          <div class="arcade-room-v2-buttons"><button class="primary-btn" id="arcadeLaunchButton" type="button">🚀 INICIAR ONLINE X1</button><button class="secondary-btn" id="arcadeRoomDiagnostic" type="button">🧪 DIAGNÓSTICO</button><button class="secondary-btn" id="arcadeLeaveRoom" type="button">SAIR DA SALA</button></div>
         </section>
 
         <div class="arcade-online-help"><span>⌨️ Teclado</span><span>🎮 Controle/joystick</span><span>📱 Touchscreen</span><span>🔒 Sala privada</span></div>
@@ -460,7 +467,7 @@
     <section class="screen arcade-tournament-screen" id="arcadeTournamentScreen">
       <div class="arcade-comp-heading">
         <button class="back-link" id="arcadeTournamentBack" type="button">← Arcade</button>
-        <div><p class="eyebrow">🏆 MODO TORNEIO ARCADE</p><h2>Chave eliminatória online</h2><p>Crie um torneio privado, compartilhe o código e dispute séries MD1, MD3 ou MD5 usando o X1 WebRTC.</p></div>
+        <div><p class="eyebrow">🏆 MODO TORNEIO ARCADE</p><h2>Chave eliminatória online</h2><p>Crie torneios públicos ou privados de 4, 8 ou 16 jogadores e dispute séries MD1, MD3 ou MD5 usando o X1 WebRTC.</p></div>
       </div>
       <div class="arcade-tournament-layout">
         <div class="arcade-comp-panel">
@@ -472,13 +479,15 @@
             <option value="mvsc">🦸 Marvel vs. Capcom</option>
             <option value="xmvsfur1">✖️ X-Men vs. Street Fighter</option>
           </select></label>
-          <label>Participantes<select id="arcadeTournamentSize"><option value="4">4 jogadores</option><option value="8">8 jogadores</option></select></label>
+          <label>Participantes<select id="arcadeTournamentSize"><option value="4">4 jogadores</option><option value="8">8 jogadores</option><option value="16">16 jogadores</option></select></label>
+          <label>Visibilidade<select id="arcadeTournamentVisibility"><option value="public" selected>🌎 Público • aparece na lista</option><option value="private">🔒 Privado • somente por código</option></select></label>
           <label>Série<select id="arcadeTournamentBestOf"><option value="1">MD1 • uma vitória</option><option value="3" selected>MD3 • duas vitórias</option><option value="5">MD5 • três vitórias</option></select></label>
           <button class="primary-btn" id="arcadeTournamentCreate" type="button">🏆 CRIAR TORNEIO</button>
           <hr style="border:0;border-top:1px solid rgba(255,255,255,.08);margin:18px 0">
           <h3>ENTRAR COM CÓDIGO</h3>
           <div style="display:flex;gap:8px"><input id="arcadeTournamentJoinCode" maxlength="6" placeholder="ABC123" autocomplete="off"><button class="secondary-btn" id="arcadeTournamentJoin" type="button">ENTRAR</button></div>
           <div class="arcade-tournament-status" id="arcadeTournamentStatus" data-kind="info">Crie um torneio ou entre com um código.</div>
+          <div class="arcade-public-tournaments"><h3>TORNEIOS PÚBLICOS</h3><div id="arcadePublicTournamentList"><div class="home-ranked-empty">Carregando torneios…</div></div></div>
         </div>
 
         <div class="arcade-comp-panel hidden" id="arcadeTournamentLive">
@@ -497,7 +506,7 @@
     <section class="screen arcade-rewards-screen" id="arcadeRewardsScreen">
       <div class="arcade-comp-heading">
         <button class="back-link" id="arcadeRewardsBack" type="button">← Arcade</button>
-        <div><p class="eyebrow">🎁 ARCADE REWARDS • V2.7</p><h2>Seu progresso competitivo</h2><p>Ganhe Arcade Coins em partidas ranqueadas, suba de divisão, desbloqueie cosméticos e colecione troféus.</p></div>
+        <div><p class="eyebrow">🎁 ARCADE REWARDS • V3.0</p><h2>Seu progresso competitivo</h2><p>Arcade Coins, Passe gratuito, recompensas de rank, Avatar 3D, emblemas e troféus.</p></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="secondary-btn" id="arcadeCompetitiveProfileButton" type="button">👤 PERFIL</button><button class="secondary-btn" id="arcadeAvatar3DButton" type="button">🧍 AVATAR 3D</button></div>
       </div>
       <div class="arcade-rewards-hero">
         <div class="arcade-reward-stat coins"><small>Carteira</small><b>🪙 <span id="arcadeRewardCoins">0</span> AC</b></div>
@@ -507,6 +516,7 @@
         <div class="arcade-reward-stat"><small>Total conquistado</small><b>🪙 <span id="arcadeRewardEarned">0</span> AC</b></div>
       </div>
       <div class="arcade-reward-section"><div class="arcade-reward-section-head"><div><h3>Próxima recompensa</h3><p id="arcadeRewardNext">Carregando…</p></div></div><div class="arcade-rank-roadmap" id="arcadeRewardRankRoadmap"></div></div>
+      <div class="arcade-reward-section"><div class="battlepass-head"><div><h3>🎫 Passe Arcade gratuito</h3><p>XP vem de partidas Ranked e torneios. Não existe trilha paga.</p></div><div><b id="arcadeBattlePassLevel">Nível 1/30</b><small id="arcadeBattlePassXp">0 XP</small></div></div><div class="battlepass-progress"><i id="arcadeBattlePassBar" style="width:0%"></i></div><div class="arcade-rank-roadmap" id="arcadeBattlePassRewards" style="margin-top:14px"></div></div>
       <div class="arcade-reward-section"><div class="arcade-reward-section-head"><div><h3>Emblemas por jogo</h3><p>Seu rank competitivo separado em cada jogo de luta.</p></div></div><div class="arcade-rank-roadmap" id="arcadeRewardGameBadges"></div></div>
       <div class="arcade-reward-section"><div class="arcade-reward-section-head"><div><h3>Equipado</h3><p>Esses cosméticos aparecem no seu card do Arcade Ranked.</p></div></div><div class="arcade-reward-equipped" id="arcadeRewardEquipped"></div></div>
       <div class="arcade-reward-section"><div class="arcade-reward-section-head"><div><h3>Sua coleção</h3><p>Recompensas de rank, sequência, vitórias e torneios.</p></div></div><div class="arcade-reward-grid" id="arcadeRewardInventory"></div></div>
@@ -522,6 +532,39 @@
       </div>
       <div class="arcade-replay-note">A gravação captura o vídeo do emulador automaticamente. Nesta versão beta o áudio não é gravado. O sistema mantém até 12 replays locais, com limite de aproximadamente 8 minutos por partida.</div>
       <div class="arcade-replay-grid" id="arcadeReplayGrid"><div class="home-ranked-empty">Nenhum replay carregado.</div></div>
+    </section>
+
+
+    <section class="screen competitive-profile-screen" id="arcadeCompetitiveProfileScreen">
+      <div class="meta-page-head"><button class="back-link" id="competitiveProfileBack" type="button">← Início</button><div><p class="eyebrow">👤 PERFIL COMPETITIVO</p><h2 id="competitiveProfileName">Jogador</h2><p id="competitiveProfileStatus">Carregando…</p></div><button class="secondary-btn hidden" id="competitiveSeasonClaim" type="button">🏅 RESGATAR TEMPORADA</button></div>
+      <div class="competitive-hero arcade-reward-decor" id="competitiveProfileHero"><div class="meta-avatar-stage" id="competitiveProfileAvatar"></div><div class="competitive-hero-copy"><small>ARCADE RANKED</small><h2 id="competitiveProfileRank">🎮 Recruta • 0 RP</h2><span>Seu histórico, jogos, rivalidades, temporadas, coleção e Passe Arcade em um único perfil.</span></div></div>
+      <div class="competitive-tabs"><button class="active" data-comp-tab="overview">VISÃO GERAL</button><button data-comp-tab="games">JOGOS</button><button data-comp-tab="matches">PARTIDAS</button><button data-comp-tab="replays">REPLAYS</button><button data-comp-tab="rivals">RIVAIS</button><button data-comp-tab="seasons">TEMPORADAS</button><button data-comp-tab="collection">COLEÇÃO</button></div>
+      <div class="competitive-panel active" data-comp-panel="overview"><div class="meta-stat-grid" id="competitiveOverview"></div><div class="meta-section"><h3>Passe da temporada</h3><div id="competitivePass"></div></div></div>
+      <div class="competitive-panel" data-comp-panel="games"><div class="meta-section"><h3>Rank por jogo</h3><div class="meta-list" id="competitiveGames"></div></div></div>
+      <div class="competitive-panel" data-comp-panel="matches"><div class="meta-section"><h3>Partidas recentes</h3><div class="meta-list" id="competitiveMatches"></div></div></div>
+      <div class="competitive-panel" data-comp-panel="replays"><div class="meta-section"><div class="meta-section-title"><div><h3>Replays deste aparelho</h3><p>O vídeo continua armazenado localmente no navegador. Quando o código da sala coincide, ele é associado à partida Ranked.</p></div><button class="secondary-btn" data-open-replays type="button">🎥 ABRIR REPLAYS</button></div><div class="meta-list" id="competitiveReplays"></div></div></div>
+      <div class="competitive-panel" data-comp-panel="rivals"><div class="meta-section"><h3>Rivalidades</h3><div class="meta-list" id="competitiveRivals"></div></div></div>
+      <div class="competitive-panel" data-comp-panel="seasons"><div class="meta-section"><h3>Histórico de temporadas</h3><div class="meta-list" id="competitiveSeasons"></div></div></div>
+      <div class="competitive-panel" data-comp-panel="collection"><div class="meta-section"><h3>Coleção competitiva</h3><div class="meta-collection" id="competitiveCollection"></div></div></div>
+    </section>
+
+    <section class="screen arcade-rank-hub-screen" id="arcadeRankHubScreen">
+      <div class="meta-page-head"><button class="back-link" id="arcadeRankHubBack" type="button">← Início</button><div><p class="eyebrow">📊 RANKINGS ARCADE</p><h2>Classificações competitivas</h2><p>Geral, por jogo, torneios e maior sequência da temporada.</p></div></div>
+      <div class="rank-board-tabs"><button class="active" data-rank-board="general">🌎 GERAL</button><button data-rank-board="kf2k2mp2">🥊 KOF</button><button data-rank-board="samsh5spho">⚔️ SAMURAI</button><button data-rank-board="mvsc">🦸 MARVEL</button><button data-rank-board="xmvsfur1">✖️ X-MEN</button><button data-rank-board="tournaments">🏆 TORNEIOS</button><button data-rank-board="streak">🔥 STREAK</button></div>
+      <div class="meta-rank-list" id="arcadeRankHubList"><div class="meta-empty">Carregando ranking…</div></div>
+    </section>
+
+    <section class="screen arcade-avatar3d-screen" id="arcadeAvatar3dScreen">
+      <div class="meta-page-head"><button class="back-link" id="arcadeAvatar3dBack" type="button">← Início</button><div><p class="eyebrow">🧍 AVATAR 3D</p><h2>Monte seu lutador</h2><p>Editor 3D procedural. Itens de rank, Passe Arcade e loja aparecem aqui automaticamente.</p></div></div>
+      <div class="avatar3d-layout"><div class="avatar3d-stage" id="avatar3dPreview"></div><div class="avatar3d-controls"><h3>PERSONALIZAÇÃO</h3><div class="avatar3d-grid">
+        <div class="avatar-field"><label>Corpo</label><select id="avatar3d_body"></select></div><div class="avatar-field"><label>Pele</label><input type="color" id="avatar3d_skin"></div>
+        <div class="avatar-field"><label>Cabelo</label><select id="avatar3d_hair"></select></div><div class="avatar-field"><label>Cor do cabelo</label><input type="color" id="avatar3d_hairColor"></div>
+        <div class="avatar-field"><label>Parte de cima</label><select id="avatar3d_top"></select></div><div class="avatar-field"><label>Cor principal</label><input type="color" id="avatar3d_topColor"></div>
+        <div class="avatar-field"><label>Calça</label><select id="avatar3d_pants"></select></div><div class="avatar-field"><label>Cor da calça</label><input type="color" id="avatar3d_pantsColor"></div>
+        <div class="avatar-field"><label>Calçado</label><select id="avatar3d_shoes"></select></div><div class="avatar-field"><label>Luvas</label><select id="avatar3d_gloves"></select></div><div class="avatar-field"><label>Cor de destaque</label><input type="color" id="avatar3d_accent"></div>
+        <div class="avatar-field"><label>Acessório</label><select id="avatar3d_accessory"></select></div><div class="avatar-field"><label>Aura</label><select id="avatar3d_aura"></select></div>
+        <div class="avatar-field"><label>Pose</label><select id="avatar3d_pose"></select></div>
+      </div><button class="avatar-save" id="avatar3dSave" type="button">SALVAR AVATAR 3D</button><p class="avatar-help">Arraste o avatar com o mouse ou dedo para girar. Opções 🔒 exigem rank, conquista, Passe Arcade ou compra com Arcade Coins. Os itens são cosméticos e não alteram a luta.</p></div></div>
     </section>
 
     <section class="screen" id="setupScreen">
@@ -988,6 +1031,10 @@
     </div>
   </div>
 
+
+  <div class="arcade-vs-overlay" id="arcadeVsOverlay" aria-hidden="true"><div class="vs-card"><div class="vs-title"><small>RANKED MATCH</small><b id="arcadeVsGame">ARCADE</b></div><div class="vs-grid"><div class="vs-player"><div class="vs-avatar" id="arcadeVsP1Avatar"></div><h3 id="arcadeVsP1Name">PLAYER 1</h3><span id="arcadeVsP1Rank">🎮 0 RP</span></div><div class="vs-mark">VS</div><div class="vs-player"><div class="vs-avatar" id="arcadeVsP2Avatar"></div><h3 id="arcadeVsP2Name">PLAYER 2</h3><span id="arcadeVsP2Rank">🎮 0 RP</span></div></div></div></div>
+  <div class="arcade-postmatch-overlay" id="arcadePostMatchOverlay" aria-hidden="true"><div class="postmatch-card"><small id="postMatchGame">ARCADE</small><h2 id="postMatchResult">RESULTADO</h2><p id="postMatchTotalRp">0 RP</p><div class="postmatch-stats"><span id="postMatchRp">+0 RP</span><span id="postMatchCoins">🪙 +0 AC</span><span id="postMatchPass">🎫 +0 XP</span><span id="postMatchStreak">🔥 0</span></div><p id="postMatchUnlocked">Continue jogando para desbloquear recompensas.</p><div class="postmatch-actions"><button class="primary" data-postmatch="rematch">REVANCHE</button><button data-postmatch="profile">PERFIL</button><button data-postmatch="rewards">RECOMPENSAS</button><button data-postmatch="close">FECHAR</button></div></div></div>
+
   <script src="/firebase-config.js?v=12.0.0" defer></script>
   <script src="/scoring.js?v=20.0.0" defer></script>
   <script src="/app.js?v=20.2.0" defer></script>
@@ -1004,13 +1051,15 @@
   <script src="/tournaments.js?v=20.1.1" defer></script>
   <script src="/social.js?v=20.1.0" defer></script>
   <script src="/ranking.js?v=20.0.0" defer></script>
-  <script type="module" src="/firebase.js?v=20.2.0"></script>
+  <script type="module" src="/firebase.js?v=30.0.0"></script>
   <script src="/duel.js?v=17.0.0" defer></script>
   <script src="/kof-catalog.js?v=19.10.4" defer></script>
   <script src="/kof-catalog-ui.js?v=19.10.4" defer></script>
-  <script src="/arcade-x1.js?v=2.7.0" defer></script>
-  <script src="/arcade-competitive.js?v=2.7.0" defer></script>
-    <script src="/friends.js?v=19.11.1" defer></script>
+  <script src="/arcade-x1.js?v=3.0.0" defer></script>
+  <script src="/arcade-competitive.js?v=3.0.0" defer></script>
+  <script src="/avatar-3d.js?v=3.0.0" defer></script>
+  <script src="/arcade-meta.js?v=3.0.0" defer></script>
+    <script src="/friends.js?v=3.0.0" defer></script>
 
   <script data-portrait-fix-v19>
     (function(){
