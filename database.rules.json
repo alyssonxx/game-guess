@@ -21,7 +21,8 @@
         "bestScore",
         "arenaBestScore",
         "bestStreak",
-        "arcadeRating"
+        "arcadeRating",
+        "arcadeRp"
       ],
       "$uid": {
         ".write": "auth != null && auth.uid === $uid",
@@ -147,7 +148,8 @@
             "bestScore",
             "arenaBestScore",
             "bestStreak",
-            "arcadeRating"
+            "arcadeRating",
+            "arcadeRp"
           ],
           "$uid": {
             ".write": "auth != null && auth.uid === $uid",
@@ -174,7 +176,21 @@
       "$code": {
         ".read": "auth != null",
         ".write": "auth != null && ((!data.exists() && newData.child('hostUid').val() === auth.uid) || data.child('hostUid').val() === auth.uid || data.child('guestUid').val() === auth.uid || (!data.child('guestUid').exists() && newData.child('guestUid').val() === auth.uid) || (data.child('guestUid').val() === '' && newData.child('guestUid').val() === auth.uid))",
-        ".validate": "!newData.exists() || (newData.hasChildren(['hostUid','status','protocolVersion','game','gameId','players','expiresAt']) && newData.child('protocolVersion').val() === 2 && newData.child('game').val() === 'kf2k2mp2' && newData.child('gameId').isNumber())"
+        ".validate": "!newData.exists() || (newData.hasChildren(['hostUid','status','protocolVersion','game','gameId','players','expiresAt']) && newData.child('protocolVersion').val() === 2 && newData.child('game').val() === 'kf2k2mp2' && newData.child('gameId').isNumber())",
+        "resultVotes": {
+          "$uid": {
+            ".validate": "!newData.exists() || (auth != null && auth.uid === $uid && newData.isString() && newData.parent().parent().child('players').child(newData.val()).exists())"
+          }
+        },
+        "winnerUid": {
+          ".validate": "!newData.exists() || (newData.isString() && newData.parent().child('players').child(newData.val()).exists() && newData.parent().child('resultVotes').child(newData.parent().child('hostUid').val()).val() === newData.val() && newData.parent().child('guestUid').isString() && newData.parent().child('resultVotes').child(newData.parent().child('guestUid').val()).val() === newData.val())"
+        },
+        "rankedSeasonId": {
+          ".validate": "!newData.exists() || newData.isString()"
+        },
+        "rankedSystemVersion": {
+          ".validate": "!newData.exists() || newData.val() === 2"
+        }
       }
     },
     "arcadeTournaments": {
@@ -224,6 +240,33 @@
         "$sender": {
           ".write": "auth != null && (auth.uid === $sender || auth.uid === $target)",
           ".validate": "!newData.exists() || (newData.child('fromUid').val() === $sender && newData.child('game').isString() && newData.child('expiresAt').isNumber())"
+        }
+      }
+    },
+    "arcadeRankedPlayers": {
+      "$seasonId": {
+        ".read": "auth != null",
+        "$uid": {
+          ".write": "auth != null && auth.uid === $uid",
+          ".validate": "!newData.exists() || (newData.child('version').val() === 2 && newData.child('rp').isNumber() && newData.child('rp').val() >= 0 && newData.child('rp').val() <= 999999 && newData.child('played').isNumber() && newData.child('wins').isNumber() && newData.child('losses').isNumber() && newData.child('played').val() === newData.child('wins').val() + newData.child('losses').val() && newData.child('currentStreak').isNumber() && newData.child('bestStreak').isNumber() && newData.child('revision').isNumber() && newData.child('updatedAt').isNumber() && newData.child('games').exists() && newData.child('appliedMatches').exists())"
+        }
+      }
+    },
+    "arcadeRankedMatches": {
+      "$seasonId": {
+        ".read": "auth != null",
+        "$code": {
+          ".write": "auth != null && !data.exists() && root.child('fightRooms').child($code).child('status').val() === 'finished' && root.child('fightRooms').child($code).child('ranked').val() !== false && root.child('fightRooms').child($code).child('players').child(auth.uid).exists()",
+          ".validate": "newData.child('version').val() === 2 && newData.child('code').val() === $code && newData.child('seasonId').val() === $seasonId && newData.child('game').isString() && newData.child('winnerUid').val() === root.child('fightRooms').child($code).child('winnerUid').val() && newData.child('loserUid').isString() && newData.child('players').child(newData.child('winnerUid').val()).child('result').val() === 'win' && newData.child('players').child(newData.child('loserUid').val()).child('result').val() === 'loss' && newData.child('players').child(newData.child('winnerUid').val()).child('delta').isNumber() && newData.child('players').child(newData.child('winnerUid').val()).child('delta').val() >= 0 && newData.child('players').child(newData.child('winnerUid').val()).child('delta').val() <= 56 && newData.child('players').child(newData.child('loserUid').val()).child('delta').isNumber() && newData.child('players').child(newData.child('loserUid').val()).child('delta').val() <= 0 && newData.child('players').child(newData.child('loserUid').val()).child('delta').val() >= -56"
+        }
+      }
+    },
+    "arcadeRankedInbox": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        "$code": {
+          ".write": "auth != null && ((!newData.exists() && auth.uid === $uid) || (!data.exists() && newData.child('code').val() === $code && root.child('arcadeRankedMatches').child(newData.child('seasonId').val()).child($code).child('players').child($uid).exists() && root.child('arcadeRankedMatches').child(newData.child('seasonId').val()).child($code).child('players').child(auth.uid).exists()))",
+          ".validate": "!newData.exists() || (newData.child('seasonId').isString() && newData.child('code').val() === $code && newData.child('createdAt').isNumber())"
         }
       }
     }

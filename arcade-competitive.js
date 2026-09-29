@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.5.0';
+  const VERSION = '2.6.0';
   const $ = id => document.getElementById(id);
   const CORE = () => window.GameGuessCore;
   const FB = () => window.GameGuessFirebase;
@@ -257,13 +257,15 @@
       const local = CORE()?.getProfile?.() || {};
       const seasonId = String(FB()?.getSeason?.()?.id || '').toUpperCase();
       const seasonLocal = local.seasonProfile && String(local.seasonProfile.seasonId || '').toUpperCase() === seasonId ? local.seasonProfile : local;
-      const localGames = seasonLocal.arcadeGames && typeof seasonLocal.arcadeGames === 'object' ? seasonLocal.arcadeGames : {};
-      const fallbackBest = Object.entries(localGames).sort((a,b)=>Number(b[1]?.rating||0)-Number(a[1]?.rating||0)||Number(b[1]?.wins||0)-Number(a[1]?.wins||0))[0]?.[0] || (Number(seasonLocal.kofPlayed||0)>0?'kf2k2mp2':'');
-      const own = mine || { arcadeRating:Number(seasonLocal.arcadeRating||1000), arcadeWins:Number(seasonLocal.arcadeWins||seasonLocal.kofWins||0), arcadeLosses:Number(seasonLocal.arcadeLosses||seasonLocal.kofLosses||0), bestArcadeGame:fallbackBest };
+      const comp = seasonLocal.arcadeCompetitive && Number(seasonLocal.arcadeCompetitive.version)===2 ? seasonLocal.arcadeCompetitive : {rp:0,played:0,wins:0,losses:0,games:{}};
+      const fallbackBest = Object.entries(comp.games||{}).sort((a,b)=>Number(b[1]?.rp||0)-Number(a[1]?.rp||0)||Number(b[1]?.wins||0)-Number(a[1]?.wins||0))[0]?.[0] || '';
+      const info = FB()?.arcadeRankInfo?.(Number(comp.rp||0),Number(comp.played||0)) || {label:'Recruta',icon:'🎮',placement:Math.min(10,Number(comp.played||0))};
+      const own = mine || { arcadeRp:Number(comp.rp||0), arcadeWins:Number(comp.wins||0), arcadeLosses:Number(comp.losses||0), arcadePlayed:Number(comp.played||0), bestArcadeGame:fallbackBest, arcadeDivision:info.label, arcadeDivisionIcon:info.icon };
       side.innerHTML = `
-        <div class="ranked-mini-stat"><span>Seu RP</span><b>${Number(own.arcadeRating||1000)}</b></div>
-        <div class="ranked-mini-stat"><span>Vitórias</span><b>${Number(own.arcadeWins||0)}</b></div>
-        <div class="ranked-mini-stat"><span>Derrotas</span><b>${Number(own.arcadeLosses||0)}</b></div>
+        <div class="ranked-mini-stat"><span>Seu RP</span><b>${Number(own.arcadeRp||0)}</b></div>
+        <div class="ranked-mini-stat"><span>Divisão</span><b>${esc(own.arcadeDivisionIcon||'🎮')} ${esc(own.arcadeDivision||'Recruta')}</b></div>
+        <div class="ranked-mini-stat"><span>Campanha</span><b>${Number(own.arcadeWins||0)}V / ${Number(own.arcadeLosses||0)}D</b></div>
+        <div class="ranked-mini-stat"><span>Classificação</span><b>${Math.min(10,Number(own.arcadePlayed||0))}/10</b></div>
         <div class="ranked-mini-stat"><span>Melhor jogo</span><b>${esc(own.bestArcadeGame?rankGameName(own.bestArcadeGame):'—')}</b></div>`;
     };
 
@@ -281,8 +283,8 @@
     root.innerHTML = `<div class="home-ranked-row head"><span>POS</span><span>JOGADOR</span><span>RP</span><span>V / D</span><span>MELHOR JOGO</span></div>` + rows.slice(0,10).map((r,i)=>`
       <div class="home-ranked-row${r.uid===me?' me':''}">
         <b>${i<3?['🥇','🥈','🥉'][i]:`#${i+1}`}</b>
-        <div><b>${esc(r.displayName)}</b><small>${Number(r.arcadePlayed||0)} partidas</small></div>
-        <span class="home-ranked-rp">${Number(r.arcadeRating||1000)}</span>
+        <div><b>${esc(r.displayName)}</b><small>${esc(r.arcadeDivisionIcon||'🎮')} ${esc(r.arcadeDivision||'Recruta')} • ${Number(r.arcadePlayed||0)} partidas</small></div>
+        <span class="home-ranked-rp">${Number(r.arcadeRp||0)}</span>
         <span class="home-ranked-vd">${Number(r.arcadeWins||0)}V / ${Number(r.arcadeLosses||0)}D</span>
         <span class="home-ranked-best">${gameIcon(r.bestArcadeGame)} ${esc(rankGameName(r.bestArcadeGame))}</span>
       </div>`).join('');
@@ -364,7 +366,7 @@
     $('arcadeReplayToggle')?.addEventListener('click', toggleReplay);
     renderReplayToggle();
 
-    const openRanked=()=>{if(!ensureLogin('Faça login para ver o Arcade Ranked.'))return;FB()?.loadRanking?.('arcadeRating');};
+    const openRanked=()=>{if(!ensureLogin('Faça login para ver o Arcade Ranked.'))return;FB()?.loadRanking?.('arcadeRp');};
     $('arcadeRankingButton')?.addEventListener('click', openRanked);
     $('homeArcadeRankingButton')?.addEventListener('click', openRanked);
 

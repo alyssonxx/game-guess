@@ -1,0 +1,40 @@
+Game Guess - Arcade Ranked Competitivo V2.6.0
+
+PRINCIPAIS MUDANCAS
+- Todo jogador comeca o novo Arcade Ranked V2 com 0 RP.
+- 10 primeiras partidas usam aceleracao de classificacao (+8 RP no valor-base, max. 56).
+- RP ganho depende da diferenca de RP entre vencedor e perdedor.
+- Vencer adversario mais forte vale mais; vencer adversario muito abaixo vale menos.
+- RP nunca fica negativo.
+- Divisoes: Recruta, Bronze, Prata, Ouro, Platina, Diamante, Mestre e Grao-Mestre.
+- RP geral e RP separado por jogo.
+- Historico auditavel em arcadeRankedMatches/<temporada>/<sala>.
+- Aplicacao idempotente: a mesma sala nao conta duas vezes para o mesmo jogador.
+- Inbox pendente: se um jogador cair depois do resultado, o resultado e aplicado no proximo login.
+- Resultado so fecha quando os dois jogadores votam no mesmo vencedor.
+- Regras Firebase reforcadas para cada jogador poder votar apenas pelo proprio UID.
+
+TABELA-BASE DE TRANSFERENCIA
+Vencedor 600+ RP acima: 6
+300 a 599 acima: 10
+100 a 299 acima: 14
+Diferenca menor que 100: 20
+Underdog 100 a 299 abaixo: 28
+Underdog 300 a 599 abaixo: 36
+Underdog 600+ abaixo: 48
+Durante as 10 primeiras partidas: +8 no valor-base, limite 56.
+
+DIVISOES
+0-199 Recruta
+200-499 Bronze
+500-799 Prata
+800-1099 Ouro
+1100-1399 Platina
+1400-1699 Diamante
+1700-1999 Mestre
+2000+ Grao-Mestre
+
+IMPORTANTE
+Publique database.rules.json no Firebase Realtime Database depois do deploy.
+Nenhuma nova Serverless Function foi adicionada.
+O sistema melhora muito a integridade do ranking no modelo atual, mas um anti-cheat absolutamente autoritativo exigiria um backend confiavel para liquidar cada partida.

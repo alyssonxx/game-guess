@@ -227,7 +227,11 @@
     setPlayStatus(won ? '🏆 Vitória confirmada pelos dois jogadores.' : 'Resultado confirmado pelos dois jogadores.', won ? 'ok' : 'info');
     try {
       const record = await FB()?.recordArcadeMatchResult?.(roomCode, selected);
-      if (record?.recorded) toast('Arcade Ranked', won ? 'Vitória adicionada ao seu ranking.' : 'Partida adicionada ao seu ranking.');
+      if (record?.recorded) {
+        const sign = Number(record.delta||0) > 0 ? '+' : '';
+        const placement = Number(record.placement||0) < Number(record.placementTotal||10) ? ` • classificação ${record.placement}/${record.placementTotal||10}` : '';
+        toast('Arcade Ranked', `${record.divisionIcon||'🎮'} ${record.division||'Recruta'} • ${sign}${Number(record.delta||0)} RP • ${Number(record.rp||0)} RP${placement}`);
+      }
     } catch (e) { console.warn('Arcade ranked result:', e); }
     if (room.tournamentCode && room.tournamentMatchId) {
       try {

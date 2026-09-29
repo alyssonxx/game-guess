@@ -50,6 +50,43 @@ function cleanName(v){return String(v||'Jogador').trim().replace(/[<>]/g,'').sli
 function num(v){const n=Number(v);return Number.isFinite(n)&&n>0?n:0;}
 function mapMax(a={},b={}){const out={...a};for(const [k,v] of Object.entries(b||{}))out[k]=Math.max(num(out[k]),num(v));return out;}
 function mergeAchievements(a={},b={}){return {...a,...b};}
+// ===== Arcade Ranked V2.6: RP competitivo começa em 0 =====
+const ARCADE_RANK_VERSION=2;
+const ARCADE_PLACEMENT_MATCHES=10;
+function finite(v,fallback=0){const n=Number(v);return Number.isFinite(n)?n:fallback;}
+function clampInt(v,min=0,max=999999){return Math.max(min,Math.min(max,Math.round(finite(v,0))));}
+function blankArcadeCompetitive(){return {version:ARCADE_RANK_VERSION,rp:0,played:0,wins:0,losses:0,currentStreak:0,bestStreak:0,revision:0,updatedAt:0,lastMatchCode:'',lastDelta:0,games:{},appliedMatches:{}};}
+function normalizeArcadeCompetitiveGame(v={}){return {rp:clampInt(v?.rp,0,999999),played:clampInt(v?.played,0,999999),wins:clampInt(v?.wins,0,999999),losses:clampInt(v?.losses,0,999999)};}
+function normalizeArcadeCompetitive(v={}){
+  if(Number(v?.version)!==ARCADE_RANK_VERSION)return blankArcadeCompetitive();
+  const games={};for(const [k,g] of Object.entries(v?.games&&typeof v.games==='object'?v.games:{}))games[safeKey(k)]=normalizeArcadeCompetitiveGame(g);
+  const applied={};for(const [k,t] of Object.entries(v?.appliedMatches&&typeof v.appliedMatches==='object'?v.appliedMatches:{})){if(/^[A-Z2-9]{6}$/.test(String(k)))applied[k]=clampInt(t,0,9999999999999);}
+  const wins=clampInt(v.wins),losses=clampInt(v.losses),played=Math.max(clampInt(v.played),wins+losses);
+  return {version:ARCADE_RANK_VERSION,rp:clampInt(v.rp,0,999999),played,wins,losses,currentStreak:clampInt(v.currentStreak),bestStreak:clampInt(v.bestStreak),revision:clampInt(v.revision),updatedAt:clampInt(v.updatedAt,0,9999999999999),lastMatchCode:String(v.lastMatchCode||''),lastDelta:Math.round(finite(v.lastDelta,0)),games,appliedMatches:applied};
+}
+function mergeArcadeCompetitive(a={},b={}){const A=normalizeArcadeCompetitive(a),B=normalizeArcadeCompetitive(b);if(B.revision>A.revision)return B;if(A.revision>B.revision)return A;return B.updatedAt>=A.updatedAt?B:A;}
+function arcadeCompetitiveLeague(rp=0,played=0){
+  rp=clampInt(rp);played=clampInt(played);
+  const placement=Math.min(ARCADE_PLACEMENT_MATCHES,played);
+  if(rp>=2000)return {key:'grandmaster',label:'Grão-Mestre',icon:'👑',min:2000,next:0,placement};
+  if(rp>=1700)return {key:'master',label:'Mestre',icon:'🔥',min:1700,next:2000,placement};
+  if(rp>=1400)return {key:'diamond',label:'Diamante',icon:'💎',min:1400,next:1700,placement};
+  if(rp>=1100)return {key:'platinum',label:'Platina',icon:'💠',min:1100,next:1400,placement};
+  if(rp>=800)return {key:'gold',label:'Ouro',icon:'🥇',min:800,next:1100,placement};
+  if(rp>=500)return {key:'silver',label:'Prata',icon:'🥈',min:500,next:800,placement};
+  if(rp>=200)return {key:'bronze',label:'Bronze',icon:'🥉',min:200,next:500,placement};
+  return {key:'rookie',label:'Recruta',icon:'🎮',min:0,next:200,placement};
+}
+function arcadeCompetitiveTransfer(winnerRp=0,loserRp=0,winnerPlayed=0,loserPlayed=0){
+  const diff=clampInt(winnerRp)-clampInt(loserRp);
+  let points=diff>=600?6:diff>=300?10:diff>=100?14:diff>-100?20:diff>-300?28:diff>-600?36:48;
+  if(clampInt(winnerPlayed)<ARCADE_PLACEMENT_MATCHES||clampInt(loserPlayed)<ARCADE_PLACEMENT_MATCHES)points=Math.min(56,points+8);
+  return points;
+}
+function bestCompetitiveGameKey(map={}){return Object.entries(map&&typeof map==='object'?map:{}).map(([k,v])=>[k,normalizeArcadeCompetitiveGame(v)]).sort((a,b)=>(b[1].rp-a[1].rp)||(b[1].wins-a[1].wins)||(b[1].played-a[1].played))[0]?.[0]||'';}
+
+// Compatibilidade com o ranking Arcade legado. Esses campos antigos continuam sendo
+// lidos por telas históricas, mas o competitivo V2.6 usa arcadeCompetitive.rp.
 function arcadeRating(wins=0,losses=0){return Math.max(800,1000+num(wins)*35-num(losses)*18);}
 function arcadeGameStat(v={}){const wins=num(v.wins),losses=num(v.losses),played=Math.max(num(v.played),wins+losses);return {played,wins,losses,rating:arcadeRating(wins,losses)};}
 function normalizeArcadeGames(map={}){const out={};for(const [k,v] of Object.entries(map&&typeof map==='object'?map:{})){const key=safeKey(k);out[key]=arcadeGameStat(v);}return out;}
@@ -118,7 +155,7 @@ function compactProfile(p={}){
     termBestStreak:num(p.termBestStreak), termCurrentStreak:num(p.termCurrentStreak), termModeWins:p.termModeWins||{}, duelWins:num(p.duelWins),
     duelLosses:num(p.duelLosses), duelPlayed:num(p.duelPlayed), duelBestScore:num(p.duelBestScore),
     kofPlayed:num(p.kofPlayed), kofWins:num(p.kofWins), kofLosses:num(p.kofLosses), kofBestStreak:num(p.kofBestStreak), kofCurrentStreak:num(p.kofCurrentStreak), kofRating:Math.max(1000,Number(p.kofRating)||1000),
-    arcadePlayed:Math.max(num(p.arcadePlayed),num(p.kofPlayed)), arcadeWins:Math.max(num(p.arcadeWins),num(p.kofWins)), arcadeLosses:Math.max(num(p.arcadeLosses),num(p.kofLosses)), arcadeBestStreak:Math.max(num(p.arcadeBestStreak),num(p.kofBestStreak)), arcadeCurrentStreak:num(p.arcadeCurrentStreak), arcadeRating:arcadeRating(Math.max(num(p.arcadeWins),num(p.kofWins)),Math.max(num(p.arcadeLosses),num(p.kofLosses))), arcadeGames:normalizeArcadeGames(p.arcadeGames),
+    arcadePlayed:Math.max(num(p.arcadePlayed),num(p.kofPlayed)), arcadeWins:Math.max(num(p.arcadeWins),num(p.kofWins)), arcadeLosses:Math.max(num(p.arcadeLosses),num(p.kofLosses)), arcadeBestStreak:Math.max(num(p.arcadeBestStreak),num(p.kofBestStreak)), arcadeCurrentStreak:num(p.arcadeCurrentStreak), arcadeRating:arcadeRating(Math.max(num(p.arcadeWins),num(p.kofWins)),Math.max(num(p.arcadeLosses),num(p.kofLosses))), arcadeGames:normalizeArcadeGames(p.arcadeGames), arcadeCompetitive:normalizeArcadeCompetitive(p.arcadeCompetitive),
     geoPlayed:num(p.geoPlayed), geoWins:num(p.geoWins), geoBestScore:num(p.geoBestScore), nickname:String(p.nickname||''), bio:String(p.bio||''), favoriteGame:String(p.favoriteGame||''), avatar:p.avatar&&typeof p.avatar==='object'?p.avatar:{}, avatarOwned:Array.isArray(p.avatarOwned)?p.avatarOwned.slice(0,1000):[], avatarSpent:num(p.avatarSpent),
     rankedStats:normalizeRankedStats(p.rankedStats)
   };
@@ -139,7 +176,7 @@ function mergeProfiles(local={},remote={}){
     duelWins:Math.max(l.duelWins,r.duelWins), duelLosses:Math.max(l.duelLosses,r.duelLosses), duelPlayed:Math.max(l.duelPlayed,r.duelPlayed),
     duelBestScore:Math.max(l.duelBestScore,r.duelBestScore),
     kofPlayed:Math.max(l.kofPlayed,r.kofPlayed),kofWins:Math.max(l.kofWins,r.kofWins),kofLosses:Math.max(l.kofLosses,r.kofLosses),kofBestStreak:Math.max(l.kofBestStreak,r.kofBestStreak),kofCurrentStreak:Math.max(l.kofCurrentStreak,r.kofCurrentStreak),kofRating:Math.max(l.kofRating,r.kofRating,1000),
-    arcadePlayed:Math.max(l.arcadePlayed,r.arcadePlayed,l.kofPlayed,r.kofPlayed),arcadeWins:Math.max(l.arcadeWins,r.arcadeWins,l.kofWins,r.kofWins),arcadeLosses:Math.max(l.arcadeLosses,r.arcadeLosses,l.kofLosses,r.kofLosses),arcadeBestStreak:Math.max(l.arcadeBestStreak,r.arcadeBestStreak,l.kofBestStreak,r.kofBestStreak),arcadeCurrentStreak:Math.max(l.arcadeCurrentStreak,r.arcadeCurrentStreak),arcadeRating:arcadeRating(Math.max(l.arcadeWins,r.arcadeWins,l.kofWins,r.kofWins),Math.max(l.arcadeLosses,r.arcadeLosses,l.kofLosses,r.kofLosses)),arcadeGames:mergeArcadeGames(l.arcadeGames,r.arcadeGames),
+    arcadePlayed:Math.max(l.arcadePlayed,r.arcadePlayed,l.kofPlayed,r.kofPlayed),arcadeWins:Math.max(l.arcadeWins,r.arcadeWins,l.kofWins,r.kofWins),arcadeLosses:Math.max(l.arcadeLosses,r.arcadeLosses,l.kofLosses,r.kofLosses),arcadeBestStreak:Math.max(l.arcadeBestStreak,r.arcadeBestStreak,l.kofBestStreak,r.kofBestStreak),arcadeCurrentStreak:Math.max(l.arcadeCurrentStreak,r.arcadeCurrentStreak),arcadeRating:arcadeRating(Math.max(l.arcadeWins,r.arcadeWins,l.kofWins,r.kofWins),Math.max(l.arcadeLosses,r.arcadeLosses,l.kofLosses,r.kofLosses)),arcadeGames:mergeArcadeGames(l.arcadeGames,r.arcadeGames),arcadeCompetitive:mergeArcadeCompetitive(l.arcadeCompetitive,r.arcadeCompetitive),
     geoPlayed:Math.max(l.geoPlayed,r.geoPlayed),geoWins:Math.max(l.geoWins,r.geoWins),geoBestScore:Math.max(l.geoBestScore,r.geoBestScore),nickname:l.nickname||r.nickname,bio:l.bio||r.bio,favoriteGame:l.favoriteGame||r.favoriteGame,avatar:Object.keys(l.avatar||{}).length?l.avatar:r.avatar,avatarOwned:[...new Set([...(l.avatarOwned||[]),...(r.avatarOwned||[])])],avatarSpent:Math.max(l.avatarSpent,r.avatarSpent),
     rankedStats:mergeRankedStats(l.rankedStats,r.rankedStats)
   };
@@ -154,10 +191,11 @@ function ratingOf(p={}){
 
 function leaderboardRow(profile, user=currentUser){
   const p=compactProfile(profile),rs=normalizeRankedStats(p.rankedStats),best=rs.bestMatch||{};
-  const arcadePlayed=Math.max(num(p.arcadePlayed),num(p.kofPlayed)),arcadeWins=Math.max(num(p.arcadeWins),num(p.kofWins)),arcadeLosses=Math.max(num(p.arcadeLosses),num(p.kofLosses));
-  const played=num(p.gamesPlayed)+num(p.termPlayed)+num(p.duelPlayed)+arcadePlayed+num(p.geoPlayed),wins=num(p.gamesWon)+num(p.termWins)+num(p.duelWins)+arcadeWins+num(p.geoWins);
-  const bestArcadeGame=bestArcadeGameKey(p.arcadeGames)||(p.kofPlayed?'kf2k2mp2':'');
-  return {displayName:cleanName(p.nickname || user?.displayName || user?.email?.split('@')[0] || 'Jogador'),rating:ratingOf(p),wins:p.gamesWon,played:p.gamesPlayed,totalPlayed:played,totalWins:wins,bestStreak:p.bestStreak,duelWins:p.duelWins,duelLosses:p.duelLosses,bestScore:num(best.score)||p.highScore,bestMode:String(best.mode||bestStatKey(rs.modes)||bestNumericKey(p.modeRecords)||bestNumericKey(p.modeWins)||''),bestUniverse:String(best.universe||bestStatKey(rs.universes)||bestNumericKey(p.multiverseWins)||''),bestChallenge:String(best.challenge||bestStatKey(rs.challenges)||''),bestDifficulty:String(best.difficulty||bestStatKey(rs.difficulties)||''),arenaBestScore:num(rs.arena.bestScore)||p.duelBestScore,arenaMaxPlayers:num(rs.arena.maxPlayers),arenaPlayed:num(rs.arena.played)||p.duelPlayed,termBestMode:bestStatKey(rs.termo?.modes||{})||bestNumericKey(p.termModeWins),kofWins:p.kofWins,kofLosses:p.kofLosses,kofPlayed:p.kofPlayed,kofBestStreak:p.kofBestStreak,kofRating:p.kofRating,arcadeWins,arcadeLosses,arcadePlayed,arcadeBestStreak:Math.max(num(p.arcadeBestStreak),num(p.kofBestStreak)),arcadeRating:arcadeRating(arcadeWins,arcadeLosses),arcadeGames:normalizeArcadeGames(p.arcadeGames),bestArcadeGame,geoWins:p.geoWins,geoPlayed:p.geoPlayed,geoBestScore:p.geoBestScore,accuracy:played?Math.round(wins/played*100):0,updatedAt:serverNow()};
+  const legacyArcadePlayed=Math.max(num(p.arcadePlayed),num(p.kofPlayed)),legacyArcadeWins=Math.max(num(p.arcadeWins),num(p.kofWins)),legacyArcadeLosses=Math.max(num(p.arcadeLosses),num(p.kofLosses));
+  const ac=normalizeArcadeCompetitive(p.arcadeCompetitive),league=arcadeCompetitiveLeague(ac.rp,ac.played);
+  const played=num(p.gamesPlayed)+num(p.termPlayed)+num(p.duelPlayed)+ac.played+num(p.geoPlayed),wins=num(p.gamesWon)+num(p.termWins)+num(p.duelWins)+ac.wins+num(p.geoWins);
+  const bestArcadeGame=bestCompetitiveGameKey(ac.games);
+  return {displayName:cleanName(p.nickname || user?.displayName || user?.email?.split('@')[0] || 'Jogador'),rating:ratingOf(p),wins:p.gamesWon,played:p.gamesPlayed,totalPlayed:played,totalWins:wins,bestStreak:p.bestStreak,duelWins:p.duelWins,duelLosses:p.duelLosses,bestScore:num(best.score)||p.highScore,bestMode:String(best.mode||bestStatKey(rs.modes)||bestNumericKey(p.modeRecords)||bestNumericKey(p.modeWins)||''),bestUniverse:String(best.universe||bestStatKey(rs.universes)||bestNumericKey(p.multiverseWins)||''),bestChallenge:String(best.challenge||bestStatKey(rs.challenges)||''),bestDifficulty:String(best.difficulty||bestStatKey(rs.difficulties)||''),arenaBestScore:num(rs.arena.bestScore)||p.duelBestScore,arenaMaxPlayers:num(rs.arena.maxPlayers),arenaPlayed:num(rs.arena.played)||p.duelPlayed,termBestMode:bestStatKey(rs.termo?.modes||{})||bestNumericKey(p.termModeWins),kofWins:p.kofWins,kofLosses:p.kofLosses,kofPlayed:p.kofPlayed,kofBestStreak:p.kofBestStreak,kofRating:p.kofRating,arcadeWins:ac.wins,arcadeLosses:ac.losses,arcadePlayed:ac.played,arcadeBestStreak:ac.bestStreak,arcadeCurrentStreak:ac.currentStreak,arcadeRp:ac.rp,arcadeRating:ac.rp,arcadeRankVersion:ARCADE_RANK_VERSION,arcadeDivision:league.label,arcadeDivisionIcon:league.icon,arcadePlacement:Math.min(ARCADE_PLACEMENT_MATCHES,ac.played),arcadePlacementTotal:ARCADE_PLACEMENT_MATCHES,arcadeGames:ac.games,bestArcadeGame,legacyArcadePlayed,legacyArcadeWins,legacyArcadeLosses,geoWins:p.geoWins,geoPlayed:p.geoPlayed,geoBestScore:p.geoBestScore,accuracy:played?Math.round(wins/played*100):0,updatedAt:serverNow()};
 }
 
 async function flushProfile(profile){
@@ -289,7 +327,7 @@ function ensureRankingUI(){
   }
   const list=$('rankingList');
   if(list&&!$('rankingSeasonBanner')){const b=document.createElement('div');b.id='rankingSeasonBanner';b.className='ranking-season-banner';b.innerHTML=`<b>🏁 ${escapeHtml(currentSeasonLabel())}</b><span>${escapeHtml(currentSeason.description||'Ranking da temporada atual')}</span>`;list.parentElement?.insertBefore(b,list);}
-  if(list&&!$('rankingV12Filters')){const bar=document.createElement('div');bar.id='rankingV12Filters';bar.className='ranking-v12-filters';bar.innerHTML=`<button data-rank-mode="rating" class="active">🌍 Geral</button><button data-rank-mode="arcadeRating">🕹 Arcade Ranked</button><button data-rank-mode="bestScore">⭐ Melhor partida</button><button data-rank-mode="arenaBestScore">⚔️ Arena</button><button data-rank-mode="bestStreak">🔥 Sequência</button>`;list.parentElement?.insertBefore(bar,list);bar.addEventListener('click',e=>{const b=e.target.closest('[data-rank-mode]');if(!b)return;rankingMode=b.dataset.rankMode;bar.querySelectorAll('button').forEach(x=>x.classList.toggle('active',x===b));loadRanking();});}
+  if(list&&!$('rankingV12Filters')){const bar=document.createElement('div');bar.id='rankingV12Filters';bar.className='ranking-v12-filters';bar.innerHTML=`<button data-rank-mode="rating" class="active">🌍 Geral</button><button data-rank-mode="arcadeRp">🕹 Arcade Ranked</button><button data-rank-mode="bestScore">⭐ Melhor partida</button><button data-rank-mode="arenaBestScore">⚔️ Arena</button><button data-rank-mode="bestStreak">🔥 Sequência</button>`;list.parentElement?.insertBefore(bar,list);bar.addEventListener('click',e=>{const b=e.target.closest('[data-rank-mode]');if(!b)return;rankingMode=b.dataset.rankMode;bar.querySelectorAll('button').forEach(x=>x.classList.toggle('active',x===b));loadRanking();});}
   if(list&&!list.dataset.rankDetailsBound){list.dataset.rankDetailsBound='1';list.addEventListener('click',e=>{const btn=e.target.closest('.rank-detail-toggle');if(!btn)return;const entry=btn.closest('.ranking-entry');if(!entry)return;const open=entry.classList.toggle('open');btn.textContent=open?'FECHAR DETALHES':'VER DETALHES';btn.setAttribute('aria-expanded',String(open));});}
 }
 function labelKey(v){return String(v||'—').replace(/-/g,' ').replace(/\b\w/g,c=>c.toUpperCase());}
@@ -305,9 +343,10 @@ function rankingHTML(rows){
     const medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':`#${i+1}`,me=currentUser&&x.uid===currentUser.uid;
     const arena=x.arenaPlayed?`${x.duelWins||0}V/${x.duelLosses||0}D • até ${x.arenaMaxPlayers||2} jogadores`:'Sem partidas nesta temporada';
     const bestMode=prettyRankLabel(x.bestMode),bestUniverse=prettyRankLabel(x.bestUniverse),bestChallenge=prettyRankLabel(x.bestChallenge),bestDifficulty=prettyRankLabel(x.bestDifficulty),term=prettyRankLabel(x.termBestMode),bestArcade=prettyRankLabel(x.bestArcadeGame||'');
-    const mainValue=rankingMode==='arcadeRating'?(x.arcadeRating||1000):(x[rankingMode]??x.rating??0);
-    const mainLabel=rankingMode==='arcadeRating'?`${mainValue} RP`:String(mainValue);
-    return `<article class="ranking-entry${me?' me':''}"><div class="ranking-entry-main"><b class="rank-pos">${medal}</b><div class="rank-player"><span>${escapeHtml(x.displayName)}</span><small>🕹 ${x.arcadeWins||0}V/${x.arcadeLosses||0}D • ⭐ ${x.bestScore||0} melhor • 🎯 ${x.accuracy||0}%</small><div class="rank-player-meta"><span class="rank-chip">🕹 ${escapeHtml(bestArcade||'Sem partidas')}</span><span class="rank-chip">🎮 ${escapeHtml(bestMode)}</span><span class="rank-chip">🌌 ${escapeHtml(bestUniverse)}</span></div></div><strong>${escapeHtml(mainLabel)}</strong><button type="button" class="rank-detail-toggle" aria-expanded="false">VER DETALHES</button></div><div class="ranking-detail"><div><small>Arcade Ranked</small><b>🕹 ${x.arcadeWins||0}V/${x.arcadeLosses||0}D • ${x.arcadeRating||1000} RP</b></div><div><small>Melhor jogo Arcade</small><b>${escapeHtml(bestArcade||'—')}</b></div><div><small>Partidas Arcade</small><b>${x.arcadePlayed||0}</b></div><div><small>Melhor modalidade</small><b>${escapeHtml(bestMode)}</b></div><div><small>Melhor universo</small><b>${escapeHtml(bestUniverse)}</b></div><div><small>Melhor desafio</small><b>${escapeHtml(bestChallenge)}</b></div><div><small>Dificuldade de destaque</small><b>${escapeHtml(bestDifficulty)}</b></div><div><small>Melhor pontuação</small><b>${x.bestScore||0} pts</b></div><div><small>Maior sequência</small><b>🔥 ${x.bestStreak||0}</b></div><div><small>Arena</small><b>${escapeHtml(arena)}</b></div><div><small>KOF legado</small><b>🥊 ${x.kofWins||0}V/${x.kofLosses||0}D • Elo ${x.kofRating||1000}</b></div><div><small>Termo de destaque</small><b>${escapeHtml(term)}</b></div></div></article>`;
+    const arcadeGameRanks=Object.entries(x.arcadeGames&&typeof x.arcadeGames==='object'?x.arcadeGames:{}).sort((a,b)=>Number(b[1]?.rp||0)-Number(a[1]?.rp||0)).slice(0,4).map(([k,v])=>`${prettyRankLabel(k)}: ${Number(v?.rp||0)} RP`).join(' • ')||'Sem partidas por jogo';
+    const mainValue=rankingMode==='arcadeRp'?Number(x.arcadeRp||0):(x[rankingMode]??x.rating??0);
+    const mainLabel=rankingMode==='arcadeRp'?`${mainValue} RP`:String(mainValue);
+    return `<article class="ranking-entry${me?' me':''}"><div class="ranking-entry-main"><b class="rank-pos">${medal}</b><div class="rank-player"><span>${escapeHtml(x.displayName)}</span><small>${escapeHtml(x.arcadeDivisionIcon||'🎮')} ${escapeHtml(x.arcadeDivision||'Recruta')} • 🕹 ${x.arcadeWins||0}V/${x.arcadeLosses||0}D • ${x.arcadePlayed<10?`classificação ${x.arcadePlacement||0}/10`:`${x.arcadePlayed||0} partidas`}</small><div class="rank-player-meta"><span class="rank-chip">🕹 ${escapeHtml(bestArcade||'Sem partidas')}</span><span class="rank-chip">🎮 ${escapeHtml(bestMode)}</span><span class="rank-chip">🌌 ${escapeHtml(bestUniverse)}</span></div></div><strong>${escapeHtml(mainLabel)}</strong><button type="button" class="rank-detail-toggle" aria-expanded="false">VER DETALHES</button></div><div class="ranking-detail"><div><small>Arcade Ranked</small><b>${escapeHtml(x.arcadeDivisionIcon||'🎮')} ${escapeHtml(x.arcadeDivision||'Recruta')} • ${Number(x.arcadeRp||0)} RP</b></div><div><small>Campanha</small><b>${x.arcadeWins||0}V/${x.arcadeLosses||0}D • ${x.arcadePlayed||0} partidas</b></div><div><small>Classificação</small><b>${Math.min(10,Number(x.arcadePlayed||0))}/10 partidas iniciais</b></div><div><small>Melhor jogo Arcade</small><b>${escapeHtml(bestArcade||'—')}</b></div><div><small>RP por jogo</small><b>${escapeHtml(arcadeGameRanks)}</b></div><div><small>Partidas Arcade</small><b>${x.arcadePlayed||0}</b></div><div><small>Melhor modalidade</small><b>${escapeHtml(bestMode)}</b></div><div><small>Melhor universo</small><b>${escapeHtml(bestUniverse)}</b></div><div><small>Melhor desafio</small><b>${escapeHtml(bestChallenge)}</b></div><div><small>Dificuldade de destaque</small><b>${escapeHtml(bestDifficulty)}</b></div><div><small>Melhor pontuação</small><b>${x.bestScore||0} pts</b></div><div><small>Maior sequência</small><b>🔥 ${x.bestStreak||0}</b></div><div><small>Arena</small><b>${escapeHtml(arena)}</b></div><div><small>KOF legado</small><b>🥊 ${x.kofWins||0}V/${x.kofLosses||0}D • Elo ${x.kofRating||1000}</b></div><div><small>Termo de destaque</small><b>${escapeHtml(term)}</b></div></div></article>`;
   }).join('');
 }
 function loadRanking(mode=''){
@@ -317,9 +356,9 @@ function loadRanking(mode=''){
   if(rankingUnsub){rankingUnsub();rankingUnsub=null;}
   if(!configured){$('rankingList').innerHTML='<div class="ranking-empty">Configure o Firebase para ativar o ranking global.</div>';return;}
   if(!currentUser){$('rankingList').innerHTML='<div class="ranking-empty">Entre na sua conta para carregar o ranking.</div>';$('myRankCard').innerHTML='<span>Faça login para aparecer no ranking.</span>';return;}
-  const orderField=['rating','arcadeRating','bestScore','arenaBestScore','bestStreak'].includes(rankingMode)?rankingMode:'rating';
+  const orderField=['rating','arcadeRp','bestScore','arenaBestScore','bestStreak'].includes(rankingMode)?rankingMode:'rating';
   const q=query(ref(db,`rankedSeasons/${currentSeasonId()}/leaderboard`),orderByChild(orderField),limitToLast(100));
-  rankingUnsub=onValue(q,snap=>{const raw=snap.val()||{},rows=Object.entries(raw).map(([uid,v])=>({uid,...v})).sort((a,b)=>(Number(b[rankingMode]||0)-Number(a[rankingMode]||0))||((b.rating||0)-(a.rating||0)));if($('rankingList'))$('rankingList').innerHTML=rankingHTML(rows);const idx=rows.findIndex(x=>x.uid===currentUser.uid),mine=rows[idx];if($('myRankCard'))$('myRankCard').innerHTML=mine?`<b>#${idx+1}</b><span>${escapeHtml(mine.displayName)}</span><strong>${rankingMode==='arcadeRating'?(mine.arcadeRating||1000)+' RP':(mine.rating||0)+' pts'}</strong><small>🕹 ${mine.arcadeWins||0}V/${mine.arcadeLosses||0}D • ${escapeHtml(prettyRankLabel(mine.bestArcadeGame||''))}</small>`:'<span>Jogue uma partida para entrar no ranking.</span>';},e=>{$('rankingList').innerHTML=`<div class="ranking-empty">Não consegui ler o ranking: ${escapeHtml(e.message)}</div>`;});
+  rankingUnsub=onValue(q,snap=>{const raw=snap.val()||{},rows=Object.entries(raw).map(([uid,v])=>({uid,...v})).filter(x=>rankingMode!=='arcadeRp'||(Number(x.arcadeRankVersion||0)===ARCADE_RANK_VERSION&&(Number(x.arcadePlayed||0)>0||Number(x.arcadeRp||0)>0))).sort((a,b)=>(Number(b[rankingMode]||0)-Number(a[rankingMode]||0))||(Number(b.arcadeWins||0)-Number(a.arcadeWins||0))||((b.rating||0)-(a.rating||0)));if($('rankingList'))$('rankingList').innerHTML=rankingHTML(rows);const idx=rows.findIndex(x=>x.uid===currentUser.uid),mine=rows[idx];if($('myRankCard'))$('myRankCard').innerHTML=mine?`<b>#${idx+1}</b><span>${escapeHtml(mine.displayName)}</span><strong>${rankingMode==='arcadeRp'?(mine.arcadeRp||0)+' RP':(mine.rating||0)+' pts'}</strong><small>🕹 ${mine.arcadeWins||0}V/${mine.arcadeLosses||0}D • ${escapeHtml(prettyRankLabel(mine.bestArcadeGame||''))}</small>`:'<span>Jogue uma partida para entrar no ranking.</span>';},e=>{$('rankingList').innerHTML=`<div class="ranking-empty">Não consegui ler o ranking: ${escapeHtml(e.message)}</div>`;});
 }
 
 
@@ -433,7 +472,7 @@ async function createFightRoom(options={}){
     // `arcadeGame` identifica o título real sem exigir nova função serverless nem mudança imediata das rules.
     const tournamentCode=/^[A-Z2-9]{6}$/.test(String(options?.tournamentCode||'').toUpperCase())?String(options.tournamentCode).toUpperCase():'';
     const tournamentMatchId=String(options?.tournamentMatchId||'').replace(/[^a-zA-Z0-9_-]/g,'').slice(0,40);
-    const room={code,protocolVersion:FIGHT_PROTOCOL_VERSION,game:'kf2k2mp2',arcadeGame,gameId:fightGameId(code),hostUid:currentUser.uid,guestUid:'',hostSessionId:CLIENT_SESSION_ID,guestSessionId:'',rtcRoomName:'',status:'waiting',launchState:'waiting',launchAt:0,createdAt:now,updatedAt:now,expiresAt:now+WAITING_TTL_MS,ranked:options?.ranked!==false,tournamentCode,tournamentMatchId,players:{[currentUser.uid]:{uid:currentUser.uid,name,role:'host',joinedAt:now,lastSeen:now}},resultVotes:{},winnerUid:''};
+    const room={code,protocolVersion:FIGHT_PROTOCOL_VERSION,game:'kf2k2mp2',arcadeGame,gameId:fightGameId(code),hostUid:currentUser.uid,guestUid:'',hostSessionId:CLIENT_SESSION_ID,guestSessionId:'',rtcRoomName:'',status:'waiting',launchState:'waiting',launchAt:0,createdAt:now,updatedAt:now,expiresAt:now+WAITING_TTL_MS,ranked:options?.ranked!==false,rankedSeasonId:currentSeasonId(),rankedSystemVersion:ARCADE_RANK_VERSION,tournamentCode,tournamentMatchId,players:{[currentUser.uid]:{uid:currentUser.uid,name,role:'host',joinedAt:now,lastSeen:now}},resultVotes:{},winnerUid:''};
     try{await set(rr,room);}catch(e){if(String(e?.code||e?.message||'').toLowerCase().includes('permission'))throw new Error('O Firebase recusou a sala KOF. Publique o database.rules.json atual.');throw e;}
     try{await attachFightPresence(code);}catch(e){
       console.warn('KOF presence host:',e);
@@ -530,7 +569,13 @@ async function submitFightResult(code,winnerUid){
   if(!currentUser||!code||!winnerUid)throw new Error('Resultado inválido.');code=String(code).toUpperCase();const rr=ref(db,`fightRooms/${code}`),snap=await get(rr),room=snap.val();
   if(!room?.players?.[currentUser.uid]||!room?.players?.[winnerUid])throw new Error('Jogador não pertence a esta sala.');if(room.status==='finished')return room;
   await set(ref(db,`fightRooms/${code}/resultVotes/${currentUser.uid}`),winnerUid);const after=(await get(rr)).val();if(!after)return null;const ids=Object.keys(after.players||{}),votes=after.resultVotes||{};
-  if(ids.length===2&&ids.every(uid=>votes[uid])&&new Set(ids.map(uid=>votes[uid])).size===1){const winner=votes[ids[0]],now=serverNow();await update(rr,{winnerUid:winner,status:'finished',finishedAt:now,updatedAt:now,expiresAt:now+FINISHED_TTL_MS});return (await get(rr)).val();}
+  if(ids.length===2&&ids.every(uid=>votes[uid])&&new Set(ids.map(uid=>votes[uid])).size===1){
+    const winner=votes[ids[0]],now=serverNow();
+    await update(rr,{winnerUid:winner,status:'finished',finishedAt:now,updatedAt:now,expiresAt:now+FINISHED_TTL_MS});
+    const finished=(await get(rr)).val();
+    if(finished?.ranked!==false)await ensureArcadeRankedSettlement(code).catch(e=>console.warn('Arcade ranked settlement:',e));
+    return finished;
+  }
   return after;
 }
 async function leaveFightRoom(code){
@@ -635,48 +680,73 @@ const ARCADE_TOURNAMENT_TTL_MS=36*60*60*1000;
 function arcadeTournamentCode(){return fightRoomCode();}
 function arcadeTournamentRef(code){return ref(db,`arcadeTournaments/${String(code||'').trim().toUpperCase()}`);}
 function validArcadeTournamentGame(game){return ['kf2k2mp2','samsh5spho','mvsc','xmvsfur1'].includes(String(game||'').toLowerCase());}
-function arcadeProfileBump(target={},gameKey='',won=false){
-  gameKey=safeKey(gameKey,'arcade');
-  const games=normalizeArcadeGames(target.arcadeGames||{}),g=arcadeGameStat(games[gameKey]||{});
-  g.played+=1;if(won)g.wins+=1;else g.losses+=1;g.rating=arcadeRating(g.wins,g.losses);games[gameKey]=g;
-  target.arcadeGames=games;target.arcadePlayed=num(target.arcadePlayed)+1;
-  if(won){target.arcadeWins=num(target.arcadeWins)+1;target.arcadeCurrentStreak=num(target.arcadeCurrentStreak)+1;target.arcadeBestStreak=Math.max(num(target.arcadeBestStreak),num(target.arcadeCurrentStreak));}
-  else{target.arcadeLosses=num(target.arcadeLosses)+1;target.arcadeCurrentStreak=0;}
-  target.arcadeRating=arcadeRating(target.arcadeWins,target.arcadeLosses);
-  if(gameKey==='kf2k2mp2'){
-    target.kofPlayed=num(target.kofPlayed)+1;
-    if(won){target.kofWins=num(target.kofWins)+1;target.kofCurrentStreak=num(target.kofCurrentStreak)+1;target.kofBestStreak=Math.max(num(target.kofBestStreak),num(target.kofCurrentStreak));}
-    else{target.kofLosses=num(target.kofLosses)+1;target.kofCurrentStreak=0;}
-    target.kofRating=Math.max(1000,1000+num(target.kofWins)*35-num(target.kofLosses)*22);
+function arcadeRankStateRef(seasonId,uid){return ref(db,`arcadeRankedPlayers/${String(seasonId||currentSeasonId()).toUpperCase()}/${uid}`);}
+async function readArcadeRankState(seasonId,uid){if(!uid)return blankArcadeCompetitive();const snap=await get(arcadeRankStateRef(seasonId,uid));return normalizeArcadeCompetitive(snap.val()||{});}
+function arcadeSettlementPlayer(state,gameState,won,transfer,gameTransfer){
+  const globalDelta=won?transfer:-Math.min(state.rp,transfer),gameDelta=won?gameTransfer:-Math.min(gameState.rp,gameTransfer);
+  return {result:won?'win':'loss',beforeRp:state.rp,delta:globalDelta,afterRp:Math.max(0,state.rp+globalDelta),beforePlayed:state.played,beforeGameRp:gameState.rp,gameDelta,afterGameRp:Math.max(0,gameState.rp+gameDelta),beforeGamePlayed:gameState.played};
+}
+async function ensureArcadeRankedSettlement(code){
+  if(!db||!code)return null;code=String(code).trim().toUpperCase();
+  const room=(await get(ref(db,`fightRooms/${code}`))).val();
+  if(!room||room.status!=='finished'||!room.winnerUid||room.ranked===false)return null;
+  const ids=Object.keys(room.players||{});if(ids.length!==2||!ids.includes(room.winnerUid))throw new Error('A luta não possui dois jogadores válidos.');
+  const loserUid=ids.find(uid=>uid!==room.winnerUid);if(!loserUid)throw new Error('Não foi possível identificar o perdedor.');
+  const seasonId=String(room.rankedSeasonId||currentSeasonId()).toUpperCase(),game=safeKey(room.arcadeGame||'kf2k2mp2');
+  const mr=ref(db,`arcadeRankedMatches/${seasonId}/${code}`),existing=await get(mr);
+  let settlement=existing.val();
+  if(!settlement){
+    const [winnerState,loserState]=await Promise.all([readArcadeRankState(seasonId,room.winnerUid),readArcadeRankState(seasonId,loserUid)]);
+    const wg=normalizeArcadeCompetitiveGame(winnerState.games?.[game]),lg=normalizeArcadeCompetitiveGame(loserState.games?.[game]);
+    const transfer=arcadeCompetitiveTransfer(winnerState.rp,loserState.rp,winnerState.played,loserState.played);
+    const gameTransfer=arcadeCompetitiveTransfer(wg.rp,lg.rp,wg.played,lg.played);
+    const now=serverNow();
+    const candidate={version:ARCADE_RANK_VERSION,code,seasonId,game,winnerUid:room.winnerUid,loserUid,createdAt:now,finishedAt:Number(room.finishedAt||now),sourceRoomCode:code,players:{
+      [room.winnerUid]:{uid:room.winnerUid,...arcadeSettlementPlayer(winnerState,wg,true,transfer,gameTransfer)},
+      [loserUid]:{uid:loserUid,...arcadeSettlementPlayer(loserState,lg,false,transfer,gameTransfer)}
+    }};
+    const tx=await runTransaction(mr,current=>current||candidate,{applyLocally:false});settlement=tx.snapshot?.val()||candidate;
   }
-  return target;
+  const inboxPatch={};for(const uid of ids)inboxPatch[`arcadeRankedInbox/${uid}/${code}`]={seasonId,code,createdAt:Number(settlement.createdAt||serverNow())};
+  await update(ref(db),inboxPatch).catch(e=>console.warn('Arcade ranked inbox:',e));
+  return settlement;
+}
+function applyArcadeSettlementToState(current={},settlement={},uid=''){
+  const state=normalizeArcadeCompetitive(current),entry=settlement?.players?.[uid];if(!entry)return state;
+  const code=String(settlement.code||'').toUpperCase();if(state.appliedMatches?.[code])return state;
+  const won=entry.result==='win',game=safeKey(settlement.game||'arcade'),games={...state.games},g=normalizeArcadeCompetitiveGame(games[game]||{});
+  state.rp=Math.max(0,state.rp+Math.round(finite(entry.delta,0)));state.played+=1;if(won){state.wins+=1;state.currentStreak+=1;state.bestStreak=Math.max(state.bestStreak,state.currentStreak);}else{state.losses+=1;state.currentStreak=0;}
+  g.rp=Math.max(0,g.rp+Math.round(finite(entry.gameDelta,0)));g.played+=1;if(won)g.wins+=1;else g.losses+=1;games[game]=g;state.games=games;
+  state.revision+=1;state.updatedAt=serverNow();state.lastMatchCode=code;state.lastDelta=Math.round(finite(entry.delta,0));state.appliedMatches={...(state.appliedMatches||{}),[code]:Number(settlement.finishedAt||state.updatedAt)};
+  return state;
+}
+async function applyArcadeSettlementForCurrentUser(settlement){
+  if(!currentUser||!settlement?.code)return {recorded:false,reason:'invalid'};
+  const uid=currentUser.uid,entry=settlement.players?.[uid];if(!entry)return {recorded:false,reason:'not-player'};
+  const seasonId=String(settlement.seasonId||currentSeasonId()).toUpperCase(),sr=arcadeRankStateRef(seasonId,uid);
+  const tx=await runTransaction(sr,current=>{const cur=normalizeArcadeCompetitive(current||{});if(cur.appliedMatches?.[settlement.code])return;return applyArcadeSettlementToState(cur,settlement,uid);},{applyLocally:false});
+  let state=normalizeArcadeCompetitive(tx.snapshot?.val()||{});
+  if(!tx.committed){state=await readArcadeRankState(seasonId,uid);await remove(ref(db,`arcadeRankedInbox/${uid}/${settlement.code}`)).catch(()=>{});return {recorded:false,reason:'already-recorded',state};}
+  const local=localProfile(),seasonLocal=(local?.seasonProfile&&String(local.seasonProfile.seasonId||'').toUpperCase()===seasonId)?local.seasonProfile:{};
+  const next={...local,arcadeCompetitive:state,seasonProfile:{...seasonLocal,seasonId,seasonLabel:currentSeasonLabel(),arcadeCompetitive:state}};
+  CORE()?.replaceProfile?.(next);await flushProfile(next);
+  await remove(ref(db,`arcadeRankedInbox/${uid}/${settlement.code}`)).catch(()=>{});
+  const league=arcadeCompetitiveLeague(state.rp,state.played),gameState=normalizeArcadeCompetitiveGame(state.games?.[settlement.game]);
+  return {recorded:true,won:entry.result==='win',game:settlement.game,delta:Math.round(finite(entry.delta,0)),gameDelta:Math.round(finite(entry.gameDelta,0)),rp:state.rp,gameRp:gameState.rp,division:league.label,divisionIcon:league.icon,placement:Math.min(ARCADE_PLACEMENT_MATCHES,state.played),placementTotal:ARCADE_PLACEMENT_MATCHES,state};
 }
 async function recordArcadeMatchResult(code,gameKey=''){
-  if(!currentUser||!db||!code)throw new Error('Faça login para registrar a partida ranqueada.');
-  code=String(code).toUpperCase();
-  const room=(await get(ref(db,`fightRooms/${code}`))).val();
-  if(!room?.players?.[currentUser.uid]||room.status!=='finished'||!room.winnerUid)throw new Error('A partida ainda não possui resultado confirmado.');
+  if(!currentUser||!db||!code)throw new Error('Faça login para registrar a partida ranqueada.');code=String(code).toUpperCase();
+  const room=(await get(ref(db,`fightRooms/${code}`))).val();if(!room?.players?.[currentUser.uid]||room.status!=='finished'||!room.winnerUid)throw new Error('A partida ainda não possui resultado confirmado.');
   if(room.ranked===false)return {recorded:false,reason:'casual'};
-  const claimed=await claimFightRankedRecord(code);if(!claimed)return {recorded:false,reason:'already-recorded'};
-  const actualGame=safeKey(gameKey||room.arcadeGame||'kf2k2mp2');
-  const won=room.winnerUid===currentUser.uid;
-  const displayName=cleanName(localProfile()?.nickname||currentUser.displayName||currentUser.email?.split('@')[0]||'Jogador');
-  const pref=ref(db,`profiles/${currentUser.uid}`);
-  const tx=await runTransaction(pref,current=>{
-    const root=current&&typeof current==='object'?current:{};
-    const p={...(root.profile||{})};arcadeProfileBump(p,actualGame,won);
-    let season=(root.seasonProfile&&String(root.seasonProfile.seasonId||'').toUpperCase()===currentSeasonId())?{...root.seasonProfile}:{...freshSeasonProfile()};
-    arcadeProfileBump(season,actualGame,won);season.seasonId=currentSeasonId();season.seasonLabel=currentSeasonLabel();
-    return {...root,displayName,email:currentUser.email||'',profile:p,seasonProfile:season,updatedAt:serverNow()};
-  },{applyLocally:false});
-  const saved=tx.snapshot?.val()||{},merged=mergeProfiles(localProfile(),saved.profile||{}),season=mergeSeasonProfiles(localProfile()?.seasonProfile||{},saved.seasonProfile||{});
-  CORE()?.replaceProfile?.({...merged,seasonProfile:season});
-  await Promise.all([
-    set(ref(db,`leaderboard/${currentUser.uid}`),leaderboardRow(saved.profile||merged,currentUser)),
-    set(ref(db,`rankedSeasons/${currentSeasonId()}/leaderboard/${currentUser.uid}`),{...leaderboardRow(saved.seasonProfile||season,currentUser),seasonId:currentSeasonId(),seasonLabel:currentSeasonLabel()})
-  ]);
-  return {recorded:true,won,game:actualGame,profile:saved.profile||merged};
+  const settlement=await ensureArcadeRankedSettlement(code);if(!settlement)throw new Error('Não foi possível gerar o resultado competitivo.');
+  return applyArcadeSettlementForCurrentUser(settlement);
 }
+async function syncPendingArcadeRanked(){
+  if(!currentUser||!db)return 0;const uid=currentUser.uid,snap=await get(ref(db,`arcadeRankedInbox/${uid}`)).catch(()=>null),items=Object.values(snap?.val?.()||{}).sort((a,b)=>Number(a.createdAt||0)-Number(b.createdAt||0)).slice(0,25);let done=0;
+  for(const item of items){try{const seasonId=String(item.seasonId||currentSeasonId()).toUpperCase(),code=String(item.code||'').toUpperCase();if(!code)continue;const settlement=(await get(ref(db,`arcadeRankedMatches/${seasonId}/${code}`))).val()||await ensureArcadeRankedSettlement(code);if(settlement){await applyArcadeSettlementForCurrentUser(settlement);done++;}}catch(e){console.warn('Arcade ranked pending:',item,e);}}
+  return done;
+}
+
 async function createArcadeTournament(options={}){
   if(!currentUser)throw new Error('Faça login para criar um torneio.');
   if(!await waitFirebaseOnline())throw new Error('Firebase offline.');
@@ -1087,7 +1157,7 @@ if(configured){
       if(user){
         try{
           const snap=await get(ref(db,`profiles/${user.uid}`));const root=snap.val()||{},remote=root.profile||{};const merged=mergeProfiles(localProfile(),remote);const season=mergeSeasonProfiles(localProfile()?.seasonProfile||{},root.seasonProfile||{});
-          CORE()?.replaceProfile?.({...merged,seasonProfile:season});await flushProfile({...merged,seasonProfile:season});await syncPublicProfile();await attachSocialPresence();
+          CORE()?.replaceProfile?.({...merged,seasonProfile:season});await flushProfile({...merged,seasonProfile:season});await syncPublicProfile();await attachSocialPresence();await syncPendingArcadeRanked().catch(e=>console.warn('Arcade ranked sync:',e));
         }catch(e){console.warn('Profile restore:',e);}
       }
       updateAuthUI();window.dispatchEvent(new CustomEvent('gameguess:authchange',{detail:{user:currentUser}}));
@@ -1183,16 +1253,16 @@ async function listenToRanking(limit=100,cb){
   return unsub;
 }
 
-function listenToArcadeRanking(limit=10,cb){
-  if(!currentUser||!db)return()=>{};
-  const take=Math.max(3,Math.min(100,Number(limit)||10));
-  const q=query(ref(db,`rankedSeasons/${currentSeasonId()}/leaderboard`),orderByChild('arcadeRating'),limitToLast(Math.max(take,25)));
-  const unsub=onValue(q,snap=>{
-    const rows=Object.entries(snap.val()||{}).map(([uid,v])=>({uid,...v,arcadeWins:num(v.arcadeWins),arcadeLosses:num(v.arcadeLosses),arcadePlayed:num(v.arcadePlayed),arcadeRating:Number(v.arcadeRating||1000),bestArcadeGame:String(v.bestArcadeGame||'')}))
-      .sort((a,b)=>(Number(b.arcadeRating||1000)-Number(a.arcadeRating||1000))||(Number(b.arcadeWins||0)-Number(a.arcadeWins||0))||(Number(a.arcadeLosses||0)-Number(b.arcadeLosses||0))).slice(0,take);
-    cb?.(rows,null);
-  },e=>cb?.([],e));
-  return unsub;
+function listenToArcadeRanking(limit=10,cb=()=>{}){
+  if(!configured||!currentUser||!db){cb([]);return()=>{};}
+  const take=Math.max(1,Math.min(100,Number(limit)||10));
+  const q=query(ref(db,`rankedSeasons/${currentSeasonId()}/leaderboard`),orderByChild('arcadeRp'),limitToLast(Math.max(take,40)));
+  return onValue(q,snap=>{
+    const rows=Object.entries(snap.val()||{}).map(([uid,v])=>({uid,...v,arcadeWins:num(v.arcadeWins),arcadeLosses:num(v.arcadeLosses),arcadePlayed:num(v.arcadePlayed),arcadeRp:clampInt(v.arcadeRp),arcadeRating:clampInt(v.arcadeRp),bestArcadeGame:String(v.bestArcadeGame||''),arcadeDivision:String(v.arcadeDivision||arcadeCompetitiveLeague(v.arcadeRp,v.arcadePlayed).label),arcadeDivisionIcon:String(v.arcadeDivisionIcon||arcadeCompetitiveLeague(v.arcadeRp,v.arcadePlayed).icon),arcadeRankVersion:Number(v.arcadeRankVersion||0)}))
+      .filter(v=>v.arcadeRankVersion===ARCADE_RANK_VERSION&&(v.arcadePlayed>0||v.arcadeRp>0))
+      .sort((a,b)=>(b.arcadeRp-a.arcadeRp)||(b.arcadeWins-a.arcadeWins)||(a.arcadeLosses-b.arcadeLosses)||(Number(a.updatedAt||0)-Number(b.updatedAt||0))).slice(0,take);
+    cb(rows);
+  },e=>{console.warn('Arcade ranking listener:',e);cb([]);});
 }
 
 window.GameGuessRanked={record:recordRankedResult};
@@ -1202,7 +1272,7 @@ window.GameGuessFirebase={
   syncLocalProfile, ratingOf, serverNow, isConnected, newSubmissionId, recordRankedResult, getSeason:()=>({...currentSeason}), getQuizHistory, markQuizHistory,
   createDuelRoom, joinDuelRoom, startDuelRoom, leaveDuelRoom, ensureDuelHost, attachDuelPresence, detachDuelPresence, cleanupExpiredDuel,
   watchDuel, mutateDuel, deleteDuel,getRoom:async code=>configured?(await get(ref(db,`duels/${String(code||'').toUpperCase()}`))).val():null,
-  fightProtocolVersion:FIGHT_PROTOCOL_VERSION, createFightRoom, joinFightRoom, watchFightRoom, markFightReady, requestFightLaunch, submitFightResult, claimFightRankedRecord, recordArcadeMatchResult, leaveFightRoom, attachFightPresence, detachFightPresence, getFightRoom:async code=>configured?(await get(ref(db,`fightRooms/${String(code||'').toUpperCase()}`))).val():null,
+  fightProtocolVersion:FIGHT_PROTOCOL_VERSION, arcadeRankVersion:ARCADE_RANK_VERSION, arcadeRankInfo:(rp,played)=>arcadeCompetitiveLeague(rp,played), arcadeRankTransfer:arcadeCompetitiveTransfer, createFightRoom, joinFightRoom, watchFightRoom, markFightReady, requestFightLaunch, submitFightResult, claimFightRankedRecord, ensureArcadeRankedSettlement, recordArcadeMatchResult, syncPendingArcadeRanked, leaveFightRoom, attachFightPresence, detachFightPresence, getFightRoom:async code=>configured?(await get(ref(db,`fightRooms/${String(code||'').toUpperCase()}`))).val():null,
   arcadeTournamentProtocolVersion:ARCADE_TOURNAMENT_PROTOCOL_VERSION, createArcadeTournament, joinArcadeTournament, watchArcadeTournament, startArcadeTournament, linkArcadeTournamentFightRoom, recordArcadeTournamentFightResult, getArcadeTournament:async code=>configured?(await get(arcadeTournamentRef(code))).val():null, listenToArcadeRanking,
   geoProtocolVersion:GEO_PROTOCOL_VERSION, createGeoRoom, joinGeoRoom, watchGeoRoom, startGeoRoom, mutateGeoRoom, ensureGeoHost, leaveGeoRoom, attachGeoPresence, detachGeoPresence, cleanupExpiredGeoRoom, getGeoRoom:async code=>configured?(await get(ref(db,'geoRooms/'+String(code||'').toUpperCase()))).val():null,
   syncPublicProfile, searchPlayers, sendFriendRequest, respondFriendRequest, removeFriend, getSocialData, sendGameInvite, dismissGameInvite, watchSocialInbox, listenToRanking
