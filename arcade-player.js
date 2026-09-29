@@ -13,11 +13,11 @@
   const playerName = String(params.get('name') || (role === 'host' ? 'HOST' : role === 'guest' ? 'CONVIDADO' : 'PLAYER')).trim().slice(0, 20) || 'PLAYER';
 
   const GAMES = {
-    kf2k2mp2: { title: 'KOF 2002 Magic Plus II', icon: '🥊', system: 'Neo Geo', core: 'fbneo', url: '/roms/v178/kf2k2mp2.zip', size: 86694745, profile: 'neo4', localId: 20020202 },
-    neobombe: { title: 'Neo Bomberman', icon: '💣', system: 'Neo Geo', core: 'fbneo', url: '/roms/neogeo/neobombe.zip', size: 7431142, profile: 'neo4', localId: 19970501 },
-    samsh5spho: { title: 'Samurai Shodown V Special', icon: '⚔️', system: 'Neo Geo', core: 'fbneo', url: '/roms/arcade/samsh5spho.zip', size: 83295234, profile: 'neo4', localId: 20040422 },
-    mvsc: { title: 'Marvel vs. Capcom', icon: '🦸', system: 'CPS-2', core: 'fbalpha2012_cps2', url: '/roms/arcade/mvsc.zip', size: 21493122, profile: 'cps6', localId: 19980123 },
-    xmvsfur1: { title: 'X-Men vs. Street Fighter', icon: '✖️', system: 'CPS-2', core: 'fbalpha2012_cps2', url: '/roms/arcade/xmvsfur1.zip', size: 18468916, profile: 'cps6', localId: 19961004 }
+    kf2k2mp2: { title: 'KOF 2002 Magic Plus II', icon: '🥊', system: 'Neo Geo', core: 'fbneo', url: '/roms/v178/kf2k2mp2.zip', size: 86694745, sha256: '2cb16b649819f8168701f01ddd4642dc3678283c112cd89e79103ed45f4a1a4d', profile: 'neo4', localId: 20020202 },
+    neobombe: { title: 'Neo Bomberman', icon: '💣', system: 'Neo Geo', core: 'fbneo', url: '/roms/neogeo/neobombe.zip', size: 7431142, sha256: 'fdd57fb79b7ef80a3d2dcd0651303825c8846ff7593d9a896bfc76adc9c5f1f2', profile: 'neo4', localId: 19970501 },
+    samsh5spho: { title: 'Samurai Shodown V Special', icon: '⚔️', system: 'Neo Geo', core: 'fbneo', url: '/roms/arcade/samsh5spho.zip', size: 83295234, sha256: 'f9e6f921db8d8806617a0e94af38425244d9edf89f526e011fcc0a6ed837f94a', profile: 'neo4', localId: 20040422 },
+    mvsc: { title: 'Marvel vs. Capcom', icon: '🦸', system: 'CPS-2', core: 'fbalpha2012_cps2', url: '/roms/arcade/mvsc.zip', size: 21493122, sha256: '58c1b7c015fe66f74cb286036ccd160d08572507f4fd72ee447817c06287cdb3', profile: 'cps6', localId: 19980123 },
+    xmvsfur1: { title: 'X-Men vs. Street Fighter', icon: '✖️', system: 'CPS-2', core: 'fbalpha2012_cps2', url: '/roms/arcade/xmvsfur1.zip', size: 18468916, sha256: '8fbef73f82697512b116d2928094cb11b0309aa5524264edc5d44269b2ea02ea', profile: 'cps6', localId: 19961004 }
   };
 
   const INPUT = { SELECT: 2, START: 3, UP: 4, DOWN: 5, LEFT: 6, RIGHT: 7 };
@@ -67,6 +67,30 @@
   let lastTouchPointerAt = -Infinity;
   let onlineTransportPatched = false;
   let onlineInputSeq = 0;
+
+
+  // Captura o áudio WebAudio sem alterar a saída audível. Instalado ANTES do
+  // EmulatorJS para espelhar o nó que for conectado ao AudioContext.destination.
+  const replayAudioTaps = [];
+  function installReplayAudioTap() {
+    const proto = globalThis.AudioNode?.prototype;
+    if (!proto || proto.__ggReplayTapInstalled || typeof proto.connect !== 'function') return;
+    const original = proto.connect;
+    Object.defineProperty(proto, '__ggReplayTapInstalled', { value:true, configurable:true });
+    proto.connect = function(destination, ...args) {
+      const result = original.call(this, destination, ...args);
+      try {
+        const ctx = this.context;
+        if (ctx && destination === ctx.destination && typeof ctx.createMediaStreamDestination === 'function') {
+          let tap = replayAudioTaps.find(x => x.ctx === ctx);
+          if (!tap) { tap = { ctx, dest:ctx.createMediaStreamDestination(), sources:new WeakSet() }; replayAudioTaps.push(tap); }
+          if (!tap.sources.has(this)) { tap.sources.add(this); try { original.call(this, tap.dest, args[0] || 0, 0); } catch { try { original.call(this, tap.dest); } catch {} } }
+        }
+      } catch {}
+      return result;
+    };
+  }
+  installReplayAudioTap();
 
   const $ = id => document.getElementById(id);
   const boot = $('boot');
@@ -494,6 +518,7 @@
         return true;
       }
       if (typeof manager.simulateInput !== 'function') return false;
+      recordReplayInput(player,index,state);
       manager.simulateInput(player, index, state);
       return true;
     } catch (e) {
@@ -887,6 +912,7 @@
         const players = Object.keys(np.players || {}).length;
         if (np.emu?.isNetplay && players >= 2 && np.webRtcReady) {
           stabilizeOnlineInputTransport(np);
+          if (role === 'host' && !replayInputStarted) { startReplayInputCapture(); installHostReplayInputTap(); }
           const actual = actualOnlinePlayer();
           const localPlayerLabel = `PLAYER ${actual + 1}`;
           showStatus(`✅ PVP conectado • ${localPlayerLabel} • ${game.title}`);
@@ -962,6 +988,17 @@
   let replayStartedAt = 0;
   let replayLimitTimer = 0;
   let replayStopMeta = {};
+  let replayRecordId = '';
+  let replayAudio = false;
+  let replayFinalizing = false;
+  let replayInputStarted = false;
+  let replayInputStartFrame = 0;
+  let replayInputStartPerf = 0;
+  let replayInputState = null;
+  let replayInputStateError = '';
+  let replayInputEvents = [];
+  let replayHostInputOriginal = null;
+  let replayHostInputTarget = null;
 
   function openReplayDb() {
     return new Promise((resolve, reject) => {
@@ -1007,9 +1044,11 @@
     try { db.close(); } catch {}
   }
 
-  function bestReplayMime() {
+  function bestReplayMime(withAudio=false) {
     if (!window.MediaRecorder) return '';
-    const types = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
+    const types = withAudio
+      ? ['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm']
+      : ['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];
     return types.find(t => !MediaRecorder.isTypeSupported || MediaRecorder.isTypeSupported(t)) || '';
   }
 
@@ -1028,81 +1067,166 @@
     return null;
   }
 
+
+  function replayFrameNow() {
+    try { const n = Number(gm()?.getFrameNum?.()); if (Number.isFinite(n)) return n; } catch {}
+    return Math.max(0, Math.round((performance.now() - replayInputStartPerf) / (1000 / 60)));
+  }
+  async function startReplayInputCapture() {
+    if (replayInputStarted || !game || !gm()) return;
+    replayInputStarted = true; replayInputEvents = []; replayInputState = null; replayInputStateError = '';
+    replayInputStartPerf = performance.now(); replayInputStartFrame = replayFrameNow();
+    try {
+      const raw = gm()?.getState?.();
+      const value = raw && typeof raw.then === 'function' ? await raw : raw;
+      if (value && Number(value.byteLength || value.length || 0) > 0) replayInputState = new Uint8Array(value).slice();
+      else replayInputStateError = 'O core não devolveu um save state inicial.';
+    } catch (e) { replayInputStateError = e?.message || String(e); }
+    post('arcade-replay-status', replayInputState ? 'Replay competitivo por inputs preparado.' : `Inputs serão gravados, mas o estado inicial não ficou disponível: ${replayInputStateError}`, { state: replayInputState ? 'input-ready' : 'input-no-state' });
+  }
+  function recordReplayInput(player,index,state) {
+    if (!replayInputStarted || replayInputEvents.length >= 200000) return;
+    const f = Math.max(0, replayFrameNow() - replayInputStartFrame), p = Number(player), i = Number(index), s = Number(state);
+    const last = replayInputEvents[replayInputEvents.length - 1];
+    if (last && last.f === f && last.p === p && last.i === i && last.s === s) return;
+    replayInputEvents.push({f,p,i,s});
+  }
+  function installHostReplayInputTap() {
+    if (!online || role !== 'host' || replayHostInputOriginal) return;
+    const manager = gm(), target = manager?.functions;
+    if (!target || typeof target.simulateInput !== 'function') return;
+    replayHostInputTarget = target; replayHostInputOriginal = target.simulateInput;
+    target.simulateInput = function(player,index,state,...rest) {
+      recordReplayInput(player,index,state);
+      return replayHostInputOriginal.call(this,player,index,state,...rest);
+    };
+  }
+  function restoreHostReplayInputTap() {
+    if (replayHostInputTarget && replayHostInputOriginal) { try { replayHostInputTarget.simulateInput = replayHostInputOriginal; } catch {} }
+    replayHostInputTarget = null; replayHostInputOriginal = null;
+  }
+  function replayAudioTrack() {
+    // 1) No netplay 4.3.0-pre o HOST já cria um MediaStreamDestination para
+    // transmitir o áudio. Reaproveitar esse track evita duplicar a cadeia WebAudio.
+    try {
+      const np = getNetplay();
+      const track = np?._hostAudioDest?.stream?.getAudioTracks?.()[0];
+      if (track && track.readyState === 'live') return track;
+    } catch {}
+
+    // 2) Builds atuais do EmulatorJS expõem o nó principal do core em
+    // gameManager.audioNode. Espelhamos esse nó para um destino de gravação,
+    // preservando a conexão original com os alto-falantes.
+    try {
+      const manager = gm(), node = manager?.audioNode;
+      const ctx = manager?.audioContext || node?.context;
+      if (node && ctx && typeof node.connect === 'function' && typeof ctx.createMediaStreamDestination === 'function') {
+        let tap = replayAudioTaps.find(x => x.ctx === ctx);
+        if (!tap) { tap = { ctx, dest:ctx.createMediaStreamDestination(), sources:new WeakSet() }; replayAudioTaps.push(tap); }
+        if (!tap.sources.has(node)) { tap.sources.add(node); try { node.connect(tap.dest); } catch {} }
+        const track = tap.dest.stream.getAudioTracks?.()[0];
+        if (track && track.readyState === 'live') return track;
+      }
+    } catch {}
+
+    // 3) Fallback genérico: AudioNode.connect() é observado antes de o loader do
+    // EmulatorJS iniciar e qualquer nó ligado ao destination também é espelhado.
+    for (let i = replayAudioTaps.length - 1; i >= 0; i--) {
+      const track = replayAudioTaps[i]?.dest?.stream?.getAudioTracks?.()[0];
+      if (track && track.readyState === 'live') return track;
+    }
+
+    // 4) Compatibilidade OpenAL/Emscripten para cores/builds que não expõem
+    // audioNode. O objeto pode viver em Module.AL ou no global AL.
+    try {
+      const manager = gm();
+      const al = manager?.Module?.AL?.currentCtx || window.AL?.currentCtx;
+      const ctx = al?.audioCtx;
+      const gains = Object.values(al?.sources || {}).map(v=>v?.gain).filter(v=>v&&typeof v.connect==='function');
+      if (ctx && gains.length && typeof ctx.createMediaStreamDestination === 'function') {
+        let tap = replayAudioTaps.find(x => x.ctx === ctx);
+        if (!tap) { tap = { ctx, dest:ctx.createMediaStreamDestination(), sources:new WeakSet() }; replayAudioTaps.push(tap); }
+        gains.forEach(node=>{ if (!tap.sources.has(node)) { tap.sources.add(node); try { node.connect(tap.dest); } catch {} } });
+        const track = tap.dest.stream.getAudioTracks?.()[0];
+        if (track && track.readyState === 'live') return track;
+      }
+    } catch {}
+    return null;
+  }
+  function buildReplayInputBlobs(meta={}) {
+    if (!replayInputStarted || !replayInputEvents.length) return {traceBlob:null,stateBlob:null,traceMeta:null};
+    const trace = {
+      format:'gameguess-input-replay', version:1, game:gameKey, title:game.title, core:game.core,
+      ejsVersion:EJS_VERSION, romUrl:game.url, romSize:game.size, romSha256:game.sha256 || '',
+      online, role, room:online?room:'LOCAL', rtcRoomName:online?rtcRoomName:'',
+      initialFrame:replayInputStartFrame, eventCount:replayInputEvents.length,
+      endFrame:replayInputEvents[replayInputEvents.length-1]?.f || 0,
+      stateAvailable:Boolean(replayInputState?.byteLength), stateError:replayInputStateError || '',
+      createdAt:Date.now(), stopMeta:meta, events:replayInputEvents.slice()
+    };
+    return {
+      traceBlob:new Blob([JSON.stringify(trace)],{type:'application/json'}),
+      stateBlob:replayInputState?.byteLength ? new Blob([replayInputState],{type:'application/octet-stream'}) : null,
+      traceMeta:{format:trace.format,version:trace.version,eventCount:trace.eventCount,endFrame:trace.endFrame,stateAvailable:trace.stateAvailable,ejsVersion:EJS_VERSION,core:game.core,romSha256:game.sha256||''}
+    };
+  }
+  async function finalizeReplayRecord(videoBlob=null, finalMime='video/webm') {
+    if (replayFinalizing) return; replayFinalizing = true;
+    const startedAt = replayStartedAt || Date.now(), meta = { ...replayStopMeta }, durationMs = Math.max(0, Date.now()-startedAt), createdAt=Date.now();
+    try {
+      const input = buildReplayInputBlobs(meta);
+      if ((!videoBlob || videoBlob.size <= 1024) && !input.traceBlob) return;
+      const id = replayRecordId || `arcade-${gameKey}-${createdAt}-${Math.random().toString(36).slice(2,8)}`;
+      await saveReplayRecord({
+        id, game:gameKey, title:game.title, online, role, room:online?room:'LOCAL', players:online?2:localPlayers,
+        createdAt, startedAt, durationMs, size:videoBlob?.size||0, mimeType:videoBlob?.type||finalMime,
+        audio:replayAudio, version:'3.1.0', ejsVersion:EJS_VERSION, core:game.core, romSha256:game.sha256||'', meta,
+        blob:videoBlob&&videoBlob.size>1024?videoBlob:null, inputTraceBlob:input.traceBlob, inputStateBlob:input.stateBlob, inputReplay:input.traceMeta
+      });
+      post('arcade-replay-saved','Replay salvo neste dispositivo.',{state:'saved',replayId:id,size:videoBlob?.size||0,durationMs,room:online?room:'LOCAL',audio:replayAudio,inputReplay:Boolean(input.traceBlob),stateReplay:Boolean(input.stateBlob),inputEvents:input.traceMeta?.eventCount||0,role});
+    } catch (e) { post('arcade-replay-status',e?.message||'Não foi possível salvar o replay.',{state:'error'}); }
+    finally { replayFinalizing=false; }
+  }
+
   function resetReplayState() {
     clearTimeout(replayLimitTimer); replayLimitTimer = 0;
     try { replayStream?.getTracks?.().forEach(t => t.stop()); } catch {}
-    replayStream = null; replayRecorder = null; replayChunks = []; replayBytes = 0; replayStartedAt = 0; replayStopMeta = {};
+    replayStream = null; replayRecorder = null; replayChunks = []; replayBytes = 0; replayStartedAt = 0; replayStopMeta = {}; replayRecordId=''; replayAudio=false;
+    restoreHostReplayInputTap(); replayInputStarted=false; replayInputStartFrame=0; replayInputStartPerf=0; replayInputState=null; replayInputStateError=''; replayInputEvents=[];
   }
 
   async function startReplayRecording() {
     if (replayRecorder || !game) return;
-    if (localStorage.getItem('gg_arcade_replay_enabled') === '0') {
-      post('arcade-replay-status', 'Replay automático desativado nas configurações.', { state:'disabled' });
-      return;
-    }
+    if (localStorage.getItem('gg_arcade_replay_enabled') === '0') { post('arcade-replay-status','Replay automático desativado nas configurações.',{state:'disabled'}); return; }
+    replayRecordId = `arcade-${gameKey}-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+    replayStartedAt = Date.now(); replayStopMeta={}; replayInputEvents=[];
+    // No local gravamos inputs imediatamente. No online, o HOST começa quando o
+    // WebRTC estiver pronto para capturar também os inputs recebidos do GUEST.
+    if (!online) await startReplayInputCapture();
     if (!window.MediaRecorder || !HTMLCanvasElement.prototype.captureStream) {
-      post('arcade-replay-status', 'Replay automático não é suportado neste navegador.', { state:'error' });
-      return;
+      post('arcade-replay-status','Vídeo não suportado neste navegador; o replay por inputs continuará quando disponível.',{state:'video-unsupported'}); return;
     }
     try {
-      const canvas = await waitReplayCanvas();
-      if (!canvas) throw new Error('Canvas do emulador não ficou disponível para gravação.');
-      replayStream = canvas.captureStream(24);
-      const mimeType = bestReplayMime();
-      const options = { videoBitsPerSecond: 1000000 };
-      if (mimeType) options.mimeType = mimeType;
-      replayChunks = []; replayBytes = 0; replayStopMeta = {}; replayStartedAt = Date.now();
-      const recorder = new MediaRecorder(replayStream, options);
-      replayRecorder = recorder;
-      recorder.ondataavailable = event => {
-        if (!event.data || !event.data.size) return;
-        replayChunks.push(event.data); replayBytes += event.data.size;
-        if (replayBytes >= REPLAY_MAX_BYTES && recorder.state !== 'inactive') stopReplayRecording({ reason:'size-limit' });
-      };
-      recorder.onerror = event => post('arcade-replay-status', event?.error?.message || 'Falha ao gravar replay.', { state:'error' });
-      recorder.onstop = async () => {
-        const chunks = replayChunks.slice();
-        const startedAt = replayStartedAt || Date.now();
-        const meta = { ...replayStopMeta };
-        const finalMime = recorder.mimeType || mimeType || 'video/webm';
-        const durationMs = Math.max(0, Date.now() - startedAt);
-        try {
-          if (chunks.length) {
-            const blob = new Blob(chunks, { type: finalMime });
-            if (blob.size > 1024) {
-              const createdAt = Date.now();
-              const id = `arcade-${gameKey}-${createdAt}-${Math.random().toString(36).slice(2,8)}`;
-              await saveReplayRecord({
-                id, game:gameKey, title:game.title, online, role, room:online ? room : 'LOCAL',
-                players:online ? 2 : localPlayers, createdAt, startedAt, durationMs, size:blob.size,
-                mimeType:blob.type || finalMime, version:'2.5.0', meta, blob
-              });
-              post('arcade-replay-saved', 'Replay salvo neste dispositivo.', { state:'saved', replayId:id, size:blob.size, durationMs, room:online ? room : 'LOCAL' });
-            }
-          }
-        } catch (e) {
-          post('arcade-replay-status', e?.message || 'Não foi possível salvar o replay.', { state:'error' });
-        } finally { resetReplayState(); }
-      };
-      recorder.start(1000);
-      replayLimitTimer = setTimeout(() => stopReplayRecording({ reason:'time-limit' }), REPLAY_MAX_MS);
-      post('arcade-replay-status', 'Replay em vídeo sendo gravado localmente.', { state:'recording' });
-    } catch (e) {
-      resetReplayState();
-      post('arcade-replay-status', e?.message || 'Replay indisponível.', { state:'error' });
-    }
+      const canvas=await waitReplayCanvas(); if(!canvas)throw new Error('Canvas do emulador não ficou disponível para gravação.');
+      const videoStream=canvas.captureStream(30), audioTrack=replayAudioTrack();
+      replayAudio=Boolean(audioTrack);
+      replayStream=new MediaStream([...videoStream.getVideoTracks(),...(audioTrack?[audioTrack]:[])]);
+      const mimeType=bestReplayMime(replayAudio),options={videoBitsPerSecond:1200000,audioBitsPerSecond:replayAudio?128000:undefined};if(mimeType)options.mimeType=mimeType;
+      replayChunks=[];replayBytes=0;
+      const recorder=new MediaRecorder(replayStream,options);replayRecorder=recorder;
+      recorder.ondataavailable=event=>{if(!event.data||!event.data.size)return;replayChunks.push(event.data);replayBytes+=event.data.size;if(replayBytes>=REPLAY_MAX_BYTES&&recorder.state!=='inactive')stopReplayRecording({reason:'size-limit'});};
+      recorder.onerror=event=>post('arcade-replay-status',event?.error?.message||'Falha ao gravar replay.',{state:'error'});
+      recorder.onstop=async()=>{const blob=replayChunks.length?new Blob(replayChunks,{type:recorder.mimeType||mimeType||'video/webm'}):null;await finalizeReplayRecord(blob,recorder.mimeType||mimeType||'video/webm');resetReplayState();};
+      recorder.start(1000);replayLimitTimer=setTimeout(()=>stopReplayRecording({reason:'time-limit'}),REPLAY_MAX_MS);
+      post('arcade-replay-status',replayAudio?'Replay em vídeo + áudio sendo gravado.':'Replay em vídeo sendo gravado; áudio do core não foi detectado neste navegador.',{state:'recording',audio:replayAudio});
+    } catch(e){post('arcade-replay-status',e?.message||'Vídeo do replay indisponível.',{state:'error'});}
   }
 
-  function stopReplayRecording(meta = {}) {
-    if (!replayRecorder) return;
-    replayStopMeta = { ...replayStopMeta, ...(meta && typeof meta === 'object' ? meta : {}) };
-    clearTimeout(replayLimitTimer); replayLimitTimer = 0;
-    try {
-      if (replayRecorder.state !== 'inactive') {
-        try { replayRecorder.requestData(); } catch {}
-        replayRecorder.stop();
-      }
-    } catch { resetReplayState(); }
+  async function stopReplayRecording(meta = {}) {
+    replayStopMeta={...replayStopMeta,...(meta&&typeof meta==='object'?meta:{})};clearTimeout(replayLimitTimer);replayLimitTimer=0;
+    if(replayRecorder){try{if(replayRecorder.state!=='inactive'){try{replayRecorder.requestData();}catch{}replayRecorder.stop();return;}}catch{}}
+    // Mesmo sem MediaRecorder, persiste o replay competitivo de inputs se existir.
+    if(replayInputStarted){await finalizeReplayRecord(null,'application/json');resetReplayState();}
   }
 
   async function bootGame() {
@@ -1166,7 +1290,7 @@
         document.querySelectorAll('script[data-gg-ejs-loader="1"]').forEach(el => el.remove());
         const script = document.createElement('script');
         script.dataset.ggEjsLoader = '1';
-        script.src = `${dataPath}loader.js?v=gg257`;
+        script.src = `${dataPath}loader.js?v=gg310`;
         script.async = true;
         script.onload = () => resolve(label);
         script.onerror = () => { script.remove(); reject(new Error(`Falha ao carregar loader (${label})`)); };
@@ -1182,7 +1306,7 @@
   }
 
   window.GG_ARCADE_INPUT_DIAG = () => ({
-    version: '3.0.0', inputEngine: '2.5.7-stable', online, role, room, rtcRoomName, started, directReady,
+    version: '3.1.0', inputEngine: '2.5.7-stable', online, role, room, rtcRoomName, started, directReady,
     pvpReady: online ? onlineInputReady() : true,
     player: online ? actualOnlinePlayer() + 1 : 1,
     held: [...held.entries()].map(([key, sources]) => ({ key, sources: [...sources] })),
@@ -1191,7 +1315,7 @@
   });
 
   setupUi(); bindKeyboard();
-  if (online) console.info('[GameGuess Arcade] papel do netplay', { role, expectedInputPort: onlineInputPort, expectedPlayer: onlineInputPort + 1, room, rtcRoomName, inputVersion: '2.5.7-stable', playerVersion: '3.0.0' });
+  if (online) console.info('[GameGuess Arcade] papel do netplay', { role, expectedInputPort: onlineInputPort, expectedPlayer: onlineInputPort + 1, room, rtcRoomName, inputVersion: '2.5.7-stable', playerVersion: '3.1.0' });
   startButton?.addEventListener('click', bootGame);
   helpButton?.addEventListener('click', () => { showTopbar(0); renderHelp(); });
   customizeButton?.addEventListener('click', () => { showTopbar(0); renderCustomize('layout'); });

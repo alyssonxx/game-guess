@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '3.0.0';
+  const VERSION = '3.1.0';
   const $ = id => document.getElementById(id);
   const CORE = () => window.GameGuessCore;
   const FB = () => window.GameGuessFirebase;
@@ -383,21 +383,53 @@
     const db=await openReplayDb();
     await new Promise((resolve,reject)=>{const tx=db.transaction(REPLAY_STORE,'readwrite');tx.objectStore(REPLAY_STORE).delete(id);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});
   }
+
+  async function getLocalReplay(id){const db=await openReplayDb();return await new Promise((resolve,reject)=>{const tx=db.transaction(REPLAY_STORE,'readonly'),req=tx.objectStore(REPLAY_STORE).get(id);req.onsuccess=()=>resolve(req.result||null);req.onerror=()=>reject(req.error);});}
+  async function putLocalReplay(row){const db=await openReplayDb();await new Promise((resolve,reject)=>{const tx=db.transaction(REPLAY_STORE,'readwrite');tx.objectStore(REPLAY_STORE).put(row);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});return row;}
+  function cloudReplayEnabled(){return localStorage.getItem('gg_arcade_replay_cloud_enabled')==='1';}
+  function renderCloudToggle(){const b=$('arcadeReplayCloudToggle');if(!b)return;const ready=Boolean(FB()?.replayCloudReady?.()),on=cloudReplayEnabled();b.disabled=!ready;b.textContent=!ready?'☁ STORAGE NÃO CONFIGURADO':on?'☁ NUVEM AUTOMÁTICA: LIGADA':'☁ NUVEM AUTOMÁTICA: DESLIGADA';b.classList.toggle('off',!on);}
+  function toggleReplayCloud(){if(!FB()?.replayCloudReady?.())return toast('Replay na nuvem','Ative o Firebase Storage e publique storage.rules.','error');localStorage.setItem('gg_arcade_replay_cloud_enabled',cloudReplayEnabled()?'0':'1');renderCloudToggle();toast('Replay na nuvem',cloudReplayEnabled()?'Upload automático de replays online ativado.':'Upload automático desativado.');}
+  async function replayParticipants(roomCode){try{const room=await FB()?.getFightRoom?.(roomCode);const out={};for(const [uid,p] of Object.entries(room?.players||{}))out[uid]={uid,name:p?.name||p?.displayName||'Jogador'};return {participants:out,winnerUid:room?.winnerUid||''};}catch{return{participants:{},winnerUid:''};}}
+  async function uploadLocalReplay(id,{quiet=false}={}){
+    if(!ensureLogin('Faça login para enviar o replay à nuvem.'))return null;
+    const row=await getLocalReplay(id);if(!row)throw new Error('Replay local não encontrado.');if(row.cloudReplayId)return row.cloudReplayId;
+    if(!row.online)throw new Error('Nesta versão, o upload compartilhável é destinado às partidas online.');
+    const rel=await replayParticipants(row.room);
+    const meta=await FB()?.uploadArcadeReplay?.({id:row.id,seasonId:FB()?.getSeason?.()?.id,game:row.game,title:row.title,room:row.room,createdAt:row.createdAt,durationMs:row.durationMs,size:row.size,mimeType:row.mimeType,audio:row.audio,videoBlob:row.blob,inputTraceBlob:row.inputTraceBlob,inputStateBlob:row.inputStateBlob,inputEvents:row.inputReplay?.eventCount||0,ejsVersion:row.ejsVersion,core:row.core,romSha256:row.romSha256,participants:rel.participants,winnerUid:rel.winnerUid,visibility:'participants'});
+    row.cloudReplayId=meta.id;row.cloudUploadedAt=Date.now();await putLocalReplay(row);if(!quiet)toast('☁ Replay enviado','O replay já pode ser visto pelos participantes.','achievement');await renderCloudReplays();return meta.id;
+  }
+  async function shareCloudReplay(id){const url=`${location.origin}/arcade-replay-player.html?source=cloud&id=${encodeURIComponent(id)}`;try{await navigator.clipboard.writeText(url);toast('Replay compartilhado','Link copiado. O destinatário precisa estar logado se o replay não for público.');}catch{prompt('Copie o link do replay:',url);}}
+  function openInputReplay(source,id){window.open(`/arcade-replay-player.html?source=${encodeURIComponent(source)}&id=${encodeURIComponent(id)}`,'_blank','noopener');}
+  async function changeCloudVisibility(id,current){try{const next=current==='public'?'participants':'public';await FB()?.setArcadeReplayVisibility?.(id,next);toast('Visibilidade',next==='public'?'Replay público para usuários conectados.':'Replay visível aos participantes.');renderCloudReplays();}catch(e){toast('Replay',e?.message||String(e),'error');}}
+  async function deleteCloudReplay(id){if(!confirm('Excluir este replay da nuvem?'))return;try{await FB()?.deleteArcadeCloudReplay?.(id);toast('Replay','Replay removido da nuvem.');renderCloudReplays();}catch(e){toast('Replay',e?.message||String(e),'error');}}
+  async function renderCloudReplays(){
+    const root=$('arcadeCloudReplayGrid');if(!root)return;if(!FB()?.ready?.()||!user()){root.innerHTML='<div class="home-ranked-empty">Faça login para ver replays compartilhados.</div>';return;}if(!FB()?.replayCloudReady?.()){root.innerHTML='<div class="home-ranked-empty">Firebase Storage ainda não está disponível. Publique storage.rules e ative o Storage.</div>';return;}
+    root.innerHTML='<div class="home-ranked-empty">Carregando replays da nuvem…</div>';
+    try{const rows=await FB()?.listArcadeCloudReplays?.(40)||[];if(!rows.length){root.innerHTML='<div class="home-ranked-empty">Nenhum replay compartilhado ainda.</div>';return;}const resolved=await Promise.all(rows.map(async r=>{try{return await FB()?.resolveArcadeReplayAssets?.(r)||r;}catch{return r;}}));const me=user()?.uid;
+      root.innerHTML=resolved.map(r=>{const video=r.urls?.['video.webm']||'',mine=r.uploaderUid===me,input=Boolean(r.inputReplay&&r.stateReplay);return `<article class="arcade-replay-card"><div class="arcade-replay-cloud-preview">${video?`<video controls preload="metadata" src="${esc(video)}"></video>`:'<div class="home-ranked-empty">Replay competitivo por inputs</div>'}</div><div class="arcade-replay-body"><div class="arcade-replay-title"><b>☁ ${gameIcon(r.game)} ${esc(gameTitle(r.game))}</b><small>${esc(fmtDate(r.createdAt))}</small></div><div class="arcade-replay-meta"><span>${r.audio?'🔊 áudio':'🔇 sem áudio'}</span><span>${input?'🎮 inputs/frame':'🎥 vídeo'}</span><span>${r.visibility==='public'?'🌎 público':'👥 participantes'}</span>${r.room?`<span>SALA ${esc(r.room)}</span>`:''}</div><div class="arcade-replay-actions">${input?`<button data-play-cloud-input="${esc(r.id)}">REPLAY INPUT</button>`:''}<button data-share-cloud="${esc(r.id)}">COMPARTILHAR</button>${mine?`<button data-visibility-cloud="${esc(r.id)}" data-current="${esc(r.visibility)}">${r.visibility==='public'?'TORNAR PARTICIPANTES':'TORNAR PÚBLICO'}</button><button class="danger" data-delete-cloud="${esc(r.id)}">EXCLUIR NUVEM</button>`:''}</div></div></article>`;}).join('');
+      root.querySelectorAll('[data-play-cloud-input]').forEach(b=>b.addEventListener('click',()=>openInputReplay('cloud',b.dataset.playCloudInput)));root.querySelectorAll('[data-share-cloud]').forEach(b=>b.addEventListener('click',()=>shareCloudReplay(b.dataset.shareCloud)));root.querySelectorAll('[data-visibility-cloud]').forEach(b=>b.addEventListener('click',()=>changeCloudVisibility(b.dataset.visibilityCloud,b.dataset.current)));root.querySelectorAll('[data-delete-cloud]').forEach(b=>b.addEventListener('click',()=>deleteCloudReplay(b.dataset.deleteCloud)));
+    }catch(e){root.innerHTML=`<div class="home-ranked-empty">Falha ao abrir nuvem: ${esc(e?.message||String(e))}</div>`;}
+  }
+
   function revokeReplayUrls(){for(const u of replayUrls)try{URL.revokeObjectURL(u)}catch{};replayUrls=[];}
   async function renderReplays() {
     const root=$('arcadeReplayGrid'); if(!root)return;
-    revokeReplayUrls(); root.innerHTML='<div class="home-ranked-empty">Carregando replays…</div>';
+    revokeReplayUrls(); root.innerHTML='<div class="home-ranked-empty">Carregando replays locais…</div>';
     try {
       const rows=await listReplays();
       if(!rows.length){root.innerHTML='<div class="home-ranked-empty">Nenhum replay salvo neste navegador ainda.</div>';return;}
       root.innerHTML=rows.map(r=>{
-        const url=URL.createObjectURL(r.blob); replayUrls.push(url);
-        return `<article class="arcade-replay-card" data-replay-id="${esc(r.id)}"><video controls preload="metadata" src="${esc(url)}"></video><div class="arcade-replay-body"><div class="arcade-replay-title"><b>${gameIcon(r.game)} ${esc(gameTitle(r.game))}</b><small>${esc(fmtDate(r.createdAt))}</small></div><div class="arcade-replay-meta"><span>${r.online?'🌐 ONLINE':'🕹 LOCAL'}</span><span>${Math.round(Number(r.durationMs||0)/1000)}s</span><span>${fmtBytes(r.size)}</span>${r.room&&r.room!=='LOCAL'?`<span>SALA ${esc(r.room)}</span>`:''}</div><div class="arcade-replay-actions"><a href="${esc(url)}" download="game-guess-${esc(r.game)}-${Number(r.createdAt||Date.now())}.webm">SALVAR VÍDEO</a><button class="danger" data-delete-replay="${esc(r.id)}">EXCLUIR</button></div></div></article>`;
+        const url=r.blob?URL.createObjectURL(r.blob):'';if(url)replayUrls.push(url);const input=Boolean(r.inputTraceBlob&&r.inputStateBlob);const cloud=String(r.cloudReplayId||'');
+        return `<article class="arcade-replay-card" data-replay-id="${esc(r.id)}">${url?`<video controls preload="metadata" src="${esc(url)}"></video>`:'<div class="home-ranked-empty">Sem vídeo local • replay de inputs disponível</div>'}<div class="arcade-replay-body"><div class="arcade-replay-title"><b>${gameIcon(r.game)} ${esc(gameTitle(r.game))}</b><small>${esc(fmtDate(r.createdAt))}</small></div><div class="arcade-replay-meta"><span>${r.online?'🌐 ONLINE':'🕹 LOCAL'}</span><span>${Math.round(Number(r.durationMs||0)/1000)}s</span>${r.size?`<span>${fmtBytes(r.size)}</span>`:''}<span>${r.audio?'🔊 ÁUDIO':'🔇 SEM ÁUDIO'}</span>${input?`<span>🎮 ${Number(r.inputReplay?.eventCount||0)} INPUTS</span>`:''}${r.room&&r.room!=='LOCAL'?`<span>SALA ${esc(r.room)}</span>`:''}${cloud?'<span>☁ NUVEM</span>':''}</div><div class="arcade-replay-actions">${url?`<a href="${esc(url)}" download="game-guess-${esc(r.game)}-${Number(r.createdAt||Date.now())}.webm">SALVAR VÍDEO</a>`:''}${input?`<button data-play-local-input="${esc(r.id)}">REPLAY INPUT</button>`:''}${r.online&&!cloud?`<button data-upload-replay="${esc(r.id)}">☁ ENVIAR NUVEM</button>`:''}${cloud?`<button data-share-cloud="${esc(cloud)}">COMPARTILHAR</button>`:''}<button class="danger" data-delete-replay="${esc(r.id)}">EXCLUIR</button></div></div></article>`;
       }).join('');
       root.querySelectorAll('[data-delete-replay]').forEach(btn=>btn.addEventListener('click',async()=>{await deleteReplay(btn.dataset.deleteReplay);renderReplays();}));
+      root.querySelectorAll('[data-upload-replay]').forEach(btn=>btn.addEventListener('click',async()=>{btn.disabled=true;try{await uploadLocalReplay(btn.dataset.uploadReplay);}catch(e){toast('Replay',e?.message||String(e),'error');}finally{renderReplays();}}));
+      root.querySelectorAll('[data-play-local-input]').forEach(btn=>btn.addEventListener('click',()=>openInputReplay('local',btn.dataset.playLocalInput)));
+      root.querySelectorAll('[data-share-cloud]').forEach(btn=>btn.addEventListener('click',()=>shareCloudReplay(btn.dataset.shareCloud)));
     } catch(e){root.innerHTML=`<div class="home-ranked-empty">Não consegui abrir os replays: ${esc(e?.message||String(e))}</div>`;}
   }
-  function openReplays(){show('arcadeReplaysScreen');renderReplays();}
+  function openReplays(){show('arcadeReplaysScreen');renderReplayToggle();renderCloudToggle();renderReplays();renderCloudReplays();}
+
 
   function replayEnabled(){ return localStorage.getItem('gg_arcade_replay_enabled') !== '0'; }
   function renderReplayToggle(){
@@ -428,19 +460,21 @@
     $('arcadeReplaysBack')?.addEventListener('click', ()=>show('kofScreen'));
     $('arcadeReplayRefresh')?.addEventListener('click', renderReplays);
     $('arcadeReplayToggle')?.addEventListener('click', toggleReplay);
-    renderReplayToggle();
+    $('arcadeReplayCloudToggle')?.addEventListener('click', toggleReplayCloud);
+    $('arcadeCloudReplayRefresh')?.addEventListener('click', renderCloudReplays);
+    renderReplayToggle(); renderCloudToggle();
 
     const openRanked=()=>{if(!ensureLogin('Faça login para ver o Arcade Ranked.'))return;FB()?.loadRanking?.('arcadeRp');};
     $('arcadeRankingButton')?.addEventListener('click', openRanked);
     $('homeArcadeRankingButton')?.addEventListener('click', openRanked);
 
     window.addEventListener('gameguess:authchange', ()=>{subscribeHomeRanking();subscribeRewards();});
-    window.addEventListener('gameguess:arcade-replay-saved', () => { if ($('arcadeReplaysScreen')?.classList.contains('active')) renderReplays(); });
+    window.addEventListener('gameguess:arcade-replay-saved', async e => { const id=e?.detail?.replayId;if(id&&cloudReplayEnabled()&&e?.detail?.role==='host'){try{await uploadLocalReplay(id,{quiet:true});}catch(err){console.warn('Auto upload replay:',err);}} if ($('arcadeReplaysScreen')?.classList.contains('active')) { renderReplays(); renderCloudReplays(); } });
     subscribeHomeRanking();
   }
 
   window.GameGuessArcadeCompetitive = {
-    version:VERSION, openTournament, openTournamentCode, openReplays, openRewards, listReplays, renderReplays, renderRewards, subscribeHomeRanking,
+    version:VERSION, openTournament, openTournamentCode, openReplays, openRewards, listReplays, getLocalReplay, renderReplays, renderCloudReplays, uploadLocalReplay, renderRewards, subscribeHomeRanking,
     onTournamentFinishedRoom(code){ if(tournamentCode && code===tournamentCode) renderTournament(); }
   };
 

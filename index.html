@@ -527,11 +527,12 @@
     <section class="screen arcade-replays-screen" id="arcadeReplaysScreen">
       <div class="arcade-comp-heading">
         <button class="back-link" id="arcadeReplaysBack" type="button">← Arcade</button>
-        <div><p class="eyebrow">🎥 REPLAYS ARCADE • BETA</p><h2>Suas partidas neste aparelho</h2><p>Os vídeos ficam apenas neste navegador e podem ser assistidos, baixados ou apagados.</p></div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="secondary-btn" id="arcadeReplayToggle" type="button">● REPLAY AUTOMÁTICO: LIGADO</button><button class="secondary-btn" id="arcadeReplayRefresh" type="button">↻ ATUALIZAR</button></div>
+        <div><p class="eyebrow">🎥 REPLAYS ARCADE • V3.1</p><h2>Vídeo, áudio e replay competitivo</h2><p>Grave localmente, envie partidas online ao Firebase Storage e reproduza a sequência de inputs/frame quando o save state estiver disponível.</p></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="secondary-btn" id="arcadeReplayToggle" type="button">● REPLAY AUTOMÁTICO: LIGADO</button><button class="secondary-btn" id="arcadeReplayCloudToggle" type="button">☁ NUVEM AUTOMÁTICA: DESLIGADA</button><button class="secondary-btn" id="arcadeReplayRefresh" type="button">↻ LOCAL</button><button class="secondary-btn" id="arcadeCloudReplayRefresh" type="button">↻ NUVEM</button></div>
       </div>
-      <div class="arcade-replay-note">A gravação captura o vídeo do emulador automaticamente. Nesta versão beta o áudio não é gravado. O sistema mantém até 12 replays locais, com limite de aproximadamente 8 minutos por partida.</div>
-      <div class="arcade-replay-grid" id="arcadeReplayGrid"><div class="home-ranked-empty">Nenhum replay carregado.</div></div>
+      <div class="arcade-replay-note">O vídeo tenta capturar também o áudio WebAudio do emulador. No online, o HOST registra a sequência autoritativa dos inputs dos dois jogadores. O replay por inputs depende de um save state inicial válido do core. Localmente continuam sendo mantidos até 12 replays, com limite aproximado de 8 minutos.</div>
+      <h3 style="margin:18px 0 10px">📱 Neste aparelho</h3><div class="arcade-replay-grid" id="arcadeReplayGrid"><div class="home-ranked-empty">Nenhum replay carregado.</div></div>
+      <h3 style="margin:24px 0 10px">☁ Nuvem e compartilhados</h3><div class="arcade-replay-grid" id="arcadeCloudReplayGrid"><div class="home-ranked-empty">Faça login para carregar a nuvem.</div></div>
     </section>
 
 
@@ -1051,14 +1052,14 @@
   <script src="/tournaments.js?v=20.1.1" defer></script>
   <script src="/social.js?v=20.1.0" defer></script>
   <script src="/ranking.js?v=20.0.0" defer></script>
-  <script type="module" src="/firebase.js?v=30.0.0"></script>
+  <script type="module" src="/firebase.js?v=30.1.0"></script>
   <script src="/duel.js?v=17.0.0" defer></script>
   <script src="/kof-catalog.js?v=19.10.4" defer></script>
   <script src="/kof-catalog-ui.js?v=19.10.4" defer></script>
   <script src="/arcade-x1.js?v=3.0.0" defer></script>
-  <script src="/arcade-competitive.js?v=3.0.0" defer></script>
+  <script src="/arcade-competitive.js?v=3.1.0" defer></script>
   <script src="/avatar-3d.js?v=3.0.0" defer></script>
-  <script src="/arcade-meta.js?v=3.0.0" defer></script>
+  <script src="/arcade-meta.js?v=3.1.0" defer></script>
     <script src="/friends.js?v=3.0.0" defer></script>
 
   <script data-portrait-fix-v19>

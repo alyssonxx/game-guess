@@ -7,6 +7,9 @@ import {
   getDatabase, ref, set, get, update, onValue, query, orderByChild, orderByValue,
   limitToLast, runTransaction, remove, onDisconnect, serverTimestamp
 } from 'https://www.gstatic.com/firebasejs/12.17.1/firebase-database.js';
+import {
+  getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject, updateMetadata
+} from 'https://www.gstatic.com/firebasejs/12.17.1/firebase-storage.js';
 
 const CONFIG = window.GAME_GUESS_FIREBASE_CONFIG || {};
 const APP_VERSION = '18.0.0';
@@ -24,7 +27,7 @@ const configured = Boolean(
 const $ = id => document.getElementById(id);
 const CORE = () => window.GameGuessCore;
 const PROFILE_KEY = 'gameGuessArcadeV4';
-let app = null, auth = null, db = null, currentUser = null;
+let app = null, auth = null, db = null, storage = null, currentUser = null;
 let serverOffsetMs = 0;
 let firebaseConnected = false;
 let serverOffsetUnsub = null;
@@ -1400,7 +1403,7 @@ function bind(){
 
 if(configured){
   try{
-    app=initializeApp(CONFIG);auth=getAuth(app);db=getDatabase(app);
+    app=initializeApp(CONFIG);auth=getAuth(app);db=getDatabase(app);storage=CONFIG.storageBucket?getStorage(app):null;
     serverOffsetUnsub=onValue(ref(db,'.info/serverTimeOffset'),s=>{serverOffsetMs=Number(s.val()||0);});
     connectedUnsub=onValue(ref(db,'.info/connected'),async s=>{
       firebaseConnected=Boolean(s.val());
@@ -1534,6 +1537,62 @@ async function listenToRanking(limit=100,cb){
   return unsub;
 }
 
+
+// ===== Arcade Replay Cloud V3.1: vídeo + input replay compartilhável =====
+const ARCADE_REPLAY_CLOUD_VERSION=1;
+function replayIdSafe(v){return String(v||'').replace(/[^a-zA-Z0-9_-]/g,'').slice(0,120);}
+function replayVisibility(v){return ['participants','public','private'].includes(String(v))?String(v):'participants';}
+function replayParticipants(v={}){const out={};for(const [uid,row] of Object.entries(v&&typeof v==='object'?v:{})){if(!uid)continue;out[uid]={uid,name:cleanName(row?.name||row?.displayName||'Jogador')};}return out;}
+async function uploadArcadeReplay(payload={}){
+  if(!currentUser||!db)throw new Error('Faça login para enviar replays.');
+  if(!storage)throw new Error('Firebase Storage não está disponível. Ative o Storage no projeto Firebase.');
+  const rawId=replayIdSafe(payload.id)||`R${Date.now()}${Math.random().toString(36).slice(2,7)}`;
+  const id=rawId.slice(0,120),seasonId=String(payload.seasonId||currentSeasonId()).toUpperCase().slice(0,24),uid=currentUser.uid;
+  const visibility=replayVisibility(payload.visibility),base=`arcade-replays/${seasonId}/${uid}/${id}`;
+  const participants=replayParticipants(payload.participants||{});if(!participants[uid])participants[uid]={uid,name:publicName()};
+  const files={};
+  const put=async(name,blob,contentType)=>{
+    if(!(blob instanceof Blob)||!blob.size)return '';
+    const path=`${base}/${name}`;
+    const obj=storageRef(storage,path);
+    await uploadBytes(obj,blob,{contentType:contentType||blob.type||'application/octet-stream',customMetadata:{replayId:id,game:String(payload.game||''),room:String(payload.room||''),uploaderUid:uid,visibility}});
+    files[name]=path;return path;
+  };
+  await put('video.webm',payload.videoBlob,payload.videoBlob?.type||payload.mimeType||'video/webm');
+  await put('inputs.json',payload.inputTraceBlob,'application/json');
+  await put('initial.state',payload.inputStateBlob,'application/octet-stream');
+  if(!files['video.webm']&&!files['inputs.json'])throw new Error('Este replay não possui vídeo nem sequência de inputs para enviar.');
+  const now=serverNow();
+  const meta={version:ARCADE_REPLAY_CLOUD_VERSION,id,seasonId,uploaderUid:uid,uploaderName:publicName(),game:String(payload.game||'').slice(0,32),title:String(payload.title||'').slice(0,80),room:String(payload.room||'').toUpperCase().slice(0,16),visibility,participants,winnerUid:String(payload.winnerUid||'').slice(0,160),createdAt:clampInt(payload.createdAt||now,0,9999999999999),uploadedAt:now,durationMs:clampInt(payload.durationMs||0,0,60*60*1000),size:clampInt(payload.size||payload.videoBlob?.size||0,0,500*1024*1024),mimeType:String(payload.mimeType||payload.videoBlob?.type||'video/webm').slice(0,100),audio:Boolean(payload.audio),inputReplay:Boolean(files['inputs.json']),stateReplay:Boolean(files['initial.state']),inputEvents:clampInt(payload.inputEvents||0,0,500000),ejsVersion:String(payload.ejsVersion||'').slice(0,32),core:String(payload.core||'').slice(0,40),romSha256:String(payload.romSha256||'').slice(0,64),files};
+  await set(ref(db,`arcadeReplays/${id}`),meta);
+  return meta;
+}
+async function listArcadeCloudReplays(limit=50){
+  if(!currentUser||!db)return[];
+  const snap=await get(ref(db,'arcadeReplays')),uid=currentUser.uid;
+  return Object.values(snap.val()||{}).filter(r=>r&&r.id&&(r.uploaderUid===uid||r.visibility==='public'||Boolean(r.participants?.[uid]))).sort((a,b)=>Number(b.createdAt||0)-Number(a.createdAt||0)).slice(0,Math.max(1,Math.min(100,Number(limit)||50)));
+}
+async function getArcadeCloudReplay(id){
+  if(!currentUser||!db)throw new Error('Faça login para abrir o replay.');
+  id=replayIdSafe(id);if(!id)throw new Error('Replay inválido.');const row=(await get(ref(db,`arcadeReplays/${id}`))).val();if(!row)throw new Error('Replay não encontrado.');
+  const allowed=row.uploaderUid===currentUser.uid||row.visibility==='public'||Boolean(row.participants?.[currentUser.uid]);if(!allowed)throw new Error('Você não tem acesso a este replay.');return row;
+}
+async function resolveArcadeReplayAssets(rowOrId){
+  if(!storage)throw new Error('Firebase Storage indisponível.');const row=typeof rowOrId==='string'?await getArcadeCloudReplay(rowOrId):rowOrId;if(!row)throw new Error('Replay inválido.');const urls={};
+  for(const [name,path] of Object.entries(row.files||{})){if(!path)continue;try{urls[name]=await getDownloadURL(storageRef(storage,path));}catch(e){console.warn('Replay asset URL:',name,e);}}
+  return {...row,urls};
+}
+async function setArcadeReplayVisibility(id,visibility){
+  const row=await getArcadeCloudReplay(id);if(row.uploaderUid!==currentUser.uid)throw new Error('Somente quem enviou o replay pode alterar a visibilidade.');visibility=replayVisibility(visibility);await update(ref(db,`arcadeReplays/${row.id}`),{visibility,updatedAt:serverNow()});
+  if(storage){for(const path of Object.values(row.files||{})){try{await updateMetadata(storageRef(storage,path),{customMetadata:{replayId:row.id,game:String(row.game||''),room:String(row.room||''),uploaderUid:currentUser.uid,visibility}});}catch{}}}
+  return {...row,visibility};
+}
+async function deleteArcadeCloudReplay(id){
+  const row=await getArcadeCloudReplay(id);if(row.uploaderUid!==currentUser.uid)throw new Error('Somente quem enviou o replay pode excluí-lo.');
+  if(storage){await Promise.all(Object.values(row.files||{}).filter(Boolean).map(async path=>{try{await deleteObject(storageRef(storage,path));}catch{}}));}
+  await remove(ref(db,`arcadeReplays/${row.id}`));return true;
+}
+
 function listenToArcadeRanking(limit=10,cb=()=>{}){
   if(!configured||!currentUser||!db){cb([]);return()=>{};}
   const take=Math.max(1,Math.min(100,Number(limit)||10));
@@ -1557,6 +1616,7 @@ window.GameGuessFirebase={
   arcadeRewardVersion:ARCADE_REWARD_VERSION, arcadeRewardCatalog:arcadeRewardCatalogPublic, arcadeRewardRanks:()=>ARCADE_REWARD_RANKS.map(x=>({...x,unlocks:[...x.unlocks]})), arcadeRewardMilestones:()=>[...ARCADE_REWARD_MILESTONES.map(x=>({key:x.key,label:x.label,coins:x.coins,unlocks:[...x.unlocks]})),...ARCADE_UPSET_REWARDS.map(x=>({key:x.key,label:x.label,coins:x.coins,unlocks:[...x.unlocks]}))], arcadeBattlePass:()=>({maxLevel:ARCADE_BATTLE_PASS_MAX_LEVEL,rewards:ARCADE_BATTLE_PASS_REWARDS.map(x=>({...x,unlocks:[...x.unlocks]}))}), getArcadeRewards, watchArcadeRewards, ensureArcadeRewardProfile, buyArcadeRewardItem, equipArcadeRewardItem, claimArcadeTournamentReward, claimArcadeSeasonPlacementReward,
   arcadeTournamentProtocolVersion:ARCADE_TOURNAMENT_PROTOCOL_VERSION, createArcadeTournament, joinArcadeTournament, watchArcadeTournament, startArcadeTournament, linkArcadeTournamentFightRoom, recordArcadeTournamentFightResult, getArcadeTournament:async code=>configured?(await get(arcadeTournamentRef(code))).val():null, listArcadePublicTournaments, listenToArcadeRanking, listenArcadeGameRanking,
   avatar3dVersion:ARCADE_AVATAR_VERSION, saveArcadeAvatar3D, getArcadeAvatar3D, watchArcadeAvatar3D, getArcadeIdentity, getArcadeSeasonHistory, getArcadeMatchHistory, getArcadeRivalries, getArcadeCompetitiveProfile,
+  arcadeReplayCloudVersion:ARCADE_REPLAY_CLOUD_VERSION, replayCloudReady:()=>Boolean(storage), uploadArcadeReplay, listArcadeCloudReplays, getArcadeCloudReplay, resolveArcadeReplayAssets, setArcadeReplayVisibility, deleteArcadeCloudReplay,
   geoProtocolVersion:GEO_PROTOCOL_VERSION, createGeoRoom, joinGeoRoom, watchGeoRoom, startGeoRoom, mutateGeoRoom, ensureGeoHost, leaveGeoRoom, attachGeoPresence, detachGeoPresence, cleanupExpiredGeoRoom, getGeoRoom:async code=>configured?(await get(ref(db,'geoRooms/'+String(code||'').toUpperCase()))).val():null,
   syncPublicProfile, searchPlayers, sendFriendRequest, respondFriendRequest, removeFriend, getSocialData, sendGameInvite, dismissGameInvite, watchSocialInbox, listenToRanking
 };

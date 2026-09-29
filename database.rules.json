@@ -304,6 +304,13 @@
           ".validate": "!newData.exists() || (newData.child('seasonId').val() === $seasonId && newData.child('currentRp').isNumber() && newData.child('peakRp').isNumber() && newData.child('played').isNumber() && newData.child('wins').isNumber() && newData.child('losses').isNumber() && newData.child('updatedAt').isNumber())"
         }
       }
+    },
+    "arcadeReplays": {
+      "$replayId": {
+        ".read": "auth != null && (data.child('visibility').val() === 'public' || data.child('uploaderUid').val() === auth.uid || data.child('participants').child(auth.uid).exists())",
+        ".write": "auth != null && ((!data.exists() && newData.child('uploaderUid').val() === auth.uid) || data.child('uploaderUid').val() === auth.uid)",
+        ".validate": "!newData.exists() || (newData.child('version').val() === 1 && newData.child('id').val() === $replayId && newData.child('uploaderUid').isString() && newData.child('game').isString() && newData.child('visibility').isString() && (newData.child('visibility').val() === 'participants' || newData.child('visibility').val() === 'public' || newData.child('visibility').val() === 'private') && newData.child('createdAt').isNumber() && newData.child('uploadedAt').isNumber() && newData.child('participants').child(newData.child('uploaderUid').val()).exists())"
+      }
     }
   }
 }
