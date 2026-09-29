@@ -118,6 +118,10 @@
   </style>
 
   <link rel="stylesheet" href="/arcade-meta.css?v=3.0.0">
+
+<style id="competitive-ecosystem-v360">
+.competitive-challenge-inbox{margin-top:14px;display:grid;gap:8px}.challenge-invite,.arcade-live-challenge{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border:1px solid rgba(255,255,255,.12);border-radius:14px;background:rgba(10,14,24,.7)}.challenge-invite div,.arcade-live-challenge div{display:grid;gap:3px}.challenge-invite small,.arcade-live-challenge small{opacity:.72}.challenge-invite-actions{display:flex;gap:7px;flex-wrap:wrap}.challenge-invite button,.arcade-challenge-row button{border:0;border-radius:10px;padding:8px 11px;font-weight:800;cursor:pointer}.challenge-invite .accept{background:#b7ff4a;color:#111}.challenge-invite .decline{background:rgba(255,255,255,.1);color:#fff}.arcade-challenge-board{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.arcade-challenge-board>div{display:grid;gap:8px}.arcade-challenge-board h4{margin:0;opacity:.8}.arcade-challenge-row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:12px;border:1px solid rgba(255,255,255,.1);border-radius:12px;background:rgba(255,255,255,.035)}.arcade-challenge-row b,.arcade-challenge-row small{display:block}.arcade-challenge-row small{margin-top:4px;opacity:.7}.arcade-challenge-row.done{border-color:rgba(183,255,74,.45)}.arcade-challenge-row.claimed{opacity:.65}.arcade-challenge-row button{background:#b7ff4a;color:#111}.arcade-challenge-row button:disabled{background:rgba(255,255,255,.1);color:rgba(255,255,255,.55)}.third-place-round{margin-top:12px;border-top:1px dashed rgba(255,255,255,.18);padding-top:12px}.competitive-profile-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.competitive-profile-actions button{border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:#fff;border-radius:10px;padding:8px 12px;font-weight:800;cursor:pointer}@media(max-width:760px){.arcade-challenge-board{grid-template-columns:1fr}.challenge-invite{align-items:flex-start;flex-direction:column}}
+</style>
 </head>
 <body class="redesign">
   <div class="bg-grid"></div>
@@ -205,6 +209,7 @@
           </aside>
         </div>
         <div class="home-arcade-identity" id="homeArcadeIdentityCard"><div class="meta-empty">Carregando identidade competitiva…</div></div>
+        <div class="competitive-challenge-inbox" id="competitiveChallengeInbox"><div class="meta-empty">Nenhum desafio X1 pendente.</div></div>
       </section>
 
       <section class="home-section">
@@ -444,7 +449,7 @@
           </div>
           <div id="arcadeRoomPlayers" class="kof-players arcade-room-v2-players"></div>
           <div id="arcadeRoomStatus" class="arcade-room-v2-status">Aguardando...</div>
-          <div class="arcade-room-v2-buttons"><button class="primary-btn" id="arcadeLaunchButton" type="button">🚀 INICIAR ONLINE X1</button><button class="secondary-btn" id="arcadeRoomDiagnostic" type="button">🧪 DIAGNÓSTICO</button><button class="secondary-btn" id="arcadeLeaveRoom" type="button">SAIR DA SALA</button></div>
+          <div class="arcade-room-v2-buttons"><button class="primary-btn" id="arcadeLaunchButton" type="button">🚀 INICIAR ONLINE X1</button><button class="secondary-btn hidden" id="arcadeClaimDisconnect" type="button">⚠️ SOLICITAR VITÓRIA POR QUEDA</button><button class="secondary-btn" id="arcadeRoomDiagnostic" type="button">🧪 DIAGNÓSTICO</button><button class="secondary-btn" id="arcadeLeaveRoom" type="button">SAIR DA SALA</button></div>
         </section>
 
         <div class="arcade-online-help"><span>⌨️ Teclado</span><span>🎮 Controle/joystick</span><span>📱 Touchscreen</span><span>🔒 Sala privada</span></div>
@@ -517,6 +522,7 @@
       </div>
       <div class="arcade-reward-section"><div class="arcade-reward-section-head"><div><h3>Próxima recompensa</h3><p id="arcadeRewardNext">Carregando…</p></div></div><div class="arcade-rank-roadmap" id="arcadeRewardRankRoadmap"></div></div>
       <div class="arcade-reward-section"><div class="battlepass-head"><div><h3>🎫 Passe Arcade gratuito</h3><p>XP vem de partidas Ranked e torneios. Não existe trilha paga.</p></div><div><b id="arcadeBattlePassLevel">Nível 1/30</b><small id="arcadeBattlePassXp">0 XP</small></div></div><div class="battlepass-progress"><i id="arcadeBattlePassBar" style="width:0%"></i></div><div class="arcade-rank-roadmap" id="arcadeBattlePassRewards" style="margin-top:14px"></div></div>
+      <div class="arcade-reward-section"><div class="arcade-reward-section-head"><div><h3>📅 Desafios diários e semanais</h3><p>Complete objetivos Ranked para ganhar Arcade Coins e XP do Passe.</p></div></div><div class="arcade-challenge-board"><div><h4>HOJE</h4><div id="arcadeDailyChallenges"></div></div><div><h4>SEMANA</h4><div id="arcadeWeeklyChallenges"></div></div></div></div>
       <div class="arcade-reward-section"><div class="arcade-reward-section-head"><div><h3>Emblemas por jogo</h3><p>Seu rank competitivo separado em cada jogo de luta.</p></div></div><div class="arcade-rank-roadmap" id="arcadeRewardGameBadges"></div></div>
       <div class="arcade-reward-section"><div class="arcade-reward-section-head"><div><h3>Equipado</h3><p>Esses cosméticos aparecem no seu card do Arcade Ranked.</p></div></div><div class="arcade-reward-equipped" id="arcadeRewardEquipped"></div></div>
       <div class="arcade-reward-section"><div class="arcade-reward-section-head"><div><h3>Sua coleção</h3><p>Recompensas de rank, sequência, vitórias e torneios.</p></div></div><div class="arcade-reward-grid" id="arcadeRewardInventory"></div></div>
@@ -540,7 +546,7 @@
       <div class="meta-page-head"><button class="back-link" id="competitiveProfileBack" type="button">← Início</button><div><p class="eyebrow">👤 PERFIL COMPETITIVO</p><h2 id="competitiveProfileName">Jogador</h2><p id="competitiveProfileStatus">Carregando…</p></div><button class="secondary-btn hidden" id="competitiveSeasonClaim" type="button">🏅 RESGATAR TEMPORADA</button></div>
       <div class="competitive-hero arcade-reward-decor" id="competitiveProfileHero"><div class="meta-avatar-stage" id="competitiveProfileAvatar"></div><div class="competitive-hero-copy"><small>ARCADE RANKED</small><h2 id="competitiveProfileRank">🎮 Recruta • 0 RP</h2><span>Seu histórico, jogos, rivalidades, temporadas, coleção e Passe Arcade em um único perfil.</span></div></div>
       <div class="competitive-tabs"><button class="active" data-comp-tab="overview">VISÃO GERAL</button><button data-comp-tab="games">JOGOS</button><button data-comp-tab="matches">PARTIDAS</button><button data-comp-tab="replays">REPLAYS</button><button data-comp-tab="rivals">RIVAIS</button><button data-comp-tab="seasons">TEMPORADAS</button><button data-comp-tab="collection">COLEÇÃO</button></div>
-      <div class="competitive-panel active" data-comp-panel="overview"><div class="meta-stat-grid" id="competitiveOverview"></div><div class="meta-section"><h3>Passe da temporada</h3><div id="competitivePass"></div></div></div>
+      <div class="competitive-panel active" data-comp-panel="overview"><div class="meta-stat-grid" id="competitiveOverview"></div><div class="meta-section"><h3>Passe da temporada</h3><div id="competitivePass"></div></div><div class="meta-section"><h3>🏆 Torneios recentes</h3><div class="meta-list" id="competitiveTournaments"></div></div></div>
       <div class="competitive-panel" data-comp-panel="games"><div class="meta-section"><h3>Rank por jogo</h3><div class="meta-list" id="competitiveGames"></div></div></div>
       <div class="competitive-panel" data-comp-panel="matches"><div class="meta-section"><h3>Partidas recentes</h3><div class="meta-list" id="competitiveMatches"></div></div></div>
       <div class="competitive-panel" data-comp-panel="replays"><div class="meta-section"><div class="meta-section-title"><div><h3>Replays deste aparelho</h3><p>O vídeo continua armazenado localmente no navegador. Quando o código da sala coincide, ele é associado à partida Ranked.</p></div><button class="secondary-btn" data-open-replays type="button">🎥 ABRIR REPLAYS</button></div><div class="meta-list" id="competitiveReplays"></div></div></div>
@@ -1052,14 +1058,14 @@
   <script src="/tournaments.js?v=20.1.1" defer></script>
   <script src="/social.js?v=20.1.0" defer></script>
   <script src="/ranking.js?v=20.0.0" defer></script>
-  <script type="module" src="/firebase.js?v=30.1.0"></script>
+  <script type="module" src="/firebase.js?v=36.0.0"></script>
   <script src="/duel.js?v=17.0.0" defer></script>
   <script src="/kof-catalog.js?v=19.10.4" defer></script>
   <script src="/kof-catalog-ui.js?v=19.10.4" defer></script>
-  <script src="/arcade-x1.js?v=3.0.0" defer></script>
-  <script src="/arcade-competitive.js?v=3.1.0" defer></script>
+  <script src="/arcade-x1.js?v=3.6.0" defer></script>
+  <script src="/arcade-competitive.js?v=3.6.0" defer></script>
   <script src="/avatar-3d.js?v=3.0.0" defer></script>
-  <script src="/arcade-meta.js?v=3.1.0" defer></script>
+  <script src="/arcade-meta.js?v=3.6.0" defer></script>
     <script src="/friends.js?v=3.0.0" defer></script>
 
   <script data-portrait-fix-v19>

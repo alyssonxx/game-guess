@@ -4,7 +4,7 @@
   const $ = id => document.getElementById(id);
   const CORE = () => window.GameGuessCore;
   const FB = () => window.GameGuessFirebase;
-  const VERSION = '3.0.0';
+  const VERSION = '3.6.0';
 
   const GAMES = {
     kf2k2mp2: {
@@ -350,6 +350,16 @@
       }
     }
 
+    const claimDrop=$('arcadeClaimDisconnect');
+    if(claimDrop){
+      const opp=Object.keys(room.players||{}).find(uid=>uid!==me),p=room.players?.[opp]||{},offline=Boolean(opp&&!playerOnline(opp));
+      const since=Number(p.disconnectedAt||p.lastSeen||0),elapsed=since?Math.max(0,(FB()?.serverNow?.()||Date.now())-since):0,eligible=room.status==='playing'&&offline&&elapsed>=45000;
+      claimDrop.classList.toggle('hidden',!eligible);
+      if(room.status==='playing'&&offline&&!eligible&&since){const left=Math.max(1,45-Math.floor(elapsed/1000));claimDrop.classList.remove('hidden');claimDrop.disabled=true;claimDrop.textContent=`⏳ RIVAL DESCONECTADO • ${left}s`;}
+      else if(eligible){claimDrop.disabled=false;claimDrop.textContent='⚠️ SOLICITAR VITÓRIA POR QUEDA';}
+      else {claimDrop.disabled=true;}
+    }
+
     const launchAt = Number(room.launchAt || 0);
     if (sessionArmed && (room.launchState === 'starting' || room.status === 'playing') && launchAt && !launched && launchAt !== lastLaunchAt) {
       lastLaunchAt = launchAt;
@@ -447,7 +457,11 @@
   }
 
   async function leaveRoom(goBack=true) {
-    if (roomCode && room?.status !== 'finished') await FB()?.leaveFightRoom?.(roomCode).catch(() => {});
+    if (roomCode && room?.status === 'playing' && launched) {
+      const ok = confirm('Sair agora contará como abandono e dará a vitória ao rival. Deseja sair?');
+      if (!ok) return false;
+      try { await FB()?.concedeFight?.(roomCode); } catch (e) { console.warn('Forfeit:', e); }
+    } else if (roomCode && room?.status !== 'finished') await FB()?.leaveFightRoom?.(roomCode).catch(() => {});
     if (unsub) { try { unsub(); } catch {} unsub = null; }
     roomCode = ''; room = null; sessionArmed = false; launched = false; launching = false; lastLaunchAt = 0; readyRoom = ''; readySyncPromise = null; processedFinishedRoom = ''; resultSubmitting = false;
     $('arcadeRoomPanel')?.classList.add('hidden');
@@ -585,6 +599,7 @@
     $('arcadeLaunchButton')?.addEventListener('click', requestLaunch);
     $('arcadeCopyRoom')?.addEventListener('click', copyRoom);
     $('arcadeRoomDiagnostic')?.addEventListener('click', downloadDiagnostic);
+    $('arcadeClaimDisconnect')?.addEventListener('click',async()=>{try{await FB()?.claimDisconnectWin?.(roomCode);toast('Vitória por queda','O rival ficou desconectado além do tempo de tolerância.','achievement');}catch(e){toast('Queda de conexão',e?.message||String(e),'error');}});
     $('arcadeReportWin')?.addEventListener('click', () => submitMyResult(true));
     $('arcadeReportLoss')?.addEventListener('click', () => submitMyResult(false));
     $('arcadePlayBack')?.addEventListener('click', () => {
@@ -622,7 +637,7 @@
     });
   }
 
-  window.GameGuessArcadeX1 = { open:openHub, openOnline, openRoomCode, launchLocal, games:GAMES, getState:()=>({selected,roomCode,room,launched,isHost:isHost()}), diagnosticReport, downloadDiagnostic };
+  window.GameGuessArcadeX1 = { open:openHub, openOnline, openRoomCode, launchLocal, games:GAMES, getState:()=>({selected,roomCode,room,launched,isHost:isHost()}), claimDisconnectWin:()=>roomCode?FB()?.claimDisconnectWin?.(roomCode):Promise.reject(new Error('Sem sala ativa.')), diagnosticReport, downloadDiagnostic };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
   else bind();
 })();

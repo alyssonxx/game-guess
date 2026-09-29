@@ -1,0 +1,684 @@
+diff --git a/COMPETITIVE-ECOSYSTEM-V3.6.md b/COMPETITIVE-ECOSYSTEM-V3.6.md
+new file mode 100644
+index 0000000..3fb5615
+--- /dev/null
++++ b/COMPETITIVE-ECOSYSTEM-V3.6.md
+@@ -0,0 +1,48 @@
++# Game Guess Competitive Ecosystem V3.6.0
++
++Esta atualização consolida o Competitive Core, Torneios 2.0, perfil competitivo, desafios do Passe/temporada e Social/Rivalidades.
++
++## Competitive Core
++- Cada partida Ranked gera um registro canônico em `competitiveMatches/<season>/<roomCode>`.
++- O registro guarda matchId, jogadores, jogo, resultado, RP antes/depois esperado, recibos reais de RP/AC/XP, torneio e replays vinculados.
++- Resultado duplicado continua bloqueado pelo `appliedMatches`/inbox da V2.6+.
++- Resultado conflitante continua exigindo confirmação dos dois jogadores.
++- Sair voluntariamente durante uma luta iniciada conta como abandono.
++- Queda de conexão recebe tolerância de 45 segundos antes da opção de vitória por desconexão.
++- Revanche cria uma nova sala vinculada à partida anterior e envia convite ao rival.
++
++## Torneios 2.0
++- 4, 8 e 16 jogadores.
++- MD1, MD3 e MD5.
++- Público ou privado.
++- O torneio inicia automaticamente quando a última vaga é preenchida.
++- Eliminação simples com semifinal, final e disputa de 3º lugar.
++- Guarda campeão, vice e terceiro lugar.
++- Premiação: campeão, vice e terceiro recebem AC/XP; troféu conta apenas para campeão.
++- Histórico salvo em `arcadeTournamentHistory/<season>/<code>`.
++- Replay da final é associado quando houver replay em nuvem correspondente.
++
++## Perfil competitivo
++- Usa o histórico canônico de `competitiveMatches`.
++- Mostra RP geral/por jogo, V/D, win rate, streak, torneios, temporadas, coleção, Passe e replays.
++- Mostra torneios recentes e colocações.
++- Perfis de outros jogadores têm botão direto de desafio X1.
++
++## Seasons + Battle Pass
++- O histórico pessoal da temporada anterior é arquivado automaticamente quando `rankedConfig/currentSeason` muda.
++- Desafios diários e semanais são calculados a partir das partidas competitivas reais.
++- Recompensas dos desafios dão Arcade Coins e XP do Passe.
++- Top 100/50/10/3/#1 continuam exigindo `finalRanks` confiável publicado no Firebase. Isso é intencional: o navegador do jogador não deve poder declarar sua própria posição final.
++
++## Social e Rivalidades
++- Desafio X1 direto a partir do perfil/rivalidade.
++- O desafio cria a sala Ranked antes de enviar o convite.
++- O convidado aceita e entra diretamente na mesma sala.
++- Revanche pós-partida usa o mesmo fluxo.
++- Inbox de desafios aparece na Home.
++
++## Firebase
++Publique o novo `database.rules.json` após aplicar o patch.
++
++## Vercel
++Nenhuma nova função `/api` é adicionada.
+diff --git a/arcade-competitive.js b/arcade-competitive.js
+index e649270..b9032b5 100644
+--- a/arcade-competitive.js
++++ b/arcade-competitive.js
+@@ -1,7 +1,7 @@
+ (() => {
+   'use strict';
+ 
+-  const VERSION = '3.1.0';
++  const VERSION = '3.6.0';
+   const $ = id => document.getElementById(id);
+   const CORE = () => window.GameGuessCore;
+   const FB = () => window.GameGuessFirebase;
+@@ -117,7 +117,9 @@
+   function renderBracket() {
+     const root = $('arcadeTournamentBracket');
+     if (!root || !tournament) return;
+-    const matches = Object.values(tournament.matches || {}).sort((a,b)=>Number(a.round)-Number(b.round)||Number(a.index)-Number(b.index));
++    const allMatches = Object.values(tournament.matches || {}).sort((a,b)=>Number(a.round)-Number(b.round)||Number(a.index)-Number(b.index));
++    const thirdMatch = allMatches.find(m=>m.isThirdPlace||m.id==='third');
++    const matches = allMatches.filter(m=>!(m.isThirdPlace||m.id==='third'));
+     if (!matches.length) {
+       root.innerHTML = '<div class="home-ranked-empty">A chave será criada quando o host iniciar o torneio.</div>';
+       return;
+@@ -141,6 +143,10 @@
+       }
+       html += '</div>';
+     }
++    if (thirdMatch) {
++      const done=Boolean(thirdMatch.winnerUid),mine=uid&&(thirdMatch.player1Uid===uid||thirdMatch.player2Uid===uid);
++      html += `<div class="arcade-bracket-round third-place-round"><h4>🥉 TERCEIRO LUGAR</h4><article class="arcade-bracket-match${mine?' mine':''}${done?' done':''}"><div class="arcade-bracket-player${done&&thirdMatch.winnerUid===thirdMatch.player1Uid?' winner':''}"><span>${esc(playerName(thirdMatch.player1Uid))}</span><b>${Number(thirdMatch.score1||0)}</b></div><div class="arcade-bracket-vs">MD${tournament.bestOf} • ${done?'ENCERRADO':'VS'}</div><div class="arcade-bracket-player${done&&thirdMatch.winnerUid===thirdMatch.player2Uid?' winner':''}"><span>${esc(playerName(thirdMatch.player2Uid))}</span><b>${Number(thirdMatch.score2||0)}</b></div>${done?`<small>🥉 ${esc(playerName(thirdMatch.winnerUid))} ficou em 3º</small>`:myMatchAction(thirdMatch)}</article></div>`;
++    }
+     root.innerHTML = html;
+     root.querySelectorAll('[data-open-tournament-match]').forEach(btn => btn.addEventListener('click', () => openTournamentMatch(btn.dataset.openTournamentMatch)));
+   }
+@@ -167,9 +173,9 @@
+     const champion = $('arcadeTournamentChampion');
+     if (champion) {
+       champion.classList.toggle('hidden', !tournament.championUid);
+-      if (tournament.championUid) champion.innerHTML = `🏆 CAMPEÃO<strong>${esc(playerName(tournament.championUid))}</strong>`;
++      if (tournament.championUid) champion.innerHTML = `🏆 CAMPEÃO<strong>${esc(playerName(tournament.championUid))}</strong><small>🥈 ${esc(playerName(tournament.runnerUpUid))}${tournament.thirdPlaceUid?` • 🥉 ${esc(playerName(tournament.thirdPlaceUid))}`:''}</small>`;
+     }
+-    if(tournament.status==='finished'&&tournament.championUid===user()?.uid&&!tournamentRewardSeen.has(tournament.code)){tournamentRewardSeen.add(tournament.code);FB()?.claimArcadeTournamentReward?.(tournament.code).then(r=>{if(r?.awarded)toast('🏆 Recompensa de torneio',`+300 Arcade Coins • Troféu #${Number(r.claim?.trophies||1)}`,'achievement');renderRewards();}).catch(e=>console.warn('Tournament reward claim:',e));}
++    if(tournament.status==='finished'&&[tournament.championUid,tournament.runnerUpUid,tournament.thirdPlaceUid].includes(user()?.uid)&&!tournamentRewardSeen.has(tournament.code)){tournamentRewardSeen.add(tournament.code);FB()?.claimArcadeTournamentReward?.(tournament.code).then(r=>{if(r?.awarded)toast('🏆 Premiação de torneio',`${r.claim?.label||'Pódio'} • +${Number(r.claim?.coins||0)} Arcade Coins`,'achievement');renderRewards();}).catch(e=>console.warn('Tournament reward claim:',e));}
+     const count = participants().length;
+     setTournamentStatus(
+       tournament.status === 'waiting' ? `Inscrições abertas: ${count}/${tournament.maxPlayers} jogadores.` :
+@@ -326,6 +332,8 @@
+     const action=owned?(avatarLike?(item.type==='avatar'?'<button type="button" data-open-avatar-editor>USAR NO AVATAR</button>':'<button type="button" disabled>COLECIONADO</button>'):(equipped?'<button type="button" disabled>EQUIPADO</button>':`<button type="button" data-reward-equip="${esc(item.id)}">EQUIPAR</button>`)):(shop?`<button type="button" data-reward-buy="${esc(item.id)}">🪙 ${Number(item.price||0)} AC</button>`:'<button type="button" disabled>🔒 BLOQUEADO</button>');
+     return `<article class="arcade-reward-item${owned?' owned':''}${equipped?' equipped':''}"><div class="reward-item-icon">${esc(item.icon||'🎁')}</div><div><small>${esc(rewardTypeLabel(item.type))}</small><b>${esc(item.name)}</b><span>${shop?'Loja Arcade':owned?'Desbloqueado':'Recompensa competitiva'}</span></div>${action}</article>`;
+   }
++  function challengeCard(c){const pct=Math.min(100,Math.round((Number(c.value||0)/Math.max(1,Number(c.goal||1)))*100));return `<div class="arcade-challenge-row${c.done?' done':''}${c.claimed?' claimed':''}"><div><b>${esc(c.label)}</b><small>${Math.min(Number(c.value||0),Number(c.goal||0))}/${Number(c.goal||0)} • ${pct}% • 🪙 ${Number(c.coins||0)} AC • 🎫 ${Number(c.xp||0)} XP</small></div><button type="button" data-claim-arcade-challenge="${esc(c.id)}" ${!c.done||c.claimed?'disabled':''}>${c.claimed?'✓ RESGATADO':c.done?'RESGATAR':'EM PROGRESSO'}</button></div>`;}
++  async function renderTimedChallenges(){const d=$('arcadeDailyChallenges'),w=$('arcadeWeeklyChallenges');if(!d&&!w)return;if(!user()){if(d)d.innerHTML='<div class="meta-empty">Faça login.</div>';if(w)w.innerHTML='';return;}try{const board=await FB()?.getArcadeChallengeBoard?.();if(d)d.innerHTML=(board?.daily||[]).map(challengeCard).join('')||'<div class="meta-empty">Sem desafios.</div>';if(w)w.innerHTML=(board?.weekly||[]).map(challengeCard).join('')||'<div class="meta-empty">Sem desafios.</div>';}catch(e){if(d)d.innerHTML=`<div class="meta-empty">${esc(e?.message||'Falha ao carregar desafios.')}</div>`;}}
+   function renderRewards(){
+     const state=rewardState(),comp=currentCompetitive(),info=FB()?.arcadeRankInfo?.(Number(comp.rp||0),Number(comp.played||0))||{key:'rookie',label:'Recruta',icon:'🎮',next:200},seasonId=String(FB()?.getSeason?.()?.id||'S1').toUpperCase();
+     const badge=state.seasonBadges?.[seasonId];
+@@ -348,6 +356,7 @@
+     if(shop){const items=catalog.filter(i=>i.source==='shop');shop.innerHTML=items.map(i=>cosmeticCard(i,state)).join('');}
+     const milestones=$('arcadeRewardMilestones');if(milestones){milestones.innerHTML=(FB()?.arcadeRewardMilestones?.()||[]).map(m=>{const claimed=Boolean(state.milestoneClaims?.[`${seasonId}_${m.key}`]);return `<div class="arcade-reward-milestone${claimed?' done':''}"><span>${claimed?'✅':'⬜'}</span><b>${esc(m.label)}</b><small>+${Number(m.coins||0)} AC</small></div>`;}).join('');}
+     const eq=$('arcadeRewardEquipped');if(eq){const parts=['title','frame','banner','effect'].map(type=>{const id=state.equipped?.[type],item=rewardItem(id);return `<span><small>${rewardTypeLabel(type)}</small><b>${item?`${item.icon} ${esc(item.name)}`:'—'}</b></span>`;});eq.innerHTML=parts.join('');}
++    renderTimedChallenges();
+   }
+   function stopRewardsWatch(){if(rewardsUnsub){try{rewardsUnsub();}catch{}rewardsUnsub=null;}}
+   function subscribeRewards(){stopRewardsWatch();if(!FB()?.ready?.()||!user()){renderRewards();return;}const maybe=FB()?.watchArcadeRewards?.(()=>{renderRewards();subscribeHomeRanking();});if(typeof maybe==='function')rewardsUnsub=maybe;else renderRewards();}
+@@ -454,6 +463,7 @@
+     $('arcadeRewardsBack')?.addEventListener('click', ()=>{stopRewardsWatch();show('kofScreen');});
+     $('arcadeRewardInventory')?.addEventListener('click',e=>{const avatar=e.target.closest('[data-open-avatar-editor]'),equip=e.target.closest('[data-reward-equip]');if(avatar)window.GameGuessCompetitiveUI?.openAvatar?.();else if(equip)equipReward(equip.dataset.rewardEquip);});
+     $('arcadeRewardShop')?.addEventListener('click',e=>{const avatar=e.target.closest('[data-open-avatar-editor]'),buy=e.target.closest('[data-reward-buy]'),equip=e.target.closest('[data-reward-equip]');if(avatar)window.GameGuessCompetitiveUI?.openAvatar?.();else if(buy)buyReward(buy.dataset.rewardBuy);else if(equip)equipReward(equip.dataset.rewardEquip);});
++    $('arcadeRewardsScreen')?.addEventListener('click',e=>{const claim=e.target.closest('[data-claim-arcade-challenge]');if(!claim)return;claim.disabled=true;FB()?.claimArcadeChallenge?.(claim.dataset.claimArcadeChallenge).then(r=>{if(r?.claimed)toast('Desafio concluído',`+${Number(r.challenge?.coins||0)} AC • +${Number(r.challenge?.xp||0)} XP`,'achievement');renderRewards();}).catch(err=>{toast('Desafio',err?.message||String(err),'error');renderTimedChallenges();});});
+ 
+     $('arcadeReplaysButton')?.addEventListener('click', openReplays);
+     $('homeArcadeReplaysButton')?.addEventListener('click', openReplays);
+diff --git a/arcade-meta.js b/arcade-meta.js
+index 6a8d6c5..9852975 100644
+--- a/arcade-meta.js
++++ b/arcade-meta.js
+@@ -1,6 +1,6 @@
+ (() => {
+   'use strict';
+-  const VERSION='3.1.0';
++  const VERSION='3.6.0';
+   const $=id=>document.getElementById(id);
+   const CORE=()=>window.GameGuessCore;
+   const FB=()=>window.GameGuessFirebase;
+@@ -43,7 +43,7 @@
+   }
+   async function renderProfile(data){
+     if(!data)return;const row=data.row||{},rw=data.rewards||{},info=rankInfo(row.arcadeRp,row.arcadePlayed),self=data.uid===user()?.uid,name=row.displayName||data.publicProfile?.name||'Jogador';
+-    $('competitiveProfileName').textContent=name;$('competitiveProfileRank').textContent=`${info.icon} ${info.label} • ${Number(row.arcadeRp||0)} RP`;$('competitiveProfileStatus').textContent=`${Number(row.arcadeWins||0)}V • ${Number(row.arcadeLosses||0)}D • ${pct(row.arcadeWins,row.arcadePlayed)}% win rate`;
++    $('competitiveProfileName').textContent=name;$('competitiveProfileRank').textContent=`${info.icon} ${info.label} • ${Number(row.arcadeRp||0)} RP`;$('competitiveProfileStatus').textContent=`${Number(row.arcadeWins||0)}V • ${Number(row.arcadeLosses||0)}D • ${pct(row.arcadeWins,row.arcadePlayed)}% win rate`;const copy=$('competitiveProfileHero')?.querySelector('.competitive-hero-copy');if(copy){copy.querySelector('.competitive-profile-actions')?.remove();if(!self){const a=document.createElement('div');a.className='competitive-profile-actions';a.innerHTML=`<button type="button" data-challenge-rival="${esc(data.uid)}">⚔️ DESAFIAR X1</button>`;copy.appendChild(a);}}
+     const hero=$('competitiveProfileHero');if(hero){hero.dataset.frame=row.arcadeRewardFrame||'';hero.dataset.banner=row.arcadeRewardBanner||'';hero.dataset.effect=row.arcadeRewardEffect||'';}
+     try{await AVATAR()?.renderPreview?.($('competitiveProfileAvatar'),data.avatar||{}, {autoRotate:true});}catch(e){console.warn('Profile avatar 3D:',e);$('competitiveProfileAvatar').innerHTML='<div class="meta-avatar-fallback">🧍</div>';}
+     const overview=$('competitiveOverview');if(overview)overview.innerHTML=`
+@@ -59,6 +59,7 @@
+       const localHtml=local.slice(0,8).map(r=>`<article class="meta-match replay"><span>📱</span><div><b>${gameIcon(r.game)} ${esc(gameName(r.game))}</b><small>${fmtDate(r.createdAt)} • sala ${esc(r.room||'—')} • ${Math.round(Number(r.durationMs||0)/1000)}s</small></div><button data-open-replays>LOCAL</button></article>`).join('');
+       replayRoot.innerHTML=cloudHtml+localHtml||'<div class="meta-empty">Nenhum replay compartilhado associado às partidas deste perfil.</div>';
+     }catch(e){replayRoot.innerHTML='<div class="meta-empty">Não foi possível consultar os replays deste perfil.</div>';}}
++    const tour=$('competitiveTournaments');if(tour){tour.innerHTML=(data.tournaments||[]).length?(data.tournaments||[]).slice(0,6).map(t=>{const pos=t.championUid===data.uid?'🥇 CAMPEÃO':t.runnerUpUid===data.uid?'🥈 VICE':t.thirdPlaceUid===data.uid?'🥉 3º LUGAR':'PARTICIPOU';return `<article class="meta-season"><div><b>${gameIcon(t.game)} ${esc(t.name||'Torneio')}</b><small>${fmtDate(t.finishedAt)} • ${Number(t.maxPlayers||4)} jogadores • MD${Number(t.bestOf||3)}</small></div><strong>${pos}</strong>${t.finalReplayId?`<button data-open-cloud-replay="${esc(t.finalReplayId)}">FINAL</button>`:''}</article>`;}).join(''):'<div class="meta-empty">Nenhum torneio concluído nesta temporada.</div>';}
+     const rivals=$('competitiveRivals');if(rivals){rivals.innerHTML=(data.rivals||[]).length?(data.rivals||[]).map(r=>`<article class="meta-rival"><div><b>⚔️ ${esc(r.name)}</b><small>${Number(r.played)} confrontos • ${Number(r.wins)}V/${Number(r.losses)}D</small></div><span>${r.wins===r.losses?'EMPATE':r.wins>r.losses?'VANTAGEM SUA':'RIVAL À FRENTE'}</span>${self?`<button data-challenge-rival="${esc(r.uid)}">DESAFIAR</button>`:''}</article>`).join(''):'<div class="meta-empty">Rivalidades aparecem depois das suas partidas Ranked.</div>';}
+     const seasons=$('competitiveSeasons');if(seasons){const rows=Object.values(data.history||{}).sort((a,b)=>String(b.seasonId).localeCompare(String(a.seasonId)));seasons.innerHTML=rows.length?rows.map(s=>`<article class="meta-season"><div><b>${esc(s.seasonId||'Temporada')}</b><small>${s.divisionIcon||'🎮'} ${esc(s.division||'Recruta')}</small></div><strong>Pico ${Number(s.peakRp||0)} RP</strong><span>${Number(s.wins||0)}V/${Number(s.losses||0)}D</span></article>`).join(''):'<div class="meta-empty">A primeira temporada será registrada após sua próxima partida.</div>';}
+     const collection=$('competitiveCollection');if(collection){if(!self)collection.innerHTML='<div class="meta-empty">A coleção completa é privada. Cosméticos equipados continuam visíveis no ranking.</div>';else{const cat=FB()?.arcadeRewardCatalog?.()||[],owned=cat.filter(i=>rw.unlocks?.[i.id]);collection.innerHTML=owned.length?owned.map(i=>`<span class="meta-collectible" title="${esc(i.name)}">${i.icon||'🎁'}<small>${esc(i.name)}</small></span>`).join(''):'<div class="meta-empty">Nenhuma recompensa desbloqueada.</div>';}}
+@@ -88,24 +89,30 @@
+   function showPostMatch({record,room,game}={}){
+     const overlay=$('arcadePostMatchOverlay');if(!overlay||!record)return;const won=Boolean(record.won),rw=record.reward||{};overlay.classList.add('active');overlay.setAttribute('aria-hidden','false');$('postMatchResult').textContent=won?'🏆 VITÓRIA':'🏳 DERROTA';$('postMatchGame').textContent=`${gameIcon(game)} ${gameName(game)}`;$('postMatchRp').textContent=`${Number(record.delta||0)>0?'+':''}${Number(record.delta||0)} RP`;$('postMatchTotalRp').textContent=`${Number(record.rp||0)} RP • ${record.divisionIcon||'🎮'} ${record.division||'Recruta'}`;$('postMatchCoins').textContent=Number(rw.totalCoins||0)>0?`🪙 +${Number(rw.totalCoins||0)} AC`:'🪙 +0 AC';$('postMatchPass').textContent=`🎫 +${Number(rw.passXp||0)} XP`;$('postMatchStreak').textContent=`🔥 Sequência ${Number(record.state?.currentStreak||0)}`;
+     const unlocked=$('postMatchUnlocked');if(unlocked)unlocked.textContent=(rw.unlocked||[]).length?`🎁 ${(rw.unlocked||[]).length} recompensa(s) desbloqueada(s)`:'Continue jogando para liberar novas recompensas.';
+-    overlay.querySelector('[data-postmatch=close]').onclick=()=>overlay.classList.remove('active');overlay.querySelector('[data-postmatch=profile]').onclick=()=>{overlay.classList.remove('active');openProfile()};overlay.querySelector('[data-postmatch=rewards]').onclick=()=>{overlay.classList.remove('active');window.GameGuessArcadeCompetitive?.openRewards?.()};overlay.querySelector('[data-postmatch=rematch]').onclick=()=>{overlay.classList.remove('active');ARCADE()?.openOnline?.(game)};
++    overlay.querySelector('[data-postmatch=close]').onclick=()=>overlay.classList.remove('active');overlay.querySelector('[data-postmatch=profile]').onclick=()=>{overlay.classList.remove('active');openProfile()};overlay.querySelector('[data-postmatch=rewards]').onclick=()=>{overlay.classList.remove('active');window.GameGuessArcadeCompetitive?.openRewards?.()};overlay.querySelector('[data-postmatch=rematch]').onclick=async()=>{overlay.classList.remove('active');try{const r=await FB()?.createArcadeRematch?.(room?.code);toast('🔁 Revanche enviada',`Nova sala ${r.roomCode}. O rival recebeu o convite.`,'achievement');show('kofScreen');ARCADE()?.openRoomCode?.(r.game,r.roomCode);}catch(e){toast('Revanche',e?.message||String(e),'error');ARCADE()?.openOnline?.(game);}};
+   }
+ 
++  function chooseChallengeGame(){const v=String(prompt('Escolha o jogo: 1 KOF 2002, 2 Samurai Shodown, 3 Marvel vs Capcom, 4 X-Men vs Street Fighter','1')||'1').trim();return ({'1':'kf2k2mp2','2':'samsh5spho','3':'mvsc','4':'xmvsfur1'})[v]||'';}
++  async function challengePlayer(uid){const game=chooseChallengeGame();if(!game)return;try{const r=await FB()?.createArcadeFriendChallenge?.(uid,{game,ranked:true});toast('⚔️ Desafio enviado',`${gameIcon(game)} ${gameName(game)} • sala ${r.roomCode}`,'achievement');show('kofScreen');ARCADE()?.openRoomCode?.(game,r.roomCode);}catch(e){toast('Desafio X1',e?.message||String(e),'error');}}
++  async function renderChallengeInbox(){const root=$('competitiveChallengeInbox');if(!root)return;if(!user()){root.innerHTML='';return;}try{const rows=await FB()?.getArcadeChallengeInbox?.()||[];root.innerHTML=rows.length?rows.map(i=>`<article class="challenge-invite"><div><b>${i.type==='arcade-rematch'?'🔁 Revanche':'⚔️ Desafio'} de ${esc(i.fromName||'Jogador')}</b><small>${gameIcon(i.game)} ${esc(gameName(i.game))} • Ranked • sala ${esc(i.roomCode||'')}</small></div><div class="challenge-invite-actions"><button class="accept" data-accept-challenge="${esc(i.fromUid)}">ACEITAR</button><button class="decline" data-decline-challenge="${esc(i.fromUid)}">RECUSAR</button></div></article>`).join(''):'<div class="meta-empty">Nenhum desafio X1 pendente.</div>';}catch(e){root.innerHTML='<div class="meta-empty">Não foi possível carregar os desafios.</div>';}}
+   function bind(){
+     document.addEventListener('click',e=>{
+       const home=e.target.closest('[data-home-meta]');if(home){if(home.dataset.homeMeta==='profile')openProfile();if(home.dataset.homeMeta==='avatar')openAvatar();if(home.dataset.homeMeta==='ranks')openRankHub();}
+       const profile=e.target.closest('[data-profile-uid]');if(profile)openProfile(profile.dataset.profileUid);
+       const rank=e.target.closest('[data-rank-board]');if(rank)setRankBoard(rank.dataset.rankBoard);
+       const gameRank=e.target.closest('[data-open-game-rank]');if(gameRank)openRankHub(gameRank.dataset.openGameRank);
+-      const chall=e.target.closest('[data-challenge-rival]');if(chall){show('kofScreen');toast('Rivalidade','Escolha o jogo e crie uma sala X1 para desafiar este rival.');}
++      const chall=e.target.closest('[data-challenge-rival]');if(chall)challengePlayer(chall.dataset.challengeRival);
++      const accept=e.target.closest('[data-accept-challenge]');if(accept){FB()?.acceptArcadeFriendChallenge?.(accept.dataset.acceptChallenge).then(r=>{toast('Desafio aceito',`Entrando na sala ${r.roomCode}`,'achievement');show('kofScreen');ARCADE()?.openRoomCode?.(r.game,r.roomCode);renderChallengeInbox();}).catch(err=>toast('Desafio',err?.message||String(err),'error'));}
++      const decline=e.target.closest('[data-decline-challenge]');if(decline){FB()?.declineArcadeFriendChallenge?.(decline.dataset.declineChallenge).then(renderChallengeInbox);}
+       const pub=e.target.closest('[data-open-public-tournament]');if(pub)window.GameGuessArcadeCompetitive?.openTournamentCode?.(pub.dataset.openPublicTournament);
+       const replay=e.target.closest('[data-open-replays]');if(replay)window.GameGuessArcadeCompetitive?.openReplays?.();
++      const cloud=e.target.closest('[data-open-cloud-replay]');if(cloud)window.open(`/arcade-replay-player.html?source=cloud&id=${encodeURIComponent(cloud.dataset.openCloudReplay)}`,'_blank','noopener');
+     });
+     $('competitiveProfileBack')?.addEventListener('click',()=>show('homeScreen'));$('arcadeRankHubBack')?.addEventListener('click',()=>{stopRanking();show('homeScreen')});$('arcadeAvatar3dBack')?.addEventListener('click',()=>show('homeScreen'));
+     document.querySelectorAll('[data-comp-tab]').forEach(b=>b.addEventListener('click',()=>profileTab(b.dataset.compTab)));
+     $('homeArcadeProfileButton')?.addEventListener('click',()=>openProfile());$('homeArcadeAvatarButton')?.addEventListener('click',openAvatar);$('homeArcadeRankHubButton')?.addEventListener('click',()=>openRankHub());$('arcadeAvatar3DButton')?.addEventListener('click',openAvatar);$('arcadeCompetitiveProfileButton')?.addEventListener('click',()=>openProfile());
+-    window.addEventListener('gameguess:authchange',()=>setTimeout(()=>{renderHomeIdentity();renderPublicTournaments()},250));window.addEventListener('gameguess:arcade-rewards',()=>renderHomeIdentity());window.addEventListener('gameguess:avatar3d',()=>renderHomeIdentity());
+-    setTimeout(()=>{renderHomeIdentity();renderPublicTournaments()},650);
++    window.addEventListener('gameguess:authchange',()=>setTimeout(()=>{renderHomeIdentity();renderPublicTournaments();renderChallengeInbox()},250));window.addEventListener('gameguess:arcade-rewards',()=>renderHomeIdentity());window.addEventListener('gameguess:avatar3d',()=>renderHomeIdentity());
++    setTimeout(()=>{renderHomeIdentity();renderPublicTournaments();renderChallengeInbox()},650);setInterval(()=>{if(document.visibilityState==='visible')renderChallengeInbox();},15000);
+   }
+ 
+   window.GameGuessCompetitiveUI={version:VERSION,openProfile,openAvatar,openRankHub,showVS,showPostMatch,renderHomeIdentity,renderPublicTournaments};
+diff --git a/arcade-x1.js b/arcade-x1.js
+index bc9a86e..88f35cb 100644
+--- a/arcade-x1.js
++++ b/arcade-x1.js
+@@ -4,7 +4,7 @@
+   const $ = id => document.getElementById(id);
+   const CORE = () => window.GameGuessCore;
+   const FB = () => window.GameGuessFirebase;
+-  const VERSION = '3.0.0';
++  const VERSION = '3.6.0';
+ 
+   const GAMES = {
+     kf2k2mp2: {
+@@ -350,6 +350,16 @@
+       }
+     }
+ 
++    const claimDrop=$('arcadeClaimDisconnect');
++    if(claimDrop){
++      const opp=Object.keys(room.players||{}).find(uid=>uid!==me),p=room.players?.[opp]||{},offline=Boolean(opp&&!playerOnline(opp));
++      const since=Number(p.disconnectedAt||p.lastSeen||0),elapsed=since?Math.max(0,(FB()?.serverNow?.()||Date.now())-since):0,eligible=room.status==='playing'&&offline&&elapsed>=45000;
++      claimDrop.classList.toggle('hidden',!eligible);
++      if(room.status==='playing'&&offline&&!eligible&&since){const left=Math.max(1,45-Math.floor(elapsed/1000));claimDrop.classList.remove('hidden');claimDrop.disabled=true;claimDrop.textContent=`⏳ RIVAL DESCONECTADO • ${left}s`;}
++      else if(eligible){claimDrop.disabled=false;claimDrop.textContent='⚠️ SOLICITAR VITÓRIA POR QUEDA';}
++      else {claimDrop.disabled=true;}
++    }
++
+     const launchAt = Number(room.launchAt || 0);
+     if (sessionArmed && (room.launchState === 'starting' || room.status === 'playing') && launchAt && !launched && launchAt !== lastLaunchAt) {
+       lastLaunchAt = launchAt;
+@@ -447,7 +457,11 @@
+   }
+ 
+   async function leaveRoom(goBack=true) {
+-    if (roomCode && room?.status !== 'finished') await FB()?.leaveFightRoom?.(roomCode).catch(() => {});
++    if (roomCode && room?.status === 'playing' && launched) {
++      const ok = confirm('Sair agora contará como abandono e dará a vitória ao rival. Deseja sair?');
++      if (!ok) return false;
++      try { await FB()?.concedeFight?.(roomCode); } catch (e) { console.warn('Forfeit:', e); }
++    } else if (roomCode && room?.status !== 'finished') await FB()?.leaveFightRoom?.(roomCode).catch(() => {});
+     if (unsub) { try { unsub(); } catch {} unsub = null; }
+     roomCode = ''; room = null; sessionArmed = false; launched = false; launching = false; lastLaunchAt = 0; readyRoom = ''; readySyncPromise = null; processedFinishedRoom = ''; resultSubmitting = false;
+     $('arcadeRoomPanel')?.classList.add('hidden');
+@@ -585,6 +599,7 @@
+     $('arcadeLaunchButton')?.addEventListener('click', requestLaunch);
+     $('arcadeCopyRoom')?.addEventListener('click', copyRoom);
+     $('arcadeRoomDiagnostic')?.addEventListener('click', downloadDiagnostic);
++    $('arcadeClaimDisconnect')?.addEventListener('click',async()=>{try{await FB()?.claimDisconnectWin?.(roomCode);toast('Vitória por queda','O rival ficou desconectado além do tempo de tolerância.','achievement');}catch(e){toast('Queda de conexão',e?.message||String(e),'error');}});
+     $('arcadeReportWin')?.addEventListener('click', () => submitMyResult(true));
+     $('arcadeReportLoss')?.addEventListener('click', () => submitMyResult(false));
+     $('arcadePlayBack')?.addEventListener('click', () => {
+@@ -622,7 +637,7 @@
+     });
+   }
+ 
+-  window.GameGuessArcadeX1 = { open:openHub, openOnline, openRoomCode, launchLocal, games:GAMES, getState:()=>({selected,roomCode,room,launched,isHost:isHost()}), diagnosticReport, downloadDiagnostic };
++  window.GameGuessArcadeX1 = { open:openHub, openOnline, openRoomCode, launchLocal, games:GAMES, getState:()=>({selected,roomCode,room,launched,isHost:isHost()}), claimDisconnectWin:()=>roomCode?FB()?.claimDisconnectWin?.(roomCode):Promise.reject(new Error('Sem sala ativa.')), diagnosticReport, downloadDiagnostic };
+   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
+   else bind();
+ })();
+diff --git a/database.rules.json b/database.rules.json
+index b211c9d..4fc2ea1 100644
+--- a/database.rules.json
++++ b/database.rules.json
+@@ -195,7 +195,7 @@
+           }
+         },
+         "winnerUid": {
+-          ".validate": "!newData.exists() || (newData.isString() && newData.parent().child('players').child(newData.val()).exists() && newData.parent().child('resultVotes').child(newData.parent().child('hostUid').val()).val() === newData.val() && newData.parent().child('guestUid').isString() && newData.parent().child('resultVotes').child(newData.parent().child('guestUid').val()).val() === newData.val())"
++          ".validate": "!newData.exists() || (newData.isString() && newData.parent().child('players').child(newData.val()).exists() && ((newData.parent().child('resultVotes').child(newData.parent().child('hostUid').val()).val() === newData.val() && newData.parent().child('guestUid').isString() && newData.parent().child('resultVotes').child(newData.parent().child('guestUid').val()).val() === newData.val()) || (newData.parent().child('finishReason').val() === 'forfeit' && newData.parent().child('forfeitUid').isString() && newData.parent().child('forfeitUid').val() !== newData.val() && newData.parent().child('players').child(newData.parent().child('forfeitUid').val()).exists()) || (newData.parent().child('finishReason').val() === 'disconnect' && newData.parent().child('disconnectLoserUid').isString() && newData.parent().child('disconnectLoserUid').val() !== newData.val() && newData.parent().child('players').child(newData.parent().child('disconnectLoserUid').val()).exists())))"
+         },
+         "rankedSeasonId": {
+           ".validate": "!newData.exists() || newData.isString()"
+@@ -209,7 +209,7 @@
+       "$code": {
+         ".read": "auth != null",
+         ".write": "auth != null && ((!data.exists() && newData.child('hostUid').val() === auth.uid) || data.child('participants').child(auth.uid).exists() || newData.child('participants').child(auth.uid).exists())",
+-        ".validate": "!newData.exists() || (newData.child('code').val() === $code && newData.child('protocolVersion').val() === 2 && newData.child('hostUid').isString() && newData.child('game').isString() && (newData.child('maxPlayers').val() === 4 || newData.child('maxPlayers').val() === 8 || newData.child('maxPlayers').val() === 16) && (newData.child('bestOf').val() === 1 || newData.child('bestOf').val() === 3 || newData.child('bestOf').val() === 5) && (!newData.child('visibility').exists() || newData.child('visibility').val() === 'public' || newData.child('visibility').val() === 'private') && newData.child('participants').child(newData.child('hostUid').val()).exists())"
++        ".validate": "!newData.exists() || (newData.child('code').val() === $code && newData.child('protocolVersion').val() === 3 && newData.child('hostUid').isString() && newData.child('game').isString() && (newData.child('maxPlayers').val() === 4 || newData.child('maxPlayers').val() === 8 || newData.child('maxPlayers').val() === 16) && (newData.child('bestOf').val() === 1 || newData.child('bestOf').val() === 3 || newData.child('bestOf').val() === 5) && (!newData.child('visibility').exists() || newData.child('visibility').val() === 'public' || newData.child('visibility').val() === 'private') && newData.child('participants').child(newData.child('hostUid').val()).exists())"
+       }
+     },
+     "publicProfiles": {
+@@ -311,6 +311,24 @@
+         ".write": "auth != null && ((!data.exists() && newData.child('uploaderUid').val() === auth.uid) || data.child('uploaderUid').val() === auth.uid)",
+         ".validate": "!newData.exists() || (newData.child('version').val() === 1 && newData.child('id').val() === $replayId && newData.child('uploaderUid').isString() && newData.child('game').isString() && newData.child('visibility').isString() && (newData.child('visibility').val() === 'participants' || newData.child('visibility').val() === 'public' || newData.child('visibility').val() === 'private') && newData.child('createdAt').isNumber() && newData.child('uploadedAt').isNumber() && newData.child('participants').child(newData.child('uploaderUid').val()).exists())"
+       }
++    },
++    "competitiveMatches": {
++      "$seasonId": {
++        ".read": "auth != null",
++        "$code": {
++          ".write": "auth != null && root.child('fightRooms').child($code).child('players').child(auth.uid).exists() && root.child('fightRooms').child($code).child('status').val() === 'finished'",
++          ".validate": "!newData.exists() || (newData.child('version').val() === 1 && newData.child('code').val() === $code && newData.child('seasonId').val() === $seasonId && newData.child('game').isString() && newData.child('winnerUid').val() === root.child('fightRooms').child($code).child('winnerUid').val() && newData.child('players').child(newData.child('winnerUid').val()).exists())"
++        }
++      }
++    },
++    "arcadeTournamentHistory": {
++      "$seasonId": {
++        ".read": "auth != null",
++        "$code": {
++          ".write": "auth != null && root.child('arcadeTournaments').child($code).child('participants').child(auth.uid).exists() && root.child('arcadeTournaments').child($code).child('status').val() === 'finished'",
++          ".validate": "!newData.exists() || (newData.child('code').val() === $code && newData.child('championUid').val() === root.child('arcadeTournaments').child($code).child('championUid').val() && newData.child('game').isString())"
++        }
++      }
+     }
+   }
+ }
+diff --git a/firebase.js b/firebase.js
+index d9126e4..2073819 100644
+--- a/firebase.js
++++ b/firebase.js
+@@ -12,7 +12,7 @@ import {
+ } from 'https://www.gstatic.com/firebasejs/12.17.1/firebase-storage.js';
+ 
+ const CONFIG = window.GAME_GUESS_FIREBASE_CONFIG || {};
+-const APP_VERSION = '18.0.0';
++const APP_VERSION = '18.6.0';
+ const PROTOCOL_VERSION = 13;
+ const WAITING_TTL_MS = 30 * 60 * 1000;
+ const PLAYING_TTL_MS = 4 * 60 * 60 * 1000;
+@@ -214,13 +214,13 @@ const ARCADE_REWARD_MILESTONES=Object.freeze([
+   {key:'wins_100',label:'100 vitórias ranqueadas',coins:500,test:s=>s.wins>=100,unlocks:['title_centuriao']}
+ ]);
+ function rewardMap(v={}){return v&&typeof v==='object'&&!Array.isArray(v)?{...v}:{}};
+-function blankArcadeRewards(){return {version:ARCADE_REWARD_VERSION,coins:0,earned:0,spent:0,revision:0,updatedAt:0,matchClaims:{},rankClaims:{},milestoneClaims:{},tournamentClaims:{},seasonPlacementClaims:{},purchases:{},unlocks:{title_rookie:1,frame_rookie:1},equipped:{title:'title_rookie',frame:'frame_rookie',banner:'',effect:''},seasonBadges:{},seasonPass:{seasonId:currentSeasonId(),xp:0,level:1,claims:{}},trophies:{tournaments:0}};}
++function blankArcadeRewards(){return {version:ARCADE_REWARD_VERSION,coins:0,earned:0,spent:0,revision:0,updatedAt:0,matchClaims:{},rankClaims:{},milestoneClaims:{},tournamentClaims:{},seasonPlacementClaims:{},challengeClaims:{},purchases:{},unlocks:{title_rookie:1,frame_rookie:1},equipped:{title:'title_rookie',frame:'frame_rookie',banner:'',effect:''},seasonBadges:{},seasonPass:{seasonId:currentSeasonId(),xp:0,level:1,claims:{}},trophies:{tournaments:0}};}
+ function normalizeArcadeRewards(v={}){
+   const base=blankArcadeRewards();if(Number(v?.version)!==ARCADE_REWARD_VERSION)return base;
+   const unlocks=rewardMap(v.unlocks);unlocks.title_rookie=unlocks.title_rookie||1;unlocks.frame_rookie=unlocks.frame_rookie||1;
+   const equipped={...base.equipped,...rewardMap(v.equipped)};
+   for(const type of ['title','frame','banner','effect']){const id=String(equipped[type]||'');if(id&&!unlocks[id])equipped[type]='';}
+-  return {version:ARCADE_REWARD_VERSION,coins:clampInt(v.coins,0,9999999),earned:clampInt(v.earned,0,99999999),spent:clampInt(v.spent,0,99999999),revision:clampInt(v.revision,0,99999999),updatedAt:clampInt(v.updatedAt,0,9999999999999),matchClaims:rewardMap(v.matchClaims),rankClaims:rewardMap(v.rankClaims),milestoneClaims:rewardMap(v.milestoneClaims),tournamentClaims:rewardMap(v.tournamentClaims),seasonPlacementClaims:rewardMap(v.seasonPlacementClaims),purchases:rewardMap(v.purchases),unlocks,equipped,seasonBadges:rewardMap(v.seasonBadges),seasonPass:normalizeBattlePass(v.seasonPass,currentSeasonId()),trophies:{tournaments:clampInt(v?.trophies?.tournaments,0,999999)}};
++  return {version:ARCADE_REWARD_VERSION,coins:clampInt(v.coins,0,9999999),earned:clampInt(v.earned,0,99999999),spent:clampInt(v.spent,0,99999999),revision:clampInt(v.revision,0,99999999),updatedAt:clampInt(v.updatedAt,0,9999999999999),matchClaims:rewardMap(v.matchClaims),rankClaims:rewardMap(v.rankClaims),milestoneClaims:rewardMap(v.milestoneClaims),tournamentClaims:rewardMap(v.tournamentClaims),seasonPlacementClaims:rewardMap(v.seasonPlacementClaims),challengeClaims:rewardMap(v.challengeClaims),purchases:rewardMap(v.purchases),unlocks,equipped,seasonBadges:rewardMap(v.seasonBadges),seasonPass:normalizeBattlePass(v.seasonPass,currentSeasonId()),trophies:{tournaments:clampInt(v?.trophies?.tournaments,0,999999)}};
+ }
+ function mergeArcadeRewards(a={},b={}){const A=normalizeArcadeRewards(a),B=normalizeArcadeRewards(b);if(B.revision>A.revision)return B;if(A.revision>B.revision)return A;return B.updatedAt>=A.updatedAt?B:A;}
+ function arcadeRewardRankByKey(key){return ARCADE_REWARD_RANKS.find(r=>r.key===key)||ARCADE_REWARD_RANKS[0];}
+@@ -433,7 +433,7 @@ async function logout(){
+     }catch{}
+   }
+   duelPresence.clear();
+-  for(const h of [...fightPresence.values()]){try{clearInterval(h.timer);await h.dp.cancel();await h.dl.cancel();if(h.dr)await h.dr.cancel();await remove(h.pr);if(h.rr)await remove(h.rr);}catch{}}
++  for(const h of [...fightPresence.values()]){try{clearInterval(h.timer);await h.dp.cancel();await h.dl.cancel();if(h.dr)await h.dr.cancel();if(h.dd)await h.dd.cancel();if(h.ds)await h.ds.cancel();await remove(h.pr);if(h.rr)await remove(h.rr);}catch{}}
+   fightPresence.clear();
+   for(const h of [...geoPresence.values()]){
+     try{
+@@ -553,8 +553,10 @@ async function restoreFightPresence(h){
+   await h.dp.remove();
+   await h.dl.set(serverTimestamp());
+   await h.dr.remove();
++  await h.dd.set(serverTimestamp());
++  await h.ds.set('disconnected');
+   await set(h.pr,{sessionId:CLIENT_SESSION_ID,connectedAt:serverTimestamp(),heartbeatAt:serverTimestamp()});
+-  await set(h.lr,serverNow()).catch(()=>{});
++  await update(h.playerRef,{lastSeen:serverNow(),connectionState:'online',reconnectedAt:serverNow(),disconnectedAt:null}).catch(()=>{});
+   return true;
+ }
+ async function attachFightPresence(code){
+@@ -563,9 +565,9 @@ async function attachFightPresence(code){
+   const uid=currentUser.uid,key=`${code}:${uid}`;
+   let h=fightPresence.get(key);
+   if(!h){
+-    const pr=ref(db,`fightRooms/${code}/presence/${uid}/${CLIENT_SESSION_ID}`),lr=ref(db,`fightRooms/${code}/players/${uid}/lastSeen`),rr=ref(db,`fightRooms/${code}/clientReady/${uid}`);
+-    const dp=onDisconnect(pr),dl=onDisconnect(lr),dr=onDisconnect(rr);
+-    h={code,uid,pr,lr,rr,dp,dl,dr,timer:null,attaching:null};
++    const pr=ref(db,`fightRooms/${code}/presence/${uid}/${CLIENT_SESSION_ID}`),playerRef=ref(db,`fightRooms/${code}/players/${uid}`),lr=ref(db,`fightRooms/${code}/players/${uid}/lastSeen`),rr=ref(db,`fightRooms/${code}/clientReady/${uid}`),dc=ref(db,`fightRooms/${code}/players/${uid}/disconnectedAt`),cs=ref(db,`fightRooms/${code}/players/${uid}/connectionState`);
++    const dp=onDisconnect(pr),dl=onDisconnect(lr),dr=onDisconnect(rr),dd=onDisconnect(dc),ds=onDisconnect(cs);
++    h={code,uid,pr,playerRef,lr,rr,dc,cs,dp,dl,dr,dd,ds,timer:null,attaching:null};
+     // Registra o handle antes da primeira escrita. Se a rede cair durante o attach,
+     // o listener de .info/connected ainda consegue restaurar a presença depois.
+     fightPresence.set(key,h);
+@@ -601,7 +603,7 @@ async function detachFightPresence(code){
+   const entries=[...fightPresence.entries()].filter(([key,h])=>h.code===code&&(!uid||h.uid===uid));
+   for(const [key,h] of entries){
+     clearInterval(h.timer);
+-    await h.dp.cancel().catch(()=>{});await h.dl.cancel().catch(()=>{});await h.dr.cancel().catch(()=>{});
++    await h.dp.cancel().catch(()=>{});await h.dl.cancel().catch(()=>{});await h.dr.cancel().catch(()=>{});await h.dd?.cancel().catch(()=>{});await h.ds?.cancel().catch(()=>{});
+     await remove(h.pr).catch(()=>{});await remove(h.rr).catch(()=>{});
+     fightPresence.delete(key);
+   }
+@@ -819,7 +821,7 @@ async function deleteDuel(code){if(!currentUser||!code)return;code=String(code).
+ 
+ 
+ // ===== Arcade Ranked / Torneios =====
+-const ARCADE_TOURNAMENT_PROTOCOL_VERSION=2;
++const ARCADE_TOURNAMENT_PROTOCOL_VERSION=3;
+ const ARCADE_TOURNAMENT_TTL_MS=36*60*60*1000;
+ function arcadeTournamentCode(){return fightRoomCode();}
+ function arcadeTournamentRef(code){return ref(db,`arcadeTournaments/${String(code||'').trim().toUpperCase()}`);}
+@@ -845,7 +847,8 @@ async function ensureArcadeRankedSettlement(code){
+     const transfer=arcadeCompetitiveTransfer(winnerState.rp,loserState.rp,winnerState.played,loserState.played);
+     const gameTransfer=arcadeCompetitiveTransfer(wg.rp,lg.rp,wg.played,lg.played);
+     const now=serverNow();
+-    const candidate={version:ARCADE_RANK_VERSION,code,seasonId,game,winnerUid:room.winnerUid,loserUid,createdAt:now,finishedAt:Number(room.finishedAt||now),sourceRoomCode:code,players:{
++    const matchId=`${seasonId}_${code}`;
++    const candidate={version:ARCADE_RANK_VERSION,matchId,code,seasonId,game,winnerUid:room.winnerUid,loserUid,createdAt:now,finishedAt:Number(room.finishedAt||now),sourceRoomCode:code,sourceType:room.tournamentCode?'tournament':'ranked',tournamentCode:String(room.tournamentCode||''),tournamentMatchId:String(room.tournamentMatchId||''),finishReason:String(room.finishReason||'confirmed'),resultVotes:{...(room.resultVotes||{})},players:{
+       [room.winnerUid]:{uid:room.winnerUid,...arcadeSettlementPlayer(winnerState,wg,true,transfer,gameTransfer)},
+       [loserUid]:{uid:loserUid,...arcadeSettlementPlayer(loserState,lg,false,transfer,gameTransfer)}
+     }};
+@@ -853,6 +856,7 @@ async function ensureArcadeRankedSettlement(code){
+   }
+   const inboxPatch={};for(const uid of ids)inboxPatch[`arcadeRankedInbox/${uid}/${code}`]={seasonId,code,createdAt:Number(settlement.createdAt||serverNow())};
+   await update(ref(db),inboxPatch).catch(e=>console.warn('Arcade ranked inbox:',e));
++  await ensureCompetitiveMatchRecord(settlement,room).catch(e=>console.warn('Competitive match core:',e));
+   return settlement;
+ }
+ function applyArcadeSettlementToState(current={},settlement={},uid=''){
+@@ -924,15 +928,17 @@ async function applyArcadeRankedRewards(settlement,rankState,entry){
+ }
+ async function claimArcadeTournamentReward(code){
+   if(!currentUser||!db||!code)return {awarded:false};code=String(code).toUpperCase();
+-  const t=(await get(arcadeTournamentRef(code))).val();if(!t||t.status!=='finished'||t.championUid!==currentUser.uid)return {awarded:false,reason:'not-champion'};
++  const t=(await get(arcadeTournamentRef(code))).val();if(!t||t.status!=='finished')return {awarded:false,reason:'not-finished'};
++  let placement=0;if(t.championUid===currentUser.uid)placement=1;else if(t.runnerUpUid===currentUser.uid)placement=2;else if(t.thirdPlaceUid===currentUser.uid)placement=3;else return {awarded:false,reason:'outside-podium'};
++  const base=placement===1?{coins:300,xp:150,label:'Campeão'}:placement===2?{coins:150,xp:80,label:'Vice-campeão'}:{coins:80,xp:50,label:'3º lugar'};
+   const result=await transactArcadeRewards(state=>{
+     if(state.tournamentClaims[code])return;
+-    const now=serverNow(),unlocked=[];const grant=id=>{if(rewardCatalogItem(id)&&!state.unlocks[id]){rewardUnlock(state,id,now);unlocked.push(id);}};state.trophies.tournaments=clampInt(state.trophies.tournaments)+1;
+-    for(const id of ['title_campeao',...(state.trophies.tournaments>=3?['frame_champion']:[])])grant(id);
+-    const pass=applyBattlePassProgress(state,150,now,grant),coins=300+pass.coins;state.coins+=coins;state.earned+=coins;
+-    state.tournamentClaims[code]={at:now,coins,trophies:state.trophies.tournaments,passXp:150,passRewards:pass.rewards,unlocked};return state;
++    const now=serverNow(),unlocked=[];const grant=id=>{if(rewardCatalogItem(id)&&!state.unlocks[id]){rewardUnlock(state,id,now);unlocked.push(id);}};
++    if(placement===1){state.trophies.tournaments=clampInt(state.trophies.tournaments)+1;for(const id of ['title_campeao',...(state.trophies.tournaments>=3?['frame_champion']:[])])grant(id);}
++    const pass=applyBattlePassProgress(state,base.xp,now,grant),coins=base.coins+pass.coins;state.coins+=coins;state.earned+=coins;
++    state.tournamentClaims[code]={at:now,placement,label:base.label,coins,trophies:state.trophies.tournaments,passXp:base.xp,passRewards:pass.rewards,unlocked};return state;
+   });
+-  return {awarded:Boolean(result.committed),claim:result.state.tournamentClaims?.[code],coins:result.state.coins,state:result.state};
++  return {awarded:Boolean(result.committed),placement,claim:result.state.tournamentClaims?.[code],coins:result.state.coins,state:result.state};
+ }
+ async function buyArcadeRewardItem(itemId){
+   itemId=String(itemId||'');const item=rewardCatalogItem(itemId);if(!item||item.source!=='shop'||!item.price)throw new Error('Item inválido.');
+@@ -957,7 +963,7 @@ async function applyArcadeSettlementForCurrentUser(settlement){
+   const tx=await runTransaction(sr,current=>{const cur=normalizeArcadeCompetitive(current||{});if(cur.appliedMatches?.[settlement.code])return;return applyArcadeSettlementToState(cur,settlement,uid);},{applyLocally:false});
+   let state=normalizeArcadeCompetitive(tx.snapshot?.val()||{});
+   if(!tx.committed){state=await readArcadeRankState(seasonId,uid);await saveArcadeSeasonHistory(state,seasonId).catch(()=>{});
+-  const reward=await applyArcadeRankedRewards(settlement,state,entry).catch(e=>{console.warn('Arcade rewards backfill:',e);return {awarded:false};});await remove(ref(db,`arcadeRankedInbox/${uid}/${settlement.code}`)).catch(()=>{});return {recorded:false,reason:'already-recorded',reward,state};}
++  const reward=await applyArcadeRankedRewards(settlement,state,entry).catch(e=>{console.warn('Arcade rewards backfill:',e);return {awarded:false};});await remove(ref(db,`arcadeRankedInbox/${uid}/${settlement.code}`)).catch(()=>{});await writeCompetitiveMatchReceipt(settlement,state,reward).catch(()=>{});return {recorded:false,reason:'already-recorded',reward,state};}
+   const local=localProfile(),seasonLocal=(local?.seasonProfile&&String(local.seasonProfile.seasonId||'').toUpperCase()===seasonId)?local.seasonProfile:{};
+   const next={...local,arcadeCompetitive:state,seasonProfile:{...seasonLocal,seasonId,seasonLabel:currentSeasonLabel(),arcadeCompetitive:state}};
+   CORE()?.replaceProfile?.(next);await flushProfile(next);
+@@ -965,7 +971,8 @@ async function applyArcadeSettlementForCurrentUser(settlement){
+   await saveArcadeSeasonHistory(state,seasonId).catch(()=>{});
+   const league=arcadeCompetitiveLeague(state.rp,state.played),gameState=normalizeArcadeCompetitiveGame(state.games?.[settlement.game]);
+   const reward=await applyArcadeRankedRewards(settlement,state,entry).catch(e=>{console.warn('Arcade rewards:',e);return {awarded:false,error:String(e?.message||e)};});
+-  return {recorded:true,won:entry.result==='win',game:settlement.game,delta:Math.round(finite(entry.delta,0)),gameDelta:Math.round(finite(entry.gameDelta,0)),rp:state.rp,gameRp:gameState.rp,division:league.label,divisionIcon:league.icon,placement:Math.min(ARCADE_PLACEMENT_MATCHES,state.played),placementTotal:ARCADE_PLACEMENT_MATCHES,reward,state};
++  await writeCompetitiveMatchReceipt(settlement,state,reward).catch(e=>console.warn('Competitive receipt:',e));
++  return {recorded:true,matchId:settlement.matchId||`${seasonId}_${settlement.code}`,won:entry.result==='win',game:settlement.game,delta:Math.round(finite(entry.delta,0)),gameDelta:Math.round(finite(entry.gameDelta,0)),rp:state.rp,gameRp:gameState.rp,division:league.label,divisionIcon:league.icon,placement:Math.min(ARCADE_PLACEMENT_MATCHES,state.played),placementTotal:ARCADE_PLACEMENT_MATCHES,reward,state};
+ }
+ async function recordArcadeMatchResult(code,gameKey=''){
+   if(!currentUser||!db||!code)throw new Error('Faça login para registrar a partida ranqueada.');code=String(code).toUpperCase();
+@@ -991,7 +998,7 @@ async function createArcadeTournament(options={}){
+   for(let tries=0;tries<12;tries++){
+     const code=arcadeTournamentCode(),rr=arcadeTournamentRef(code);if((await get(rr)).exists())continue;
+     const now=serverNow(),playerName=cleanName(localProfile()?.nickname||currentUser.displayName||currentUser.email?.split('@')[0]);
+-    const room={code,protocolVersion:ARCADE_TOURNAMENT_PROTOCOL_VERSION,name,visibility,hostUid:currentUser.uid,game,maxPlayers,bestOf,format:'single_elimination',status:'waiting',createdAt:now,updatedAt:now,expiresAt:now+ARCADE_TOURNAMENT_TTL_MS,championUid:'',participants:{[currentUser.uid]:{uid:currentUser.uid,name:playerName,joinedAt:now,seed:1}},matches:{}};
++    const room={code,protocolVersion:ARCADE_TOURNAMENT_PROTOCOL_VERSION,name,visibility,hostUid:currentUser.uid,game,maxPlayers,bestOf,format:'single_elimination',thirdPlace:true,status:'waiting',createdAt:now,updatedAt:now,expiresAt:now+ARCADE_TOURNAMENT_TTL_MS,championUid:'',runnerUpUid:'',thirdPlaceUid:'',participants:{[currentUser.uid]:{uid:currentUser.uid,name:playerName,joinedAt:now,seed:1}},matches:{}};
+     await set(rr,room);return code;
+   }
+   throw new Error('Não consegui gerar o código do torneio.');
+@@ -1005,7 +1012,9 @@ async function joinArcadeTournament(code){
+     const count=Object.keys(t.participants).length;if(count>=Number(t.maxPlayers||4))return;
+     t.participants[currentUser.uid]={uid:currentUser.uid,name,joinedAt:serverNow(),seed:count+1};t.updatedAt=serverNow();return t;
+   },{applyLocally:false});
+-  if(!tx.committed||!tx.snapshot?.val()?.participants?.[currentUser.uid])throw new Error('O torneio não existe, já iniciou ou está cheio.');return code;
++  if(!tx.committed||!tx.snapshot?.val()?.participants?.[currentUser.uid])throw new Error('O torneio não existe, já iniciou ou está cheio.');
++  const joined=tx.snapshot?.val();if(joined?.status==='waiting'&&Object.keys(joined.participants||{}).length===Number(joined.maxPlayers||0))await autoStartArcadeTournament(code).catch(e=>console.warn('Tournament auto start:',e));
++  return code;
+ }
+ function watchArcadeTournament(code,cb){if(!db)return()=>{};return onValue(arcadeTournamentRef(code),s=>cb?.(s.val()||null,null),e=>cb?.(null,e));}
+ function buildArcadeTournamentMatches(t){
+@@ -1014,11 +1023,15 @@ function buildArcadeTournamentMatches(t){
+   for(let r=1;r<=rounds;r++){
+     const count=size/Math.pow(2,r);
+     for(let i=0;i<count;i++){
+-      const id=`r${r}m${i+1}`;matches[id]={id,round:r,index:i+1,status:'waiting',player1Uid:r===1?(players[i*2]?.uid||''):'',player2Uid:r===1?(players[i*2+1]?.uid||''):'',score1:0,score2:0,winnerUid:'',fightRoomCode:'',completedFightRooms:{}};
++      const id=`r${r}m${i+1}`;matches[id]={id,round:r,index:i+1,status:'waiting',player1Uid:r===1?(players[i*2]?.uid||''):'',player2Uid:r===1?(players[i*2+1]?.uid||''):'',score1:0,score2:0,winnerUid:'',loserUid:'',fightRoomCode:'',completedFightRooms:{}};
+     }
+   }
++  matches.third={id:'third',round:rounds,index:99,label:'TERCEIRO LUGAR',isThirdPlace:true,status:'waiting',player1Uid:'',player2Uid:'',score1:0,score2:0,winnerUid:'',loserUid:'',fightRoomCode:'',completedFightRooms:{}};
+   return matches;
+ }
++async function autoStartArcadeTournament(code){
++  if(!currentUser||!db)return null;code=String(code||'').toUpperCase();const tx=await runTransaction(arcadeTournamentRef(code),t=>{if(!t||t.status!=='waiting'||!t.participants?.[currentUser.uid])return;if(Object.keys(t.participants||{}).length!==Number(t.maxPlayers||0))return;t.matches=buildArcadeTournamentMatches(t);t.status='playing';t.startedAt=serverNow();t.updatedAt=serverNow();return t;},{applyLocally:false});return tx.snapshot?.val()||null;
++}
+ async function startArcadeTournament(code){
+   if(!currentUser)throw new Error('Faça login.');code=String(code||'').toUpperCase();
+   const tx=await runTransaction(arcadeTournamentRef(code),t=>{
+@@ -1045,17 +1058,25 @@ async function recordArcadeTournamentFightResult(code,matchId,fightCode,winnerUi
+     m.completedFightRooms[fightCode]={winnerUid,at:serverNow()};if(winnerUid===m.player1Uid)m.score1=num(m.score1)+1;else m.score2=num(m.score2)+1;
+     const target=Math.ceil(Number(t.bestOf||3)/2);m.fightRoomCode='';m.status='waiting';m.updatedAt=serverNow();
+     if(Number(m.score1)>=target||Number(m.score2)>=target){
+-      m.winnerUid=winnerUid;m.status='finished';const rounds=Math.log2(Number(t.maxPlayers||4));
+-      if(Number(m.round)>=rounds){t.championUid=winnerUid;t.status='finished';t.finishedAt=serverNow();}
++      const loserUid=winnerUid===m.player1Uid?m.player2Uid:m.player1Uid;
++      m.winnerUid=winnerUid;m.loserUid=loserUid;m.status='finished';m.finishedAt=serverNow();const rounds=Math.log2(Number(t.maxPlayers||4));
++      if(m.isThirdPlace){t.thirdPlaceUid=winnerUid;}
++      else if(Number(m.round)>=rounds){t.championUid=winnerUid;t.runnerUpUid=loserUid;}
+       else{
+         const nextId=`r${Number(m.round)+1}m${Math.floor((Number(m.index)-1)/2)+1}`,next=t.matches?.[nextId];
+         if(next){if(Number(m.index)%2===1)next.player1Uid=winnerUid;else next.player2Uid=winnerUid;next.updatedAt=serverNow();}
++        if(Number(m.round)===rounds-1){const third=t.matches?.third;if(third){if(Number(m.index)%2===1)third.player1Uid=loserUid;else third.player2Uid=loserUid;third.updatedAt=serverNow();}}
+       }
+     }
++    const final=t.matches?.[`r${Math.log2(Number(t.maxPlayers||4))}m1`],third=t.matches?.third;
++    if(final?.winnerUid&&(!t.thirdPlace||third?.winnerUid)){t.status='finished';t.finishedAt=serverNow();}
+     t.updatedAt=serverNow();return t;
+   },{applyLocally:false});
+   const value=tx.snapshot?.val()||null;
+-  if(value?.status==='finished'&&value?.championUid===currentUser.uid)await claimArcadeTournamentReward(code).catch(e=>console.warn('Tournament reward:',e));
++  if(value?.status==='finished'){
++    await archiveArcadeTournament(value).catch(e=>console.warn('Tournament archive:',e));
++    if(value?.championUid===currentUser.uid)await claimArcadeTournamentReward(code).catch(e=>console.warn('Tournament reward:',e));
++  }
+   return value;
+ }
+ 
+@@ -1096,9 +1117,9 @@ async function getArcadeIdentity(uid=currentUser?.uid){
+   if(!uid||!db)return null;const seasonId=currentSeasonId(),self=uid===currentUser?.uid;const [rowSnap,avatar,publicSnap]=await Promise.all([get(ref(db,`rankedSeasons/${seasonId}/leaderboard/${uid}`)),getArcadeAvatar3D(uid),get(ref(db,`publicProfiles/${uid}`))]);let rewards=null;if(self)rewards=await ensureArcadeRewardProfile().catch(()=>getArcadeRewards());return {uid,season:{...currentSeason},row:rowSnap.val()||{},avatar,publicProfile:publicSnap.val()||{},rewards};
+ }
+ async function getArcadeCompetitiveProfile(uid=currentUser?.uid){
+-  if(!uid||!db)return null;const seasonId=currentSeasonId();const self=uid===currentUser?.uid;const [rowSnap,avatar,history,matches,rivals,publicSnap,finalRankSnap]=await Promise.all([
+-    get(ref(db,`rankedSeasons/${seasonId}/leaderboard/${uid}`)),getArcadeAvatar3D(uid),getArcadeSeasonHistory(uid),getArcadeMatchHistory(uid,seasonId,30),getArcadeRivalries(uid,seasonId),get(ref(db,`publicProfiles/${uid}`)),get(ref(db,`rankedSeasons/${seasonId}/finalRanks/${uid}`)).catch(()=>null)
+-  ]);let rewards=null;if(self)rewards=await ensureArcadeRewardProfile().catch(()=>getArcadeRewards());return {uid,season:{...currentSeason},row:rowSnap.val()||{},avatar,history,matches,rivals,publicProfile:publicSnap.val()||{},rewards,finalRank:finalRankSnap?.val?.()||null};
++  if(!uid||!db)return null;const seasonId=currentSeasonId(),self=uid===currentUser?.uid;const [rowSnap,avatar,history,matches,rivals,publicSnap,finalRankSnap,tournaments]=await Promise.all([
++    get(ref(db,`rankedSeasons/${seasonId}/leaderboard/${uid}`)),getArcadeAvatar3D(uid),getArcadeSeasonHistory(uid),getCompetitiveMatchHistory(uid,seasonId,30),getArcadeRivalries(uid,seasonId),get(ref(db,`publicProfiles/${uid}`)),get(ref(db,`rankedSeasons/${seasonId}/finalRanks/${uid}`)).catch(()=>null),getArcadeTournamentHistory(uid,seasonId,30)
++  ]);let rewards=null;if(self)rewards=await ensureArcadeRewardProfile().catch(()=>getArcadeRewards());return {uid,season:{...currentSeason},row:rowSnap.val()||{},avatar,history,matches,rivals,publicProfile:publicSnap.val()||{},rewards,finalRank:finalRankSnap?.val?.()||null,tournaments};
+ }
+ async function claimArcadeSeasonPlacementReward(seasonId=currentSeasonId()){
+   if(!currentUser||!db)throw new Error('Faça login.');seasonId=String(seasonId||currentSeasonId()).toUpperCase();const [metaSnap,rankSnap]=await Promise.all([get(ref(db,`rankedSeasons/${seasonId}/meta`)),get(ref(db,`rankedSeasons/${seasonId}/finalRanks/${currentUser.uid}`))]);const meta=metaSnap.val()||{},rank=Number(rankSnap.val()?.rank||rankSnap.val()||0);if(!meta.finalized||!rank)throw new Error('A classificação final desta temporada ainda não foi publicada.');const reward=ARCADE_SEASON_PLACEMENT_REWARDS.find(x=>rank<=x.max);if(!reward)return {awarded:false,reason:'outside-top100'};
+@@ -1434,7 +1455,7 @@ if(configured){
+         if(socialPresenceHandle&&currentUser?.uid===socialPresenceHandle.uid){try{await socialPresenceHandle.d.remove();await set(socialPresenceHandle.pr,{sessionId:CLIENT_SESSION_ID,online:true,at:serverTimestamp()});}catch(e){console.warn('Social presence restore:',e);}}
+       }
+     });
+-    seasonUnsub=onValue(ref(db,'rankedConfig/currentSeason'),snap=>{currentSeason=normalizeSeason(snap.val()||DEFAULT_SEASON);if($('rankingSeasonBanner'))$('rankingSeasonBanner').innerHTML=`<b>🏁 ${escapeHtml(currentSeasonLabel())}</b><span>${escapeHtml(currentSeason.description||'Ranking da temporada atual')}</span>`;},()=>{currentSeason={...DEFAULT_SEASON};});
++    seasonUnsub=onValue(ref(db,'rankedConfig/currentSeason'),snap=>{const previous={...currentSeason},next=normalizeSeason(snap.val()||DEFAULT_SEASON);currentSeason=next;if(currentUser&&previous.id&&previous.id!==next.id)archiveSeasonForCurrentUser(previous.id,localProfile()?.seasonProfile?.arcadeCompetitive||localProfile()?.arcadeCompetitive||{}).catch(e=>console.warn('Season rollover archive:',e));if($('rankingSeasonBanner'))$('rankingSeasonBanner').innerHTML=`<b>🏁 ${escapeHtml(currentSeasonLabel())}</b><span>${escapeHtml(currentSeason.description||'Ranking da temporada atual')}</span>`;window.dispatchEvent(new CustomEvent('gameguess:seasonchange',{detail:{previous,next}}));},()=>{currentSeason={...DEFAULT_SEASON};});
+         onAuthStateChanged(auth,async user=>{
+       if(socialPresenceHandle&&(!user||socialPresenceHandle.uid!==user.uid))await detachSocialPresence().catch(()=>{});
+       currentUser=user||null;
+@@ -1565,6 +1586,7 @@ async function uploadArcadeReplay(payload={}){
+   const now=serverNow();
+   const meta={version:ARCADE_REPLAY_CLOUD_VERSION,id,seasonId,uploaderUid:uid,uploaderName:publicName(),game:String(payload.game||'').slice(0,32),title:String(payload.title||'').slice(0,80),room:String(payload.room||'').toUpperCase().slice(0,16),visibility,participants,winnerUid:String(payload.winnerUid||'').slice(0,160),createdAt:clampInt(payload.createdAt||now,0,9999999999999),uploadedAt:now,durationMs:clampInt(payload.durationMs||0,0,60*60*1000),size:clampInt(payload.size||payload.videoBlob?.size||0,0,500*1024*1024),mimeType:String(payload.mimeType||payload.videoBlob?.type||'video/webm').slice(0,100),audio:Boolean(payload.audio),inputReplay:Boolean(files['inputs.json']),stateReplay:Boolean(files['initial.state']),inputEvents:clampInt(payload.inputEvents||0,0,500000),ejsVersion:String(payload.ejsVersion||'').slice(0,32),core:String(payload.core||'').slice(0,40),romSha256:String(payload.romSha256||'').slice(0,64),files};
+   await set(ref(db,`arcadeReplays/${id}`),meta);
++  await linkReplayToCompetitiveMatch(meta).catch(e=>console.warn('Replay competitive link:',e));
+   return meta;
+ }
+ async function listArcadeCloudReplays(limit=50){
+@@ -1605,6 +1627,62 @@ function listenToArcadeRanking(limit=10,cb=()=>{}){
+   },e=>{console.warn('Arcade ranking listener:',e);cb([]);});
+ }
+ 
++
++// ===== Competitive Ecosystem V3.6: match core, desafios, temporadas e social direto =====
++const COMPETITIVE_CORE_VERSION=1;
++const ARCADE_DISCONNECT_GRACE_MS=45000;
++function competitiveMatchRef(seasonId,code){return ref(db,`competitiveMatches/${String(seasonId||currentSeasonId()).toUpperCase()}/${String(code||'').toUpperCase()}`);}
++async function ensureCompetitiveMatchRecord(settlement,room=null){
++  if(!db||!settlement?.code)return null;const seasonId=String(settlement.seasonId||currentSeasonId()).toUpperCase(),code=String(settlement.code).toUpperCase();
++  room=room||(await get(ref(db,`fightRooms/${code}`))).val()||{};
++  const players={};for(const [uid,e] of Object.entries(settlement.players||{}))players[uid]={uid,name:cleanName(room.players?.[uid]?.name||'Jogador'),result:e.result,beforeRp:clampInt(e.beforeRp),delta:Math.round(finite(e.delta,0)),expectedAfterRp:clampInt(e.afterRp),beforeGameRp:clampInt(e.beforeGameRp),gameDelta:Math.round(finite(e.gameDelta,0)),expectedAfterGameRp:clampInt(e.afterGameRp)};
++  const candidate={version:COMPETITIVE_CORE_VERSION,matchId:settlement.matchId||`${seasonId}_${code}`,code,seasonId,game:String(settlement.game||room.arcadeGame||'kf2k2mp2'),status:'finished',ranked:true,sourceType:room.tournamentCode?'tournament':'ranked',tournamentCode:String(room.tournamentCode||settlement.tournamentCode||''),tournamentMatchId:String(room.tournamentMatchId||settlement.tournamentMatchId||''),createdAt:Number(room.createdAt||settlement.createdAt||serverNow()),startedAt:Number(room.launchAt||room.startedAt||0),finishedAt:Number(room.finishedAt||settlement.finishedAt||serverNow()),finishReason:String(room.finishReason||settlement.finishReason||'confirmed'),winnerUid:String(settlement.winnerUid||room.winnerUid||''),loserUid:String(settlement.loserUid||''),resultVotes:{...(room.resultVotes||settlement.resultVotes||{})},players,replays:{},receipts:{},rematchOf:String(room.rematchOf||''),rematchCode:'',updatedAt:serverNow()};
++  const rr=competitiveMatchRef(seasonId,code),tx=await runTransaction(rr,current=>current?{...current,updatedAt:serverNow()}:candidate,{applyLocally:false});return tx.snapshot?.val()||candidate;
++}
++async function writeCompetitiveMatchReceipt(settlement,state,reward={}){
++  if(!currentUser||!db||!settlement?.code)return false;const uid=currentUser.uid,entry=settlement.players?.[uid];if(!entry)return false;const seasonId=String(settlement.seasonId||currentSeasonId()).toUpperCase(),code=String(settlement.code).toUpperCase();
++  await ensureCompetitiveMatchRecord(settlement).catch(()=>{});
++  const receipt={uid,result:entry.result,rp:clampInt(state?.rp),gameRp:clampInt(state?.games?.[settlement.game]?.rp),rpDelta:Math.round(finite(entry.delta,0)),gameRpDelta:Math.round(finite(entry.gameDelta,0)),coins:clampInt(reward?.totalCoins||0),passXp:clampInt(reward?.passXp||0),streak:clampInt(state?.currentStreak),division:arcadeCompetitiveLeague(state?.rp,state?.played).label,appliedAt:serverNow()};
++  await set(ref(db,`competitiveMatches/${seasonId}/${code}/receipts/${uid}`),receipt);await update(ref(db,`competitiveMatches/${seasonId}/${code}`),{updatedAt:serverNow()});return true;
++}
++async function getCompetitiveMatch(code,seasonId=currentSeasonId()){if(!db||!code)return null;return (await get(competitiveMatchRef(seasonId,code))).val()||null;}
++async function getCompetitiveMatchHistory(uid=currentUser?.uid,seasonId=currentSeasonId(),take=40){if(!uid||!db)return[];const snap=await get(ref(db,`competitiveMatches/${String(seasonId||currentSeasonId()).toUpperCase()}`));return Object.values(snap.val()||{}).filter(m=>m?.players?.[uid]).sort((a,b)=>Number(b.finishedAt||0)-Number(a.finishedAt||0)).slice(0,Math.max(1,Math.min(100,Number(take)||40)));}
++async function createArcadeRematch(code){
++  if(!currentUser||!db)throw new Error('Faça login.');code=String(code||'').toUpperCase();const old=(await get(ref(db,`fightRooms/${code}`))).val();if(!old||old.status!=='finished'||!old.players?.[currentUser.uid])throw new Error('Partida anterior inválida.');const opponent=Object.keys(old.players||{}).find(uid=>uid!==currentUser.uid);if(!opponent)throw new Error('Rival não encontrado.');const game=old.arcadeGame||'kf2k2mp2',newCode=await createFightRoom({arcadeGame:game,ranked:old.ranked!==false,tournamentCode:'',tournamentMatchId:''});const now=serverNow();await update(ref(db,`fightRooms/${newCode}`),{rematchOf:code,challengeFromUid:currentUser.uid,challengeToUid:opponent});await update(ref(db,`competitiveMatches/${String(old.rankedSeasonId||currentSeasonId()).toUpperCase()}/${code}`),{rematchCode:newCode,updatedAt:now}).catch(()=>{});await set(ref(db,`gameInvites/${opponent}/${currentUser.uid}`),{type:'arcade-rematch',challengeId:`rematch_${newCode}`,fromUid:currentUser.uid,fromName:publicName(),game,roomCode:newCode,ranked:old.ranked!==false,rematchOf:code,createdAt:now,expiresAt:now+15*60*1000});return {roomCode:newCode,game,opponentUid:opponent};
++}
++async function concedeFight(code){
++  if(!currentUser||!db)throw new Error('Faça login.');code=String(code||'').toUpperCase();const rr=ref(db,`fightRooms/${code}`),room=(await get(rr)).val();if(!room||room.status!=='playing'||!room.players?.[currentUser.uid])throw new Error('Não há uma luta ativa para abandonar.');const opponent=Object.keys(room.players||{}).find(uid=>uid!==currentUser.uid);if(!opponent)throw new Error('Rival não encontrado.');
++  await update(rr,{winnerUid:opponent,status:'finished',finishReason:'forfeit',forfeitUid:currentUser.uid,finishedAt:serverNow(),updatedAt:serverNow(),expiresAt:serverNow()+FINISHED_TTL_MS});await ensureArcadeRankedSettlement(code).catch(()=>{});return opponent;
++}
++async function markFightDisconnect(code){if(!currentUser||!db||!code)return;code=String(code).toUpperCase();await update(ref(db,`fightRooms/${code}/players/${currentUser.uid}`),{connectionState:'disconnected',disconnectedAt:serverNow(),lastSeen:serverNow()}).catch(()=>{});}
++async function restoreFightConnectionState(code){if(!currentUser||!db||!code)return;code=String(code).toUpperCase();await update(ref(db,`fightRooms/${code}/players/${currentUser.uid}`),{connectionState:'online',reconnectedAt:serverNow(),lastSeen:serverNow()}).catch(()=>{});}
++async function claimDisconnectWin(code){
++  if(!currentUser||!db)throw new Error('Faça login.');code=String(code||'').toUpperCase();const rr=ref(db,`fightRooms/${code}`),room=(await get(rr)).val();if(!room||room.status!=='playing'||!room.players?.[currentUser.uid])throw new Error('Sala não está em disputa.');const opponent=Object.keys(room.players||{}).find(uid=>uid!==currentUser.uid),p=room.players?.[opponent]||{};if(!opponent)throw new Error('Rival não encontrado.');if(fightPlayerOnline(room,opponent))throw new Error('O rival está online.');const since=Number(p.disconnectedAt||p.lastSeen||0);if(!since||serverNow()-since<ARCADE_DISCONNECT_GRACE_MS)throw new Error('Aguarde 45 segundos de reconexão antes de solicitar vitória por queda.');
++  await update(rr,{winnerUid:currentUser.uid,status:'finished',finishReason:'disconnect',disconnectLoserUid:opponent,finishedAt:serverNow(),updatedAt:serverNow(),expiresAt:serverNow()+FINISHED_TTL_MS});await ensureArcadeRankedSettlement(code).catch(()=>{});return true;
++}
++async function linkReplayToCompetitiveMatch(meta={}){const code=String(meta.room||'').toUpperCase();if(!code||!db)return false;const room=(await get(ref(db,`fightRooms/${code}`))).val();const seasonId=String(room?.rankedSeasonId||meta.seasonId||currentSeasonId()).toUpperCase();const rr=competitiveMatchRef(seasonId,code),snap=await get(rr);if(!snap.exists())return false;await update(rr,{[`replays/${meta.id}`]:{id:meta.id,visibility:meta.visibility||'participants',inputReplay:Boolean(meta.inputReplay),audio:Boolean(meta.audio),uploadedAt:Number(meta.uploadedAt||serverNow()),uploaderUid:String(meta.uploaderUid||'')},updatedAt:serverNow()});if(room?.tournamentCode){const tid=String(room.tournamentCode).toUpperCase(),mid=String(room.tournamentMatchId||'');const patch={};patch[`arcadeTournamentHistory/${seasonId}/${tid}/replays/${meta.id}`]={id:meta.id,room:code,matchId:mid,at:serverNow()};if(mid&&room?.tournamentMatchId&&String(mid).startsWith('r')&&room?.tournamentMatchId===mid){const t=(await get(arcadeTournamentRef(tid))).val();const rounds=Math.log2(Number(t?.maxPlayers||4));if(mid===`r${rounds}m1`)patch[`arcadeTournamentHistory/${seasonId}/${tid}/finalReplayId`]=meta.id;}await update(ref(db),patch).catch(()=>{});}return true;}
++
++function tournamentSummary(t={}){return {code:String(t.code||''),seasonId:currentSeasonId(),name:String(t.name||'Torneio Arcade'),game:String(t.game||''),maxPlayers:Number(t.maxPlayers||4),bestOf:Number(t.bestOf||3),visibility:String(t.visibility||'public'),championUid:String(t.championUid||''),runnerUpUid:String(t.runnerUpUid||''),thirdPlaceUid:String(t.thirdPlaceUid||''),participants:t.participants||{},createdAt:Number(t.createdAt||0),startedAt:Number(t.startedAt||0),finishedAt:Number(t.finishedAt||serverNow()),finalReplayId:String(t.finalReplayId||''),replays:{}};}
++async function archiveArcadeTournament(t){if(!db||!t?.code||t.status!=='finished')return null;const seasonId=String(t.seasonId||currentSeasonId()).toUpperCase(),rr=ref(db,`arcadeTournamentHistory/${seasonId}/${String(t.code).toUpperCase()}`),candidate=tournamentSummary(t);try{const rounds=Math.log2(Number(t.maxPlayers||4)),final=t.matches?.[`r${rounds}m1`],rooms=new Set(Object.keys(final?.completedFightRooms||{}));if(rooms.size){const reps=Object.values((await get(ref(db,'arcadeReplays'))).val()||{}).filter(r=>rooms.has(String(r.room||'').toUpperCase())).sort((a,b)=>Number(b.createdAt||0)-Number(a.createdAt||0));if(reps[0])candidate.finalReplayId=reps[0].id;}}catch{}const tx=await runTransaction(rr,current=>current?{...candidate,...current,finalReplayId:current.finalReplayId||candidate.finalReplayId||''}:candidate,{applyLocally:false});return tx.snapshot?.val()||candidate;}
++async function getArcadeTournamentHistory(uid='',seasonId=currentSeasonId(),take=30){if(!db)return[];const snap=await get(ref(db,`arcadeTournamentHistory/${String(seasonId||currentSeasonId()).toUpperCase()}`));return Object.values(snap.val()||{}).filter(t=>!uid||t?.participants?.[uid]).sort((a,b)=>Number(b.finishedAt||0)-Number(a.finishedAt||0)).slice(0,Math.max(1,Math.min(100,Number(take)||30)));}
++
++function challengeDayKey(now=serverNow()){const d=new Date(now);return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`;}
++function challengeWeekKey(now=serverNow()){const d=new Date(now),x=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate()));x.setUTCDate(x.getUTCDate()+4-(x.getUTCDay()||7));const y=new Date(Date.UTC(x.getUTCFullYear(),0,1)),w=Math.ceil((((x-y)/86400000)+1)/7);return `${x.getUTCFullYear()}-W${String(w).padStart(2,'0')}`;}
++async function getArcadeChallengeBoard(uid=currentUser?.uid){
++  if(!uid||!db)return {daily:[],weekly:[]};const seasonId=currentSeasonId(),matches=await getCompetitiveMatchHistory(uid,seasonId,100),now=serverNow(),day=challengeDayKey(now),week=challengeWeekKey(now),startDay=Date.parse(`${day}T00:00:00Z`);const d=new Date(now),dow=d.getUTCDay()||7,startWeek=Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate()-dow+1);const today=matches.filter(m=>Number(m.finishedAt||0)>=startDay),thisWeek=matches.filter(m=>Number(m.finishedAt||0)>=startWeek),wins=a=>a.filter(m=>m.winnerUid===uid).length,uniqueGames=a=>new Set(a.map(m=>m.game)).size;
++  const daily=[{id:`daily_${day}_play2`,period:'daily',key:day,label:'Jogue 2 partidas Ranked',goal:2,value:today.length,coins:25,xp:30},{id:`daily_${day}_win1`,period:'daily',key:day,label:'Vença 1 partida Ranked',goal:1,value:wins(today),coins:35,xp:40},{id:`daily_${day}_games2`,period:'daily',key:day,label:'Jogue 2 jogos de luta diferentes',goal:2,value:uniqueGames(today),coins:30,xp:35}];
++  const weekly=[{id:`weekly_${week}_play8`,period:'weekly',key:week,label:'Jogue 8 partidas Ranked',goal:8,value:thisWeek.length,coins:120,xp:150},{id:`weekly_${week}_win4`,period:'weekly',key:week,label:'Vença 4 partidas Ranked',goal:4,value:wins(thisWeek),coins:160,xp:200},{id:`weekly_${week}_games4`,period:'weekly',key:week,label:'Jogue todos os 4 jogos competitivos',goal:4,value:uniqueGames(thisWeek),coins:180,xp:220}];
++  const state=uid===currentUser?.uid?await ensureArcadeRewardProfile().catch(()=>getArcadeRewards()):null;for(const c of [...daily,...weekly]){c.done=c.value>=c.goal;c.claimed=Boolean(state?.challengeClaims?.[c.id]);}return {daily,weekly,day,week};
++}
++async function claimArcadeChallenge(challengeId){if(!currentUser)throw new Error('Faça login.');const board=await getArcadeChallengeBoard(currentUser.uid),c=[...board.daily,...board.weekly].find(x=>x.id===challengeId);if(!c||!c.done)throw new Error('Este desafio ainda não foi concluído.');const result=await transactArcadeRewards(state=>{state.challengeClaims=state.challengeClaims||{};if(state.challengeClaims[c.id])return;const now=serverNow(),unlocked=[];const grant=id=>{if(rewardCatalogItem(id)&&!state.unlocks[id]){rewardUnlock(state,id,now);unlocked.push(id);}};const pass=applyBattlePassProgress(state,c.xp,now,grant);const coins=c.coins+pass.coins;state.coins+=coins;state.earned+=coins;state.challengeClaims[c.id]={at:now,coins:c.coins,xp:c.xp,passRewards:pass.rewards};return state;});return {claimed:Boolean(result.committed),challenge:c,state:result.state};}
++
++async function archiveSeasonForCurrentUser(seasonId,stateOverride=null){if(!currentUser||!db||!seasonId)return null;const state=normalizeArcadeCompetitive(stateOverride||localProfile()?.seasonProfile?.arcadeCompetitive||{}),league=arcadeCompetitiveLeague(state.rp,state.played),payload={seasonId:String(seasonId).toUpperCase(),finalRp:state.rp,peakRp:Math.max(state.rp,clampInt(localProfile()?.seasonProfile?.peakRp||0)),division:league.label,divisionIcon:league.icon,played:state.played,wins:state.wins,losses:state.losses,bestStreak:state.bestStreak,games:state.games,archivedAt:serverNow()};await update(ref(db,`arcadeSeasonHistory/${currentUser.uid}/${String(seasonId).toUpperCase()}`),payload);return payload;}
++
++async function createArcadeFriendChallenge(targetUid,{game='kf2k2mp2',ranked=true}={}){if(!currentUser)throw new Error('Faça login.');targetUid=String(targetUid||'');if(!targetUid||targetUid===currentUser.uid)throw new Error('Jogador inválido.');if(!validArcadeTournamentGame(game))throw new Error('Jogo competitivo inválido.');const roomCode=await createFightRoom({arcadeGame:game,ranked});const now=serverNow(),challengeId=`${currentUser.uid.slice(0,8)}_${roomCode}`;await set(ref(db,`gameInvites/${targetUid}/${currentUser.uid}`),{type:'arcade-challenge',challengeId,fromUid:currentUser.uid,fromName:publicName(),game,roomCode,ranked:Boolean(ranked),createdAt:now,expiresAt:now+15*60*1000});await update(ref(db,`fightRooms/${roomCode}`),{challengeFromUid:currentUser.uid,challengeToUid:targetUid,challengeId});return {roomCode,game,challengeId};}
++async function acceptArcadeFriendChallenge(fromUid){if(!currentUser||!db)throw new Error('Faça login.');fromUid=String(fromUid||'');const rr=ref(db,`gameInvites/${currentUser.uid}/${fromUid}`),invite=(await get(rr)).val();if(!invite||!['arcade-challenge','arcade-rematch'].includes(invite.type)||Number(invite.expiresAt||0)<=serverNow())throw new Error('Desafio expirado ou inválido.');await joinFightRoom(invite.roomCode,invite.game);await remove(rr);return {roomCode:String(invite.roomCode).toUpperCase(),game:String(invite.game),fromUid};}
++async function declineArcadeFriendChallenge(fromUid){if(!currentUser||!db)return;await remove(ref(db,`gameInvites/${currentUser.uid}/${String(fromUid||'')}`));}
++async function getArcadeChallengeInbox(){if(!currentUser||!db)return[];const data=await getSocialData();return (data.invites||[]).filter(i=>['arcade-challenge','arcade-rematch'].includes(i.type)).map(i=>({...i,expired:Number(i.expiresAt||0)<=serverNow()}));}
++
+ window.GameGuessRanked={record:recordRankedResult};
+ window.GameGuessFirebase={
+   configured, appVersion:APP_VERSION, protocolVersion:PROTOCOL_VERSION, sessionId:CLIENT_SESSION_ID,
+@@ -1612,13 +1690,13 @@ window.GameGuessFirebase={
+   syncLocalProfile, ratingOf, serverNow, isConnected, newSubmissionId, recordRankedResult, getSeason:()=>({...currentSeason}), getQuizHistory, markQuizHistory,
+   createDuelRoom, joinDuelRoom, startDuelRoom, leaveDuelRoom, ensureDuelHost, attachDuelPresence, detachDuelPresence, cleanupExpiredDuel,
+   watchDuel, mutateDuel, deleteDuel,getRoom:async code=>configured?(await get(ref(db,`duels/${String(code||'').toUpperCase()}`))).val():null,
+-  fightProtocolVersion:FIGHT_PROTOCOL_VERSION, arcadeRankVersion:ARCADE_RANK_VERSION, arcadeRankInfo:(rp,played)=>arcadeCompetitiveLeague(rp,played), arcadeRankTransfer:arcadeCompetitiveTransfer, createFightRoom, joinFightRoom, watchFightRoom, markFightReady, requestFightLaunch, submitFightResult, claimFightRankedRecord, ensureArcadeRankedSettlement, recordArcadeMatchResult, syncPendingArcadeRanked, leaveFightRoom, attachFightPresence, detachFightPresence, getFightRoom:async code=>configured?(await get(ref(db,`fightRooms/${String(code||'').toUpperCase()}`))).val():null,
++  fightProtocolVersion:FIGHT_PROTOCOL_VERSION, arcadeRankVersion:ARCADE_RANK_VERSION, arcadeRankInfo:(rp,played)=>arcadeCompetitiveLeague(rp,played), arcadeRankTransfer:arcadeCompetitiveTransfer, createFightRoom, joinFightRoom, watchFightRoom, markFightReady, requestFightLaunch, submitFightResult, claimFightRankedRecord, ensureArcadeRankedSettlement, recordArcadeMatchResult, syncPendingArcadeRanked, leaveFightRoom, attachFightPresence, detachFightPresence, concedeFight, markFightDisconnect, restoreFightConnectionState, claimDisconnectWin, createArcadeRematch, getFightRoom:async code=>configured?(await get(ref(db,`fightRooms/${String(code||'').toUpperCase()}`))).val():null,
+   arcadeRewardVersion:ARCADE_REWARD_VERSION, arcadeRewardCatalog:arcadeRewardCatalogPublic, arcadeRewardRanks:()=>ARCADE_REWARD_RANKS.map(x=>({...x,unlocks:[...x.unlocks]})), arcadeRewardMilestones:()=>[...ARCADE_REWARD_MILESTONES.map(x=>({key:x.key,label:x.label,coins:x.coins,unlocks:[...x.unlocks]})),...ARCADE_UPSET_REWARDS.map(x=>({key:x.key,label:x.label,coins:x.coins,unlocks:[...x.unlocks]}))], arcadeBattlePass:()=>({maxLevel:ARCADE_BATTLE_PASS_MAX_LEVEL,rewards:ARCADE_BATTLE_PASS_REWARDS.map(x=>({...x,unlocks:[...x.unlocks]}))}), getArcadeRewards, watchArcadeRewards, ensureArcadeRewardProfile, buyArcadeRewardItem, equipArcadeRewardItem, claimArcadeTournamentReward, claimArcadeSeasonPlacementReward,
+-  arcadeTournamentProtocolVersion:ARCADE_TOURNAMENT_PROTOCOL_VERSION, createArcadeTournament, joinArcadeTournament, watchArcadeTournament, startArcadeTournament, linkArcadeTournamentFightRoom, recordArcadeTournamentFightResult, getArcadeTournament:async code=>configured?(await get(arcadeTournamentRef(code))).val():null, listArcadePublicTournaments, listenToArcadeRanking, listenArcadeGameRanking,
+-  avatar3dVersion:ARCADE_AVATAR_VERSION, saveArcadeAvatar3D, getArcadeAvatar3D, watchArcadeAvatar3D, getArcadeIdentity, getArcadeSeasonHistory, getArcadeMatchHistory, getArcadeRivalries, getArcadeCompetitiveProfile,
++  arcadeTournamentProtocolVersion:ARCADE_TOURNAMENT_PROTOCOL_VERSION, createArcadeTournament, joinArcadeTournament, watchArcadeTournament, startArcadeTournament, linkArcadeTournamentFightRoom, recordArcadeTournamentFightResult, getArcadeTournamentHistory, getArcadeTournament:async code=>configured?(await get(arcadeTournamentRef(code))).val():null, listArcadePublicTournaments, listenToArcadeRanking, listenArcadeGameRanking,
++  avatar3dVersion:ARCADE_AVATAR_VERSION, saveArcadeAvatar3D, getArcadeAvatar3D, watchArcadeAvatar3D, getArcadeIdentity, getArcadeSeasonHistory, getArcadeMatchHistory, getArcadeRivalries, getArcadeCompetitiveProfile, getCompetitiveMatch, getCompetitiveMatchHistory, getArcadeChallengeBoard, claimArcadeChallenge, archiveSeasonForCurrentUser,
+   arcadeReplayCloudVersion:ARCADE_REPLAY_CLOUD_VERSION, replayCloudReady:()=>Boolean(storage), uploadArcadeReplay, listArcadeCloudReplays, getArcadeCloudReplay, resolveArcadeReplayAssets, setArcadeReplayVisibility, deleteArcadeCloudReplay,
+   geoProtocolVersion:GEO_PROTOCOL_VERSION, createGeoRoom, joinGeoRoom, watchGeoRoom, startGeoRoom, mutateGeoRoom, ensureGeoHost, leaveGeoRoom, attachGeoPresence, detachGeoPresence, cleanupExpiredGeoRoom, getGeoRoom:async code=>configured?(await get(ref(db,'geoRooms/'+String(code||'').toUpperCase()))).val():null,
+-  syncPublicProfile, searchPlayers, sendFriendRequest, respondFriendRequest, removeFriend, getSocialData, sendGameInvite, dismissGameInvite, watchSocialInbox, listenToRanking
++  syncPublicProfile, searchPlayers, sendFriendRequest, respondFriendRequest, removeFriend, getSocialData, sendGameInvite, dismissGameInvite, watchSocialInbox, createArcadeFriendChallenge, acceptArcadeFriendChallenge, declineArcadeFriendChallenge, getArcadeChallengeInbox, listenToRanking
+ };
+ 
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind);else bind();
+diff --git a/index.html b/index.html
+index 8b1324c..850c389 100644
+--- a/index.html
++++ b/index.html
+@@ -118,6 +118,10 @@
+   </style>
+ 
+   <link rel="stylesheet" href="/arcade-meta.css?v=3.0.0">
++
++<style id="competitive-ecosystem-v360">
++.competitive-challenge-inbox{margin-top:14px;display:grid;gap:8px}.challenge-invite,.arcade-live-challenge{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border:1px solid rgba(255,255,255,.12);border-radius:14px;background:rgba(10,14,24,.7)}.challenge-invite div,.arcade-live-challenge div{display:grid;gap:3px}.challenge-invite small,.arcade-live-challenge small{opacity:.72}.challenge-invite-actions{display:flex;gap:7px;flex-wrap:wrap}.challenge-invite button,.arcade-challenge-row button{border:0;border-radius:10px;padding:8px 11px;font-weight:800;cursor:pointer}.challenge-invite .accept{background:#b7ff4a;color:#111}.challenge-invite .decline{background:rgba(255,255,255,.1);color:#fff}.arcade-challenge-board{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.arcade-challenge-board>div{display:grid;gap:8px}.arcade-challenge-board h4{margin:0;opacity:.8}.arcade-challenge-row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:12px;border:1px solid rgba(255,255,255,.1);border-radius:12px;background:rgba(255,255,255,.035)}.arcade-challenge-row b,.arcade-challenge-row small{display:block}.arcade-challenge-row small{margin-top:4px;opacity:.7}.arcade-challenge-row.done{border-color:rgba(183,255,74,.45)}.arcade-challenge-row.claimed{opacity:.65}.arcade-challenge-row button{background:#b7ff4a;color:#111}.arcade-challenge-row button:disabled{background:rgba(255,255,255,.1);color:rgba(255,255,255,.55)}.third-place-round{margin-top:12px;border-top:1px dashed rgba(255,255,255,.18);padding-top:12px}.competitive-profile-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.competitive-profile-actions button{border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:#fff;border-radius:10px;padding:8px 12px;font-weight:800;cursor:pointer}@media(max-width:760px){.arcade-challenge-board{grid-template-columns:1fr}.challenge-invite{align-items:flex-start;flex-direction:column}}
++</style>
+ </head>
+ <body class="redesign">
+   <div class="bg-grid"></div>
+@@ -205,6 +209,7 @@
+           </aside>
+         </div>
+         <div class="home-arcade-identity" id="homeArcadeIdentityCard"><div class="meta-empty">Carregando identidade competitiva…</div></div>
++        <div class="competitive-challenge-inbox" id="competitiveChallengeInbox"><div class="meta-empty">Nenhum desafio X1 pendente.</div></div>
+       </section>
+ 
+       <section class="home-section">
+@@ -444,7 +449,7 @@
+           </div>
+           <div id="arcadeRoomPlayers" class="kof-players arcade-room-v2-players"></div>
+           <div id="arcadeRoomStatus" class="arcade-room-v2-status">Aguardando...</div>
+-          <div class="arcade-room-v2-buttons"><button class="primary-btn" id="arcadeLaunchButton" type="button">🚀 INICIAR ONLINE X1</button><button class="secondary-btn" id="arcadeRoomDiagnostic" type="button">🧪 DIAGNÓSTICO</button><button class="secondary-btn" id="arcadeLeaveRoom" type="button">SAIR DA SALA</button></div>
++          <div class="arcade-room-v2-buttons"><button class="primary-btn" id="arcadeLaunchButton" type="button">🚀 INICIAR ONLINE X1</button><button class="secondary-btn hidden" id="arcadeClaimDisconnect" type="button">⚠️ SOLICITAR VITÓRIA POR QUEDA</button><button class="secondary-btn" id="arcadeRoomDiagnostic" type="button">🧪 DIAGNÓSTICO</button><button class="secondary-btn" id="arcadeLeaveRoom" type="button">SAIR DA SALA</button></div>
+         </section>
+ 
+         <div class="arcade-online-help"><span>⌨️ Teclado</span><span>🎮 Controle/joystick</span><span>📱 Touchscreen</span><span>🔒 Sala privada</span></div>
+@@ -517,6 +522,7 @@
+       </div>
+       <div class="arcade-reward-section"><div class="arcade-reward-section-head"><div><h3>Próxima recompensa</h3><p id="arcadeRewardNext">Carregando…</p></div></div><div class="arcade-rank-roadmap" id="arcadeRewardRankRoadmap"></div></div>
+       <div class="arcade-reward-section"><div class="battlepass-head"><div><h3>🎫 Passe Arcade gratuito</h3><p>XP vem de partidas Ranked e torneios. Não existe trilha paga.</p></div><div><b id="arcadeBattlePassLevel">Nível 1/30</b><small id="arcadeBattlePassXp">0 XP</small></div></div><div class="battlepass-progress"><i id="arcadeBattlePassBar" style="width:0%"></i></div><div class="arcade-rank-roadmap" id="arcadeBattlePassRewards" style="margin-top:14px"></div></div>
++      <div class="arcade-reward-section"><div class="arcade-reward-section-head"><div><h3>📅 Desafios diários e semanais</h3><p>Complete objetivos Ranked para ganhar Arcade Coins e XP do Passe.</p></div></div><div class="arcade-challenge-board"><div><h4>HOJE</h4><div id="arcadeDailyChallenges"></div></div><div><h4>SEMANA</h4><div id="arcadeWeeklyChallenges"></div></div></div></div>
+       <div class="arcade-reward-section"><div class="arcade-reward-section-head"><div><h3>Emblemas por jogo</h3><p>Seu rank competitivo separado em cada jogo de luta.</p></div></div><div class="arcade-rank-roadmap" id="arcadeRewardGameBadges"></div></div>
+       <div class="arcade-reward-section"><div class="arcade-reward-section-head"><div><h3>Equipado</h3><p>Esses cosméticos aparecem no seu card do Arcade Ranked.</p></div></div><div class="arcade-reward-equipped" id="arcadeRewardEquipped"></div></div>
+       <div class="arcade-reward-section"><div class="arcade-reward-section-head"><div><h3>Sua coleção</h3><p>Recompensas de rank, sequência, vitórias e torneios.</p></div></div><div class="arcade-reward-grid" id="arcadeRewardInventory"></div></div>
+@@ -540,7 +546,7 @@
+       <div class="meta-page-head"><button class="back-link" id="competitiveProfileBack" type="button">← Início</button><div><p class="eyebrow">👤 PERFIL COMPETITIVO</p><h2 id="competitiveProfileName">Jogador</h2><p id="competitiveProfileStatus">Carregando…</p></div><button class="secondary-btn hidden" id="competitiveSeasonClaim" type="button">🏅 RESGATAR TEMPORADA</button></div>
+       <div class="competitive-hero arcade-reward-decor" id="competitiveProfileHero"><div class="meta-avatar-stage" id="competitiveProfileAvatar"></div><div class="competitive-hero-copy"><small>ARCADE RANKED</small><h2 id="competitiveProfileRank">🎮 Recruta • 0 RP</h2><span>Seu histórico, jogos, rivalidades, temporadas, coleção e Passe Arcade em um único perfil.</span></div></div>
+       <div class="competitive-tabs"><button class="active" data-comp-tab="overview">VISÃO GERAL</button><button data-comp-tab="games">JOGOS</button><button data-comp-tab="matches">PARTIDAS</button><button data-comp-tab="replays">REPLAYS</button><button data-comp-tab="rivals">RIVAIS</button><button data-comp-tab="seasons">TEMPORADAS</button><button data-comp-tab="collection">COLEÇÃO</button></div>
+-      <div class="competitive-panel active" data-comp-panel="overview"><div class="meta-stat-grid" id="competitiveOverview"></div><div class="meta-section"><h3>Passe da temporada</h3><div id="competitivePass"></div></div></div>
++      <div class="competitive-panel active" data-comp-panel="overview"><div class="meta-stat-grid" id="competitiveOverview"></div><div class="meta-section"><h3>Passe da temporada</h3><div id="competitivePass"></div></div><div class="meta-section"><h3>🏆 Torneios recentes</h3><div class="meta-list" id="competitiveTournaments"></div></div></div>
+       <div class="competitive-panel" data-comp-panel="games"><div class="meta-section"><h3>Rank por jogo</h3><div class="meta-list" id="competitiveGames"></div></div></div>
+       <div class="competitive-panel" data-comp-panel="matches"><div class="meta-section"><h3>Partidas recentes</h3><div class="meta-list" id="competitiveMatches"></div></div></div>
+       <div class="competitive-panel" data-comp-panel="replays"><div class="meta-section"><div class="meta-section-title"><div><h3>Replays deste aparelho</h3><p>O vídeo continua armazenado localmente no navegador. Quando o código da sala coincide, ele é associado à partida Ranked.</p></div><button class="secondary-btn" data-open-replays type="button">🎥 ABRIR REPLAYS</button></div><div class="meta-list" id="competitiveReplays"></div></div></div>
+@@ -1052,14 +1058,14 @@
+   <script src="/tournaments.js?v=20.1.1" defer></script>
+   <script src="/social.js?v=20.1.0" defer></script>
+   <script src="/ranking.js?v=20.0.0" defer></script>
+-  <script type="module" src="/firebase.js?v=30.1.0"></script>
++  <script type="module" src="/firebase.js?v=36.0.0"></script>
+   <script src="/duel.js?v=17.0.0" defer></script>
+   <script src="/kof-catalog.js?v=19.10.4" defer></script>
+   <script src="/kof-catalog-ui.js?v=19.10.4" defer></script>
+-  <script src="/arcade-x1.js?v=3.0.0" defer></script>
+-  <script src="/arcade-competitive.js?v=3.1.0" defer></script>
++  <script src="/arcade-x1.js?v=3.6.0" defer></script>
++  <script src="/arcade-competitive.js?v=3.6.0" defer></script>
+   <script src="/avatar-3d.js?v=3.0.0" defer></script>
+-  <script src="/arcade-meta.js?v=3.1.0" defer></script>
++  <script src="/arcade-meta.js?v=3.6.0" defer></script>
+     <script src="/friends.js?v=3.0.0" defer></script>
+ 
+   <script data-portrait-fix-v19>

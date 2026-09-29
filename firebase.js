@@ -12,7 +12,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/12.17.1/firebase-storage.js';
 
 const CONFIG = window.GAME_GUESS_FIREBASE_CONFIG || {};
-const APP_VERSION = '18.0.0';
+const APP_VERSION = '18.6.0';
 const PROTOCOL_VERSION = 13;
 const WAITING_TTL_MS = 30 * 60 * 1000;
 const PLAYING_TTL_MS = 4 * 60 * 60 * 1000;
@@ -214,13 +214,13 @@ const ARCADE_REWARD_MILESTONES=Object.freeze([
   {key:'wins_100',label:'100 vitórias ranqueadas',coins:500,test:s=>s.wins>=100,unlocks:['title_centuriao']}
 ]);
 function rewardMap(v={}){return v&&typeof v==='object'&&!Array.isArray(v)?{...v}:{}};
-function blankArcadeRewards(){return {version:ARCADE_REWARD_VERSION,coins:0,earned:0,spent:0,revision:0,updatedAt:0,matchClaims:{},rankClaims:{},milestoneClaims:{},tournamentClaims:{},seasonPlacementClaims:{},purchases:{},unlocks:{title_rookie:1,frame_rookie:1},equipped:{title:'title_rookie',frame:'frame_rookie',banner:'',effect:''},seasonBadges:{},seasonPass:{seasonId:currentSeasonId(),xp:0,level:1,claims:{}},trophies:{tournaments:0}};}
+function blankArcadeRewards(){return {version:ARCADE_REWARD_VERSION,coins:0,earned:0,spent:0,revision:0,updatedAt:0,matchClaims:{},rankClaims:{},milestoneClaims:{},tournamentClaims:{},seasonPlacementClaims:{},challengeClaims:{},purchases:{},unlocks:{title_rookie:1,frame_rookie:1},equipped:{title:'title_rookie',frame:'frame_rookie',banner:'',effect:''},seasonBadges:{},seasonPass:{seasonId:currentSeasonId(),xp:0,level:1,claims:{}},trophies:{tournaments:0}};}
 function normalizeArcadeRewards(v={}){
   const base=blankArcadeRewards();if(Number(v?.version)!==ARCADE_REWARD_VERSION)return base;
   const unlocks=rewardMap(v.unlocks);unlocks.title_rookie=unlocks.title_rookie||1;unlocks.frame_rookie=unlocks.frame_rookie||1;
   const equipped={...base.equipped,...rewardMap(v.equipped)};
   for(const type of ['title','frame','banner','effect']){const id=String(equipped[type]||'');if(id&&!unlocks[id])equipped[type]='';}
-  return {version:ARCADE_REWARD_VERSION,coins:clampInt(v.coins,0,9999999),earned:clampInt(v.earned,0,99999999),spent:clampInt(v.spent,0,99999999),revision:clampInt(v.revision,0,99999999),updatedAt:clampInt(v.updatedAt,0,9999999999999),matchClaims:rewardMap(v.matchClaims),rankClaims:rewardMap(v.rankClaims),milestoneClaims:rewardMap(v.milestoneClaims),tournamentClaims:rewardMap(v.tournamentClaims),seasonPlacementClaims:rewardMap(v.seasonPlacementClaims),purchases:rewardMap(v.purchases),unlocks,equipped,seasonBadges:rewardMap(v.seasonBadges),seasonPass:normalizeBattlePass(v.seasonPass,currentSeasonId()),trophies:{tournaments:clampInt(v?.trophies?.tournaments,0,999999)}};
+  return {version:ARCADE_REWARD_VERSION,coins:clampInt(v.coins,0,9999999),earned:clampInt(v.earned,0,99999999),spent:clampInt(v.spent,0,99999999),revision:clampInt(v.revision,0,99999999),updatedAt:clampInt(v.updatedAt,0,9999999999999),matchClaims:rewardMap(v.matchClaims),rankClaims:rewardMap(v.rankClaims),milestoneClaims:rewardMap(v.milestoneClaims),tournamentClaims:rewardMap(v.tournamentClaims),seasonPlacementClaims:rewardMap(v.seasonPlacementClaims),challengeClaims:rewardMap(v.challengeClaims),purchases:rewardMap(v.purchases),unlocks,equipped,seasonBadges:rewardMap(v.seasonBadges),seasonPass:normalizeBattlePass(v.seasonPass,currentSeasonId()),trophies:{tournaments:clampInt(v?.trophies?.tournaments,0,999999)}};
 }
 function mergeArcadeRewards(a={},b={}){const A=normalizeArcadeRewards(a),B=normalizeArcadeRewards(b);if(B.revision>A.revision)return B;if(A.revision>B.revision)return A;return B.updatedAt>=A.updatedAt?B:A;}
 function arcadeRewardRankByKey(key){return ARCADE_REWARD_RANKS.find(r=>r.key===key)||ARCADE_REWARD_RANKS[0];}
@@ -433,7 +433,7 @@ async function logout(){
     }catch{}
   }
   duelPresence.clear();
-  for(const h of [...fightPresence.values()]){try{clearInterval(h.timer);await h.dp.cancel();await h.dl.cancel();if(h.dr)await h.dr.cancel();await remove(h.pr);if(h.rr)await remove(h.rr);}catch{}}
+  for(const h of [...fightPresence.values()]){try{clearInterval(h.timer);await h.dp.cancel();await h.dl.cancel();if(h.dr)await h.dr.cancel();if(h.dd)await h.dd.cancel();if(h.ds)await h.ds.cancel();await remove(h.pr);if(h.rr)await remove(h.rr);}catch{}}
   fightPresence.clear();
   for(const h of [...geoPresence.values()]){
     try{
@@ -553,8 +553,10 @@ async function restoreFightPresence(h){
   await h.dp.remove();
   await h.dl.set(serverTimestamp());
   await h.dr.remove();
+  await h.dd.set(serverTimestamp());
+  await h.ds.set('disconnected');
   await set(h.pr,{sessionId:CLIENT_SESSION_ID,connectedAt:serverTimestamp(),heartbeatAt:serverTimestamp()});
-  await set(h.lr,serverNow()).catch(()=>{});
+  await update(h.playerRef,{lastSeen:serverNow(),connectionState:'online',reconnectedAt:serverNow(),disconnectedAt:null}).catch(()=>{});
   return true;
 }
 async function attachFightPresence(code){
@@ -563,9 +565,9 @@ async function attachFightPresence(code){
   const uid=currentUser.uid,key=`${code}:${uid}`;
   let h=fightPresence.get(key);
   if(!h){
-    const pr=ref(db,`fightRooms/${code}/presence/${uid}/${CLIENT_SESSION_ID}`),lr=ref(db,`fightRooms/${code}/players/${uid}/lastSeen`),rr=ref(db,`fightRooms/${code}/clientReady/${uid}`);
-    const dp=onDisconnect(pr),dl=onDisconnect(lr),dr=onDisconnect(rr);
-    h={code,uid,pr,lr,rr,dp,dl,dr,timer:null,attaching:null};
+    const pr=ref(db,`fightRooms/${code}/presence/${uid}/${CLIENT_SESSION_ID}`),playerRef=ref(db,`fightRooms/${code}/players/${uid}`),lr=ref(db,`fightRooms/${code}/players/${uid}/lastSeen`),rr=ref(db,`fightRooms/${code}/clientReady/${uid}`),dc=ref(db,`fightRooms/${code}/players/${uid}/disconnectedAt`),cs=ref(db,`fightRooms/${code}/players/${uid}/connectionState`);
+    const dp=onDisconnect(pr),dl=onDisconnect(lr),dr=onDisconnect(rr),dd=onDisconnect(dc),ds=onDisconnect(cs);
+    h={code,uid,pr,playerRef,lr,rr,dc,cs,dp,dl,dr,dd,ds,timer:null,attaching:null};
     // Registra o handle antes da primeira escrita. Se a rede cair durante o attach,
     // o listener de .info/connected ainda consegue restaurar a presença depois.
     fightPresence.set(key,h);
@@ -601,7 +603,7 @@ async function detachFightPresence(code){
   const entries=[...fightPresence.entries()].filter(([key,h])=>h.code===code&&(!uid||h.uid===uid));
   for(const [key,h] of entries){
     clearInterval(h.timer);
-    await h.dp.cancel().catch(()=>{});await h.dl.cancel().catch(()=>{});await h.dr.cancel().catch(()=>{});
+    await h.dp.cancel().catch(()=>{});await h.dl.cancel().catch(()=>{});await h.dr.cancel().catch(()=>{});await h.dd?.cancel().catch(()=>{});await h.ds?.cancel().catch(()=>{});
     await remove(h.pr).catch(()=>{});await remove(h.rr).catch(()=>{});
     fightPresence.delete(key);
   }
@@ -819,7 +821,7 @@ async function deleteDuel(code){if(!currentUser||!code)return;code=String(code).
 
 
 // ===== Arcade Ranked / Torneios =====
-const ARCADE_TOURNAMENT_PROTOCOL_VERSION=2;
+const ARCADE_TOURNAMENT_PROTOCOL_VERSION=3;
 const ARCADE_TOURNAMENT_TTL_MS=36*60*60*1000;
 function arcadeTournamentCode(){return fightRoomCode();}
 function arcadeTournamentRef(code){return ref(db,`arcadeTournaments/${String(code||'').trim().toUpperCase()}`);}
@@ -845,7 +847,8 @@ async function ensureArcadeRankedSettlement(code){
     const transfer=arcadeCompetitiveTransfer(winnerState.rp,loserState.rp,winnerState.played,loserState.played);
     const gameTransfer=arcadeCompetitiveTransfer(wg.rp,lg.rp,wg.played,lg.played);
     const now=serverNow();
-    const candidate={version:ARCADE_RANK_VERSION,code,seasonId,game,winnerUid:room.winnerUid,loserUid,createdAt:now,finishedAt:Number(room.finishedAt||now),sourceRoomCode:code,players:{
+    const matchId=`${seasonId}_${code}`;
+    const candidate={version:ARCADE_RANK_VERSION,matchId,code,seasonId,game,winnerUid:room.winnerUid,loserUid,createdAt:now,finishedAt:Number(room.finishedAt||now),sourceRoomCode:code,sourceType:room.tournamentCode?'tournament':'ranked',tournamentCode:String(room.tournamentCode||''),tournamentMatchId:String(room.tournamentMatchId||''),finishReason:String(room.finishReason||'confirmed'),resultVotes:{...(room.resultVotes||{})},players:{
       [room.winnerUid]:{uid:room.winnerUid,...arcadeSettlementPlayer(winnerState,wg,true,transfer,gameTransfer)},
       [loserUid]:{uid:loserUid,...arcadeSettlementPlayer(loserState,lg,false,transfer,gameTransfer)}
     }};
@@ -853,6 +856,7 @@ async function ensureArcadeRankedSettlement(code){
   }
   const inboxPatch={};for(const uid of ids)inboxPatch[`arcadeRankedInbox/${uid}/${code}`]={seasonId,code,createdAt:Number(settlement.createdAt||serverNow())};
   await update(ref(db),inboxPatch).catch(e=>console.warn('Arcade ranked inbox:',e));
+  await ensureCompetitiveMatchRecord(settlement,room).catch(e=>console.warn('Competitive match core:',e));
   return settlement;
 }
 function applyArcadeSettlementToState(current={},settlement={},uid=''){
@@ -924,15 +928,17 @@ async function applyArcadeRankedRewards(settlement,rankState,entry){
 }
 async function claimArcadeTournamentReward(code){
   if(!currentUser||!db||!code)return {awarded:false};code=String(code).toUpperCase();
-  const t=(await get(arcadeTournamentRef(code))).val();if(!t||t.status!=='finished'||t.championUid!==currentUser.uid)return {awarded:false,reason:'not-champion'};
+  const t=(await get(arcadeTournamentRef(code))).val();if(!t||t.status!=='finished')return {awarded:false,reason:'not-finished'};
+  let placement=0;if(t.championUid===currentUser.uid)placement=1;else if(t.runnerUpUid===currentUser.uid)placement=2;else if(t.thirdPlaceUid===currentUser.uid)placement=3;else return {awarded:false,reason:'outside-podium'};
+  const base=placement===1?{coins:300,xp:150,label:'Campeão'}:placement===2?{coins:150,xp:80,label:'Vice-campeão'}:{coins:80,xp:50,label:'3º lugar'};
   const result=await transactArcadeRewards(state=>{
     if(state.tournamentClaims[code])return;
-    const now=serverNow(),unlocked=[];const grant=id=>{if(rewardCatalogItem(id)&&!state.unlocks[id]){rewardUnlock(state,id,now);unlocked.push(id);}};state.trophies.tournaments=clampInt(state.trophies.tournaments)+1;
-    for(const id of ['title_campeao',...(state.trophies.tournaments>=3?['frame_champion']:[])])grant(id);
-    const pass=applyBattlePassProgress(state,150,now,grant),coins=300+pass.coins;state.coins+=coins;state.earned+=coins;
-    state.tournamentClaims[code]={at:now,coins,trophies:state.trophies.tournaments,passXp:150,passRewards:pass.rewards,unlocked};return state;
+    const now=serverNow(),unlocked=[];const grant=id=>{if(rewardCatalogItem(id)&&!state.unlocks[id]){rewardUnlock(state,id,now);unlocked.push(id);}};
+    if(placement===1){state.trophies.tournaments=clampInt(state.trophies.tournaments)+1;for(const id of ['title_campeao',...(state.trophies.tournaments>=3?['frame_champion']:[])])grant(id);}
+    const pass=applyBattlePassProgress(state,base.xp,now,grant),coins=base.coins+pass.coins;state.coins+=coins;state.earned+=coins;
+    state.tournamentClaims[code]={at:now,placement,label:base.label,coins,trophies:state.trophies.tournaments,passXp:base.xp,passRewards:pass.rewards,unlocked};return state;
   });
-  return {awarded:Boolean(result.committed),claim:result.state.tournamentClaims?.[code],coins:result.state.coins,state:result.state};
+  return {awarded:Boolean(result.committed),placement,claim:result.state.tournamentClaims?.[code],coins:result.state.coins,state:result.state};
 }
 async function buyArcadeRewardItem(itemId){
   itemId=String(itemId||'');const item=rewardCatalogItem(itemId);if(!item||item.source!=='shop'||!item.price)throw new Error('Item inválido.');
@@ -957,7 +963,7 @@ async function applyArcadeSettlementForCurrentUser(settlement){
   const tx=await runTransaction(sr,current=>{const cur=normalizeArcadeCompetitive(current||{});if(cur.appliedMatches?.[settlement.code])return;return applyArcadeSettlementToState(cur,settlement,uid);},{applyLocally:false});
   let state=normalizeArcadeCompetitive(tx.snapshot?.val()||{});
   if(!tx.committed){state=await readArcadeRankState(seasonId,uid);await saveArcadeSeasonHistory(state,seasonId).catch(()=>{});
-  const reward=await applyArcadeRankedRewards(settlement,state,entry).catch(e=>{console.warn('Arcade rewards backfill:',e);return {awarded:false};});await remove(ref(db,`arcadeRankedInbox/${uid}/${settlement.code}`)).catch(()=>{});return {recorded:false,reason:'already-recorded',reward,state};}
+  const reward=await applyArcadeRankedRewards(settlement,state,entry).catch(e=>{console.warn('Arcade rewards backfill:',e);return {awarded:false};});await remove(ref(db,`arcadeRankedInbox/${uid}/${settlement.code}`)).catch(()=>{});await writeCompetitiveMatchReceipt(settlement,state,reward).catch(()=>{});return {recorded:false,reason:'already-recorded',reward,state};}
   const local=localProfile(),seasonLocal=(local?.seasonProfile&&String(local.seasonProfile.seasonId||'').toUpperCase()===seasonId)?local.seasonProfile:{};
   const next={...local,arcadeCompetitive:state,seasonProfile:{...seasonLocal,seasonId,seasonLabel:currentSeasonLabel(),arcadeCompetitive:state}};
   CORE()?.replaceProfile?.(next);await flushProfile(next);
@@ -965,7 +971,8 @@ async function applyArcadeSettlementForCurrentUser(settlement){
   await saveArcadeSeasonHistory(state,seasonId).catch(()=>{});
   const league=arcadeCompetitiveLeague(state.rp,state.played),gameState=normalizeArcadeCompetitiveGame(state.games?.[settlement.game]);
   const reward=await applyArcadeRankedRewards(settlement,state,entry).catch(e=>{console.warn('Arcade rewards:',e);return {awarded:false,error:String(e?.message||e)};});
-  return {recorded:true,won:entry.result==='win',game:settlement.game,delta:Math.round(finite(entry.delta,0)),gameDelta:Math.round(finite(entry.gameDelta,0)),rp:state.rp,gameRp:gameState.rp,division:league.label,divisionIcon:league.icon,placement:Math.min(ARCADE_PLACEMENT_MATCHES,state.played),placementTotal:ARCADE_PLACEMENT_MATCHES,reward,state};
+  await writeCompetitiveMatchReceipt(settlement,state,reward).catch(e=>console.warn('Competitive receipt:',e));
+  return {recorded:true,matchId:settlement.matchId||`${seasonId}_${settlement.code}`,won:entry.result==='win',game:settlement.game,delta:Math.round(finite(entry.delta,0)),gameDelta:Math.round(finite(entry.gameDelta,0)),rp:state.rp,gameRp:gameState.rp,division:league.label,divisionIcon:league.icon,placement:Math.min(ARCADE_PLACEMENT_MATCHES,state.played),placementTotal:ARCADE_PLACEMENT_MATCHES,reward,state};
 }
 async function recordArcadeMatchResult(code,gameKey=''){
   if(!currentUser||!db||!code)throw new Error('Faça login para registrar a partida ranqueada.');code=String(code).toUpperCase();
@@ -991,7 +998,7 @@ async function createArcadeTournament(options={}){
   for(let tries=0;tries<12;tries++){
     const code=arcadeTournamentCode(),rr=arcadeTournamentRef(code);if((await get(rr)).exists())continue;
     const now=serverNow(),playerName=cleanName(localProfile()?.nickname||currentUser.displayName||currentUser.email?.split('@')[0]);
-    const room={code,protocolVersion:ARCADE_TOURNAMENT_PROTOCOL_VERSION,name,visibility,hostUid:currentUser.uid,game,maxPlayers,bestOf,format:'single_elimination',status:'waiting',createdAt:now,updatedAt:now,expiresAt:now+ARCADE_TOURNAMENT_TTL_MS,championUid:'',participants:{[currentUser.uid]:{uid:currentUser.uid,name:playerName,joinedAt:now,seed:1}},matches:{}};
+    const room={code,protocolVersion:ARCADE_TOURNAMENT_PROTOCOL_VERSION,name,visibility,hostUid:currentUser.uid,game,maxPlayers,bestOf,format:'single_elimination',thirdPlace:true,status:'waiting',createdAt:now,updatedAt:now,expiresAt:now+ARCADE_TOURNAMENT_TTL_MS,championUid:'',runnerUpUid:'',thirdPlaceUid:'',participants:{[currentUser.uid]:{uid:currentUser.uid,name:playerName,joinedAt:now,seed:1}},matches:{}};
     await set(rr,room);return code;
   }
   throw new Error('Não consegui gerar o código do torneio.');
@@ -1005,7 +1012,9 @@ async function joinArcadeTournament(code){
     const count=Object.keys(t.participants).length;if(count>=Number(t.maxPlayers||4))return;
     t.participants[currentUser.uid]={uid:currentUser.uid,name,joinedAt:serverNow(),seed:count+1};t.updatedAt=serverNow();return t;
   },{applyLocally:false});
-  if(!tx.committed||!tx.snapshot?.val()?.participants?.[currentUser.uid])throw new Error('O torneio não existe, já iniciou ou está cheio.');return code;
+  if(!tx.committed||!tx.snapshot?.val()?.participants?.[currentUser.uid])throw new Error('O torneio não existe, já iniciou ou está cheio.');
+  const joined=tx.snapshot?.val();if(joined?.status==='waiting'&&Object.keys(joined.participants||{}).length===Number(joined.maxPlayers||0))await autoStartArcadeTournament(code).catch(e=>console.warn('Tournament auto start:',e));
+  return code;
 }
 function watchArcadeTournament(code,cb){if(!db)return()=>{};return onValue(arcadeTournamentRef(code),s=>cb?.(s.val()||null,null),e=>cb?.(null,e));}
 function buildArcadeTournamentMatches(t){
@@ -1014,10 +1023,14 @@ function buildArcadeTournamentMatches(t){
   for(let r=1;r<=rounds;r++){
     const count=size/Math.pow(2,r);
     for(let i=0;i<count;i++){
-      const id=`r${r}m${i+1}`;matches[id]={id,round:r,index:i+1,status:'waiting',player1Uid:r===1?(players[i*2]?.uid||''):'',player2Uid:r===1?(players[i*2+1]?.uid||''):'',score1:0,score2:0,winnerUid:'',fightRoomCode:'',completedFightRooms:{}};
+      const id=`r${r}m${i+1}`;matches[id]={id,round:r,index:i+1,status:'waiting',player1Uid:r===1?(players[i*2]?.uid||''):'',player2Uid:r===1?(players[i*2+1]?.uid||''):'',score1:0,score2:0,winnerUid:'',loserUid:'',fightRoomCode:'',completedFightRooms:{}};
     }
   }
+  matches.third={id:'third',round:rounds,index:99,label:'TERCEIRO LUGAR',isThirdPlace:true,status:'waiting',player1Uid:'',player2Uid:'',score1:0,score2:0,winnerUid:'',loserUid:'',fightRoomCode:'',completedFightRooms:{}};
   return matches;
+}
+async function autoStartArcadeTournament(code){
+  if(!currentUser||!db)return null;code=String(code||'').toUpperCase();const tx=await runTransaction(arcadeTournamentRef(code),t=>{if(!t||t.status!=='waiting'||!t.participants?.[currentUser.uid])return;if(Object.keys(t.participants||{}).length!==Number(t.maxPlayers||0))return;t.matches=buildArcadeTournamentMatches(t);t.status='playing';t.startedAt=serverNow();t.updatedAt=serverNow();return t;},{applyLocally:false});return tx.snapshot?.val()||null;
 }
 async function startArcadeTournament(code){
   if(!currentUser)throw new Error('Faça login.');code=String(code||'').toUpperCase();
@@ -1045,17 +1058,25 @@ async function recordArcadeTournamentFightResult(code,matchId,fightCode,winnerUi
     m.completedFightRooms[fightCode]={winnerUid,at:serverNow()};if(winnerUid===m.player1Uid)m.score1=num(m.score1)+1;else m.score2=num(m.score2)+1;
     const target=Math.ceil(Number(t.bestOf||3)/2);m.fightRoomCode='';m.status='waiting';m.updatedAt=serverNow();
     if(Number(m.score1)>=target||Number(m.score2)>=target){
-      m.winnerUid=winnerUid;m.status='finished';const rounds=Math.log2(Number(t.maxPlayers||4));
-      if(Number(m.round)>=rounds){t.championUid=winnerUid;t.status='finished';t.finishedAt=serverNow();}
+      const loserUid=winnerUid===m.player1Uid?m.player2Uid:m.player1Uid;
+      m.winnerUid=winnerUid;m.loserUid=loserUid;m.status='finished';m.finishedAt=serverNow();const rounds=Math.log2(Number(t.maxPlayers||4));
+      if(m.isThirdPlace){t.thirdPlaceUid=winnerUid;}
+      else if(Number(m.round)>=rounds){t.championUid=winnerUid;t.runnerUpUid=loserUid;}
       else{
         const nextId=`r${Number(m.round)+1}m${Math.floor((Number(m.index)-1)/2)+1}`,next=t.matches?.[nextId];
         if(next){if(Number(m.index)%2===1)next.player1Uid=winnerUid;else next.player2Uid=winnerUid;next.updatedAt=serverNow();}
+        if(Number(m.round)===rounds-1){const third=t.matches?.third;if(third){if(Number(m.index)%2===1)third.player1Uid=loserUid;else third.player2Uid=loserUid;third.updatedAt=serverNow();}}
       }
     }
+    const final=t.matches?.[`r${Math.log2(Number(t.maxPlayers||4))}m1`],third=t.matches?.third;
+    if(final?.winnerUid&&(!t.thirdPlace||third?.winnerUid)){t.status='finished';t.finishedAt=serverNow();}
     t.updatedAt=serverNow();return t;
   },{applyLocally:false});
   const value=tx.snapshot?.val()||null;
-  if(value?.status==='finished'&&value?.championUid===currentUser.uid)await claimArcadeTournamentReward(code).catch(e=>console.warn('Tournament reward:',e));
+  if(value?.status==='finished'){
+    await archiveArcadeTournament(value).catch(e=>console.warn('Tournament archive:',e));
+    if(value?.championUid===currentUser.uid)await claimArcadeTournamentReward(code).catch(e=>console.warn('Tournament reward:',e));
+  }
   return value;
 }
 
@@ -1096,9 +1117,9 @@ async function getArcadeIdentity(uid=currentUser?.uid){
   if(!uid||!db)return null;const seasonId=currentSeasonId(),self=uid===currentUser?.uid;const [rowSnap,avatar,publicSnap]=await Promise.all([get(ref(db,`rankedSeasons/${seasonId}/leaderboard/${uid}`)),getArcadeAvatar3D(uid),get(ref(db,`publicProfiles/${uid}`))]);let rewards=null;if(self)rewards=await ensureArcadeRewardProfile().catch(()=>getArcadeRewards());return {uid,season:{...currentSeason},row:rowSnap.val()||{},avatar,publicProfile:publicSnap.val()||{},rewards};
 }
 async function getArcadeCompetitiveProfile(uid=currentUser?.uid){
-  if(!uid||!db)return null;const seasonId=currentSeasonId();const self=uid===currentUser?.uid;const [rowSnap,avatar,history,matches,rivals,publicSnap,finalRankSnap]=await Promise.all([
-    get(ref(db,`rankedSeasons/${seasonId}/leaderboard/${uid}`)),getArcadeAvatar3D(uid),getArcadeSeasonHistory(uid),getArcadeMatchHistory(uid,seasonId,30),getArcadeRivalries(uid,seasonId),get(ref(db,`publicProfiles/${uid}`)),get(ref(db,`rankedSeasons/${seasonId}/finalRanks/${uid}`)).catch(()=>null)
-  ]);let rewards=null;if(self)rewards=await ensureArcadeRewardProfile().catch(()=>getArcadeRewards());return {uid,season:{...currentSeason},row:rowSnap.val()||{},avatar,history,matches,rivals,publicProfile:publicSnap.val()||{},rewards,finalRank:finalRankSnap?.val?.()||null};
+  if(!uid||!db)return null;const seasonId=currentSeasonId(),self=uid===currentUser?.uid;const [rowSnap,avatar,history,matches,rivals,publicSnap,finalRankSnap,tournaments]=await Promise.all([
+    get(ref(db,`rankedSeasons/${seasonId}/leaderboard/${uid}`)),getArcadeAvatar3D(uid),getArcadeSeasonHistory(uid),getCompetitiveMatchHistory(uid,seasonId,30),getArcadeRivalries(uid,seasonId),get(ref(db,`publicProfiles/${uid}`)),get(ref(db,`rankedSeasons/${seasonId}/finalRanks/${uid}`)).catch(()=>null),getArcadeTournamentHistory(uid,seasonId,30)
+  ]);let rewards=null;if(self)rewards=await ensureArcadeRewardProfile().catch(()=>getArcadeRewards());return {uid,season:{...currentSeason},row:rowSnap.val()||{},avatar,history,matches,rivals,publicProfile:publicSnap.val()||{},rewards,finalRank:finalRankSnap?.val?.()||null,tournaments};
 }
 async function claimArcadeSeasonPlacementReward(seasonId=currentSeasonId()){
   if(!currentUser||!db)throw new Error('Faça login.');seasonId=String(seasonId||currentSeasonId()).toUpperCase();const [metaSnap,rankSnap]=await Promise.all([get(ref(db,`rankedSeasons/${seasonId}/meta`)),get(ref(db,`rankedSeasons/${seasonId}/finalRanks/${currentUser.uid}`))]);const meta=metaSnap.val()||{},rank=Number(rankSnap.val()?.rank||rankSnap.val()||0);if(!meta.finalized||!rank)throw new Error('A classificação final desta temporada ainda não foi publicada.');const reward=ARCADE_SEASON_PLACEMENT_REWARDS.find(x=>rank<=x.max);if(!reward)return {awarded:false,reason:'outside-top100'};
@@ -1434,7 +1455,7 @@ if(configured){
         if(socialPresenceHandle&&currentUser?.uid===socialPresenceHandle.uid){try{await socialPresenceHandle.d.remove();await set(socialPresenceHandle.pr,{sessionId:CLIENT_SESSION_ID,online:true,at:serverTimestamp()});}catch(e){console.warn('Social presence restore:',e);}}
       }
     });
-    seasonUnsub=onValue(ref(db,'rankedConfig/currentSeason'),snap=>{currentSeason=normalizeSeason(snap.val()||DEFAULT_SEASON);if($('rankingSeasonBanner'))$('rankingSeasonBanner').innerHTML=`<b>🏁 ${escapeHtml(currentSeasonLabel())}</b><span>${escapeHtml(currentSeason.description||'Ranking da temporada atual')}</span>`;},()=>{currentSeason={...DEFAULT_SEASON};});
+    seasonUnsub=onValue(ref(db,'rankedConfig/currentSeason'),snap=>{const previous={...currentSeason},next=normalizeSeason(snap.val()||DEFAULT_SEASON);currentSeason=next;if(currentUser&&previous.id&&previous.id!==next.id)archiveSeasonForCurrentUser(previous.id,localProfile()?.seasonProfile?.arcadeCompetitive||localProfile()?.arcadeCompetitive||{}).catch(e=>console.warn('Season rollover archive:',e));if($('rankingSeasonBanner'))$('rankingSeasonBanner').innerHTML=`<b>🏁 ${escapeHtml(currentSeasonLabel())}</b><span>${escapeHtml(currentSeason.description||'Ranking da temporada atual')}</span>`;window.dispatchEvent(new CustomEvent('gameguess:seasonchange',{detail:{previous,next}}));},()=>{currentSeason={...DEFAULT_SEASON};});
         onAuthStateChanged(auth,async user=>{
       if(socialPresenceHandle&&(!user||socialPresenceHandle.uid!==user.uid))await detachSocialPresence().catch(()=>{});
       currentUser=user||null;
@@ -1565,6 +1586,7 @@ async function uploadArcadeReplay(payload={}){
   const now=serverNow();
   const meta={version:ARCADE_REPLAY_CLOUD_VERSION,id,seasonId,uploaderUid:uid,uploaderName:publicName(),game:String(payload.game||'').slice(0,32),title:String(payload.title||'').slice(0,80),room:String(payload.room||'').toUpperCase().slice(0,16),visibility,participants,winnerUid:String(payload.winnerUid||'').slice(0,160),createdAt:clampInt(payload.createdAt||now,0,9999999999999),uploadedAt:now,durationMs:clampInt(payload.durationMs||0,0,60*60*1000),size:clampInt(payload.size||payload.videoBlob?.size||0,0,500*1024*1024),mimeType:String(payload.mimeType||payload.videoBlob?.type||'video/webm').slice(0,100),audio:Boolean(payload.audio),inputReplay:Boolean(files['inputs.json']),stateReplay:Boolean(files['initial.state']),inputEvents:clampInt(payload.inputEvents||0,0,500000),ejsVersion:String(payload.ejsVersion||'').slice(0,32),core:String(payload.core||'').slice(0,40),romSha256:String(payload.romSha256||'').slice(0,64),files};
   await set(ref(db,`arcadeReplays/${id}`),meta);
+  await linkReplayToCompetitiveMatch(meta).catch(e=>console.warn('Replay competitive link:',e));
   return meta;
 }
 async function listArcadeCloudReplays(limit=50){
@@ -1605,6 +1627,62 @@ function listenToArcadeRanking(limit=10,cb=()=>{}){
   },e=>{console.warn('Arcade ranking listener:',e);cb([]);});
 }
 
+
+// ===== Competitive Ecosystem V3.6: match core, desafios, temporadas e social direto =====
+const COMPETITIVE_CORE_VERSION=1;
+const ARCADE_DISCONNECT_GRACE_MS=45000;
+function competitiveMatchRef(seasonId,code){return ref(db,`competitiveMatches/${String(seasonId||currentSeasonId()).toUpperCase()}/${String(code||'').toUpperCase()}`);}
+async function ensureCompetitiveMatchRecord(settlement,room=null){
+  if(!db||!settlement?.code)return null;const seasonId=String(settlement.seasonId||currentSeasonId()).toUpperCase(),code=String(settlement.code).toUpperCase();
+  room=room||(await get(ref(db,`fightRooms/${code}`))).val()||{};
+  const players={};for(const [uid,e] of Object.entries(settlement.players||{}))players[uid]={uid,name:cleanName(room.players?.[uid]?.name||'Jogador'),result:e.result,beforeRp:clampInt(e.beforeRp),delta:Math.round(finite(e.delta,0)),expectedAfterRp:clampInt(e.afterRp),beforeGameRp:clampInt(e.beforeGameRp),gameDelta:Math.round(finite(e.gameDelta,0)),expectedAfterGameRp:clampInt(e.afterGameRp)};
+  const candidate={version:COMPETITIVE_CORE_VERSION,matchId:settlement.matchId||`${seasonId}_${code}`,code,seasonId,game:String(settlement.game||room.arcadeGame||'kf2k2mp2'),status:'finished',ranked:true,sourceType:room.tournamentCode?'tournament':'ranked',tournamentCode:String(room.tournamentCode||settlement.tournamentCode||''),tournamentMatchId:String(room.tournamentMatchId||settlement.tournamentMatchId||''),createdAt:Number(room.createdAt||settlement.createdAt||serverNow()),startedAt:Number(room.launchAt||room.startedAt||0),finishedAt:Number(room.finishedAt||settlement.finishedAt||serverNow()),finishReason:String(room.finishReason||settlement.finishReason||'confirmed'),winnerUid:String(settlement.winnerUid||room.winnerUid||''),loserUid:String(settlement.loserUid||''),resultVotes:{...(room.resultVotes||settlement.resultVotes||{})},players,replays:{},receipts:{},rematchOf:String(room.rematchOf||''),rematchCode:'',updatedAt:serverNow()};
+  const rr=competitiveMatchRef(seasonId,code),tx=await runTransaction(rr,current=>current?{...current,updatedAt:serverNow()}:candidate,{applyLocally:false});return tx.snapshot?.val()||candidate;
+}
+async function writeCompetitiveMatchReceipt(settlement,state,reward={}){
+  if(!currentUser||!db||!settlement?.code)return false;const uid=currentUser.uid,entry=settlement.players?.[uid];if(!entry)return false;const seasonId=String(settlement.seasonId||currentSeasonId()).toUpperCase(),code=String(settlement.code).toUpperCase();
+  await ensureCompetitiveMatchRecord(settlement).catch(()=>{});
+  const receipt={uid,result:entry.result,rp:clampInt(state?.rp),gameRp:clampInt(state?.games?.[settlement.game]?.rp),rpDelta:Math.round(finite(entry.delta,0)),gameRpDelta:Math.round(finite(entry.gameDelta,0)),coins:clampInt(reward?.totalCoins||0),passXp:clampInt(reward?.passXp||0),streak:clampInt(state?.currentStreak),division:arcadeCompetitiveLeague(state?.rp,state?.played).label,appliedAt:serverNow()};
+  await set(ref(db,`competitiveMatches/${seasonId}/${code}/receipts/${uid}`),receipt);await update(ref(db,`competitiveMatches/${seasonId}/${code}`),{updatedAt:serverNow()});return true;
+}
+async function getCompetitiveMatch(code,seasonId=currentSeasonId()){if(!db||!code)return null;return (await get(competitiveMatchRef(seasonId,code))).val()||null;}
+async function getCompetitiveMatchHistory(uid=currentUser?.uid,seasonId=currentSeasonId(),take=40){if(!uid||!db)return[];const snap=await get(ref(db,`competitiveMatches/${String(seasonId||currentSeasonId()).toUpperCase()}`));return Object.values(snap.val()||{}).filter(m=>m?.players?.[uid]).sort((a,b)=>Number(b.finishedAt||0)-Number(a.finishedAt||0)).slice(0,Math.max(1,Math.min(100,Number(take)||40)));}
+async function createArcadeRematch(code){
+  if(!currentUser||!db)throw new Error('Faça login.');code=String(code||'').toUpperCase();const old=(await get(ref(db,`fightRooms/${code}`))).val();if(!old||old.status!=='finished'||!old.players?.[currentUser.uid])throw new Error('Partida anterior inválida.');const opponent=Object.keys(old.players||{}).find(uid=>uid!==currentUser.uid);if(!opponent)throw new Error('Rival não encontrado.');const game=old.arcadeGame||'kf2k2mp2',newCode=await createFightRoom({arcadeGame:game,ranked:old.ranked!==false,tournamentCode:'',tournamentMatchId:''});const now=serverNow();await update(ref(db,`fightRooms/${newCode}`),{rematchOf:code,challengeFromUid:currentUser.uid,challengeToUid:opponent});await update(ref(db,`competitiveMatches/${String(old.rankedSeasonId||currentSeasonId()).toUpperCase()}/${code}`),{rematchCode:newCode,updatedAt:now}).catch(()=>{});await set(ref(db,`gameInvites/${opponent}/${currentUser.uid}`),{type:'arcade-rematch',challengeId:`rematch_${newCode}`,fromUid:currentUser.uid,fromName:publicName(),game,roomCode:newCode,ranked:old.ranked!==false,rematchOf:code,createdAt:now,expiresAt:now+15*60*1000});return {roomCode:newCode,game,opponentUid:opponent};
+}
+async function concedeFight(code){
+  if(!currentUser||!db)throw new Error('Faça login.');code=String(code||'').toUpperCase();const rr=ref(db,`fightRooms/${code}`),room=(await get(rr)).val();if(!room||room.status!=='playing'||!room.players?.[currentUser.uid])throw new Error('Não há uma luta ativa para abandonar.');const opponent=Object.keys(room.players||{}).find(uid=>uid!==currentUser.uid);if(!opponent)throw new Error('Rival não encontrado.');
+  await update(rr,{winnerUid:opponent,status:'finished',finishReason:'forfeit',forfeitUid:currentUser.uid,finishedAt:serverNow(),updatedAt:serverNow(),expiresAt:serverNow()+FINISHED_TTL_MS});await ensureArcadeRankedSettlement(code).catch(()=>{});return opponent;
+}
+async function markFightDisconnect(code){if(!currentUser||!db||!code)return;code=String(code).toUpperCase();await update(ref(db,`fightRooms/${code}/players/${currentUser.uid}`),{connectionState:'disconnected',disconnectedAt:serverNow(),lastSeen:serverNow()}).catch(()=>{});}
+async function restoreFightConnectionState(code){if(!currentUser||!db||!code)return;code=String(code).toUpperCase();await update(ref(db,`fightRooms/${code}/players/${currentUser.uid}`),{connectionState:'online',reconnectedAt:serverNow(),lastSeen:serverNow()}).catch(()=>{});}
+async function claimDisconnectWin(code){
+  if(!currentUser||!db)throw new Error('Faça login.');code=String(code||'').toUpperCase();const rr=ref(db,`fightRooms/${code}`),room=(await get(rr)).val();if(!room||room.status!=='playing'||!room.players?.[currentUser.uid])throw new Error('Sala não está em disputa.');const opponent=Object.keys(room.players||{}).find(uid=>uid!==currentUser.uid),p=room.players?.[opponent]||{};if(!opponent)throw new Error('Rival não encontrado.');if(fightPlayerOnline(room,opponent))throw new Error('O rival está online.');const since=Number(p.disconnectedAt||p.lastSeen||0);if(!since||serverNow()-since<ARCADE_DISCONNECT_GRACE_MS)throw new Error('Aguarde 45 segundos de reconexão antes de solicitar vitória por queda.');
+  await update(rr,{winnerUid:currentUser.uid,status:'finished',finishReason:'disconnect',disconnectLoserUid:opponent,finishedAt:serverNow(),updatedAt:serverNow(),expiresAt:serverNow()+FINISHED_TTL_MS});await ensureArcadeRankedSettlement(code).catch(()=>{});return true;
+}
+async function linkReplayToCompetitiveMatch(meta={}){const code=String(meta.room||'').toUpperCase();if(!code||!db)return false;const room=(await get(ref(db,`fightRooms/${code}`))).val();const seasonId=String(room?.rankedSeasonId||meta.seasonId||currentSeasonId()).toUpperCase();const rr=competitiveMatchRef(seasonId,code),snap=await get(rr);if(!snap.exists())return false;await update(rr,{[`replays/${meta.id}`]:{id:meta.id,visibility:meta.visibility||'participants',inputReplay:Boolean(meta.inputReplay),audio:Boolean(meta.audio),uploadedAt:Number(meta.uploadedAt||serverNow()),uploaderUid:String(meta.uploaderUid||'')},updatedAt:serverNow()});if(room?.tournamentCode){const tid=String(room.tournamentCode).toUpperCase(),mid=String(room.tournamentMatchId||'');const patch={};patch[`arcadeTournamentHistory/${seasonId}/${tid}/replays/${meta.id}`]={id:meta.id,room:code,matchId:mid,at:serverNow()};if(mid&&room?.tournamentMatchId&&String(mid).startsWith('r')&&room?.tournamentMatchId===mid){const t=(await get(arcadeTournamentRef(tid))).val();const rounds=Math.log2(Number(t?.maxPlayers||4));if(mid===`r${rounds}m1`)patch[`arcadeTournamentHistory/${seasonId}/${tid}/finalReplayId`]=meta.id;}await update(ref(db),patch).catch(()=>{});}return true;}
+
+function tournamentSummary(t={}){return {code:String(t.code||''),seasonId:currentSeasonId(),name:String(t.name||'Torneio Arcade'),game:String(t.game||''),maxPlayers:Number(t.maxPlayers||4),bestOf:Number(t.bestOf||3),visibility:String(t.visibility||'public'),championUid:String(t.championUid||''),runnerUpUid:String(t.runnerUpUid||''),thirdPlaceUid:String(t.thirdPlaceUid||''),participants:t.participants||{},createdAt:Number(t.createdAt||0),startedAt:Number(t.startedAt||0),finishedAt:Number(t.finishedAt||serverNow()),finalReplayId:String(t.finalReplayId||''),replays:{}};}
+async function archiveArcadeTournament(t){if(!db||!t?.code||t.status!=='finished')return null;const seasonId=String(t.seasonId||currentSeasonId()).toUpperCase(),rr=ref(db,`arcadeTournamentHistory/${seasonId}/${String(t.code).toUpperCase()}`),candidate=tournamentSummary(t);try{const rounds=Math.log2(Number(t.maxPlayers||4)),final=t.matches?.[`r${rounds}m1`],rooms=new Set(Object.keys(final?.completedFightRooms||{}));if(rooms.size){const reps=Object.values((await get(ref(db,'arcadeReplays'))).val()||{}).filter(r=>rooms.has(String(r.room||'').toUpperCase())).sort((a,b)=>Number(b.createdAt||0)-Number(a.createdAt||0));if(reps[0])candidate.finalReplayId=reps[0].id;}}catch{}const tx=await runTransaction(rr,current=>current?{...candidate,...current,finalReplayId:current.finalReplayId||candidate.finalReplayId||''}:candidate,{applyLocally:false});return tx.snapshot?.val()||candidate;}
+async function getArcadeTournamentHistory(uid='',seasonId=currentSeasonId(),take=30){if(!db)return[];const snap=await get(ref(db,`arcadeTournamentHistory/${String(seasonId||currentSeasonId()).toUpperCase()}`));return Object.values(snap.val()||{}).filter(t=>!uid||t?.participants?.[uid]).sort((a,b)=>Number(b.finishedAt||0)-Number(a.finishedAt||0)).slice(0,Math.max(1,Math.min(100,Number(take)||30)));}
+
+function challengeDayKey(now=serverNow()){const d=new Date(now);return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`;}
+function challengeWeekKey(now=serverNow()){const d=new Date(now),x=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate()));x.setUTCDate(x.getUTCDate()+4-(x.getUTCDay()||7));const y=new Date(Date.UTC(x.getUTCFullYear(),0,1)),w=Math.ceil((((x-y)/86400000)+1)/7);return `${x.getUTCFullYear()}-W${String(w).padStart(2,'0')}`;}
+async function getArcadeChallengeBoard(uid=currentUser?.uid){
+  if(!uid||!db)return {daily:[],weekly:[]};const seasonId=currentSeasonId(),matches=await getCompetitiveMatchHistory(uid,seasonId,100),now=serverNow(),day=challengeDayKey(now),week=challengeWeekKey(now),startDay=Date.parse(`${day}T00:00:00Z`);const d=new Date(now),dow=d.getUTCDay()||7,startWeek=Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate()-dow+1);const today=matches.filter(m=>Number(m.finishedAt||0)>=startDay),thisWeek=matches.filter(m=>Number(m.finishedAt||0)>=startWeek),wins=a=>a.filter(m=>m.winnerUid===uid).length,uniqueGames=a=>new Set(a.map(m=>m.game)).size;
+  const daily=[{id:`daily_${day}_play2`,period:'daily',key:day,label:'Jogue 2 partidas Ranked',goal:2,value:today.length,coins:25,xp:30},{id:`daily_${day}_win1`,period:'daily',key:day,label:'Vença 1 partida Ranked',goal:1,value:wins(today),coins:35,xp:40},{id:`daily_${day}_games2`,period:'daily',key:day,label:'Jogue 2 jogos de luta diferentes',goal:2,value:uniqueGames(today),coins:30,xp:35}];
+  const weekly=[{id:`weekly_${week}_play8`,period:'weekly',key:week,label:'Jogue 8 partidas Ranked',goal:8,value:thisWeek.length,coins:120,xp:150},{id:`weekly_${week}_win4`,period:'weekly',key:week,label:'Vença 4 partidas Ranked',goal:4,value:wins(thisWeek),coins:160,xp:200},{id:`weekly_${week}_games4`,period:'weekly',key:week,label:'Jogue todos os 4 jogos competitivos',goal:4,value:uniqueGames(thisWeek),coins:180,xp:220}];
+  const state=uid===currentUser?.uid?await ensureArcadeRewardProfile().catch(()=>getArcadeRewards()):null;for(const c of [...daily,...weekly]){c.done=c.value>=c.goal;c.claimed=Boolean(state?.challengeClaims?.[c.id]);}return {daily,weekly,day,week};
+}
+async function claimArcadeChallenge(challengeId){if(!currentUser)throw new Error('Faça login.');const board=await getArcadeChallengeBoard(currentUser.uid),c=[...board.daily,...board.weekly].find(x=>x.id===challengeId);if(!c||!c.done)throw new Error('Este desafio ainda não foi concluído.');const result=await transactArcadeRewards(state=>{state.challengeClaims=state.challengeClaims||{};if(state.challengeClaims[c.id])return;const now=serverNow(),unlocked=[];const grant=id=>{if(rewardCatalogItem(id)&&!state.unlocks[id]){rewardUnlock(state,id,now);unlocked.push(id);}};const pass=applyBattlePassProgress(state,c.xp,now,grant);const coins=c.coins+pass.coins;state.coins+=coins;state.earned+=coins;state.challengeClaims[c.id]={at:now,coins:c.coins,xp:c.xp,passRewards:pass.rewards};return state;});return {claimed:Boolean(result.committed),challenge:c,state:result.state};}
+
+async function archiveSeasonForCurrentUser(seasonId,stateOverride=null){if(!currentUser||!db||!seasonId)return null;const state=normalizeArcadeCompetitive(stateOverride||localProfile()?.seasonProfile?.arcadeCompetitive||{}),league=arcadeCompetitiveLeague(state.rp,state.played),payload={seasonId:String(seasonId).toUpperCase(),finalRp:state.rp,peakRp:Math.max(state.rp,clampInt(localProfile()?.seasonProfile?.peakRp||0)),division:league.label,divisionIcon:league.icon,played:state.played,wins:state.wins,losses:state.losses,bestStreak:state.bestStreak,games:state.games,archivedAt:serverNow()};await update(ref(db,`arcadeSeasonHistory/${currentUser.uid}/${String(seasonId).toUpperCase()}`),payload);return payload;}
+
+async function createArcadeFriendChallenge(targetUid,{game='kf2k2mp2',ranked=true}={}){if(!currentUser)throw new Error('Faça login.');targetUid=String(targetUid||'');if(!targetUid||targetUid===currentUser.uid)throw new Error('Jogador inválido.');if(!validArcadeTournamentGame(game))throw new Error('Jogo competitivo inválido.');const roomCode=await createFightRoom({arcadeGame:game,ranked});const now=serverNow(),challengeId=`${currentUser.uid.slice(0,8)}_${roomCode}`;await set(ref(db,`gameInvites/${targetUid}/${currentUser.uid}`),{type:'arcade-challenge',challengeId,fromUid:currentUser.uid,fromName:publicName(),game,roomCode,ranked:Boolean(ranked),createdAt:now,expiresAt:now+15*60*1000});await update(ref(db,`fightRooms/${roomCode}`),{challengeFromUid:currentUser.uid,challengeToUid:targetUid,challengeId});return {roomCode,game,challengeId};}
+async function acceptArcadeFriendChallenge(fromUid){if(!currentUser||!db)throw new Error('Faça login.');fromUid=String(fromUid||'');const rr=ref(db,`gameInvites/${currentUser.uid}/${fromUid}`),invite=(await get(rr)).val();if(!invite||!['arcade-challenge','arcade-rematch'].includes(invite.type)||Number(invite.expiresAt||0)<=serverNow())throw new Error('Desafio expirado ou inválido.');await joinFightRoom(invite.roomCode,invite.game);await remove(rr);return {roomCode:String(invite.roomCode).toUpperCase(),game:String(invite.game),fromUid};}
+async function declineArcadeFriendChallenge(fromUid){if(!currentUser||!db)return;await remove(ref(db,`gameInvites/${currentUser.uid}/${String(fromUid||'')}`));}
+async function getArcadeChallengeInbox(){if(!currentUser||!db)return[];const data=await getSocialData();return (data.invites||[]).filter(i=>['arcade-challenge','arcade-rematch'].includes(i.type)).map(i=>({...i,expired:Number(i.expiresAt||0)<=serverNow()}));}
+
 window.GameGuessRanked={record:recordRankedResult};
 window.GameGuessFirebase={
   configured, appVersion:APP_VERSION, protocolVersion:PROTOCOL_VERSION, sessionId:CLIENT_SESSION_ID,
@@ -1612,13 +1690,13 @@ window.GameGuessFirebase={
   syncLocalProfile, ratingOf, serverNow, isConnected, newSubmissionId, recordRankedResult, getSeason:()=>({...currentSeason}), getQuizHistory, markQuizHistory,
   createDuelRoom, joinDuelRoom, startDuelRoom, leaveDuelRoom, ensureDuelHost, attachDuelPresence, detachDuelPresence, cleanupExpiredDuel,
   watchDuel, mutateDuel, deleteDuel,getRoom:async code=>configured?(await get(ref(db,`duels/${String(code||'').toUpperCase()}`))).val():null,
-  fightProtocolVersion:FIGHT_PROTOCOL_VERSION, arcadeRankVersion:ARCADE_RANK_VERSION, arcadeRankInfo:(rp,played)=>arcadeCompetitiveLeague(rp,played), arcadeRankTransfer:arcadeCompetitiveTransfer, createFightRoom, joinFightRoom, watchFightRoom, markFightReady, requestFightLaunch, submitFightResult, claimFightRankedRecord, ensureArcadeRankedSettlement, recordArcadeMatchResult, syncPendingArcadeRanked, leaveFightRoom, attachFightPresence, detachFightPresence, getFightRoom:async code=>configured?(await get(ref(db,`fightRooms/${String(code||'').toUpperCase()}`))).val():null,
+  fightProtocolVersion:FIGHT_PROTOCOL_VERSION, arcadeRankVersion:ARCADE_RANK_VERSION, arcadeRankInfo:(rp,played)=>arcadeCompetitiveLeague(rp,played), arcadeRankTransfer:arcadeCompetitiveTransfer, createFightRoom, joinFightRoom, watchFightRoom, markFightReady, requestFightLaunch, submitFightResult, claimFightRankedRecord, ensureArcadeRankedSettlement, recordArcadeMatchResult, syncPendingArcadeRanked, leaveFightRoom, attachFightPresence, detachFightPresence, concedeFight, markFightDisconnect, restoreFightConnectionState, claimDisconnectWin, createArcadeRematch, getFightRoom:async code=>configured?(await get(ref(db,`fightRooms/${String(code||'').toUpperCase()}`))).val():null,
   arcadeRewardVersion:ARCADE_REWARD_VERSION, arcadeRewardCatalog:arcadeRewardCatalogPublic, arcadeRewardRanks:()=>ARCADE_REWARD_RANKS.map(x=>({...x,unlocks:[...x.unlocks]})), arcadeRewardMilestones:()=>[...ARCADE_REWARD_MILESTONES.map(x=>({key:x.key,label:x.label,coins:x.coins,unlocks:[...x.unlocks]})),...ARCADE_UPSET_REWARDS.map(x=>({key:x.key,label:x.label,coins:x.coins,unlocks:[...x.unlocks]}))], arcadeBattlePass:()=>({maxLevel:ARCADE_BATTLE_PASS_MAX_LEVEL,rewards:ARCADE_BATTLE_PASS_REWARDS.map(x=>({...x,unlocks:[...x.unlocks]}))}), getArcadeRewards, watchArcadeRewards, ensureArcadeRewardProfile, buyArcadeRewardItem, equipArcadeRewardItem, claimArcadeTournamentReward, claimArcadeSeasonPlacementReward,
-  arcadeTournamentProtocolVersion:ARCADE_TOURNAMENT_PROTOCOL_VERSION, createArcadeTournament, joinArcadeTournament, watchArcadeTournament, startArcadeTournament, linkArcadeTournamentFightRoom, recordArcadeTournamentFightResult, getArcadeTournament:async code=>configured?(await get(arcadeTournamentRef(code))).val():null, listArcadePublicTournaments, listenToArcadeRanking, listenArcadeGameRanking,
-  avatar3dVersion:ARCADE_AVATAR_VERSION, saveArcadeAvatar3D, getArcadeAvatar3D, watchArcadeAvatar3D, getArcadeIdentity, getArcadeSeasonHistory, getArcadeMatchHistory, getArcadeRivalries, getArcadeCompetitiveProfile,
+  arcadeTournamentProtocolVersion:ARCADE_TOURNAMENT_PROTOCOL_VERSION, createArcadeTournament, joinArcadeTournament, watchArcadeTournament, startArcadeTournament, linkArcadeTournamentFightRoom, recordArcadeTournamentFightResult, getArcadeTournamentHistory, getArcadeTournament:async code=>configured?(await get(arcadeTournamentRef(code))).val():null, listArcadePublicTournaments, listenToArcadeRanking, listenArcadeGameRanking,
+  avatar3dVersion:ARCADE_AVATAR_VERSION, saveArcadeAvatar3D, getArcadeAvatar3D, watchArcadeAvatar3D, getArcadeIdentity, getArcadeSeasonHistory, getArcadeMatchHistory, getArcadeRivalries, getArcadeCompetitiveProfile, getCompetitiveMatch, getCompetitiveMatchHistory, getArcadeChallengeBoard, claimArcadeChallenge, archiveSeasonForCurrentUser,
   arcadeReplayCloudVersion:ARCADE_REPLAY_CLOUD_VERSION, replayCloudReady:()=>Boolean(storage), uploadArcadeReplay, listArcadeCloudReplays, getArcadeCloudReplay, resolveArcadeReplayAssets, setArcadeReplayVisibility, deleteArcadeCloudReplay,
   geoProtocolVersion:GEO_PROTOCOL_VERSION, createGeoRoom, joinGeoRoom, watchGeoRoom, startGeoRoom, mutateGeoRoom, ensureGeoHost, leaveGeoRoom, attachGeoPresence, detachGeoPresence, cleanupExpiredGeoRoom, getGeoRoom:async code=>configured?(await get(ref(db,'geoRooms/'+String(code||'').toUpperCase()))).val():null,
-  syncPublicProfile, searchPlayers, sendFriendRequest, respondFriendRequest, removeFriend, getSocialData, sendGameInvite, dismissGameInvite, watchSocialInbox, listenToRanking
+  syncPublicProfile, searchPlayers, sendFriendRequest, respondFriendRequest, removeFriend, getSocialData, sendGameInvite, dismissGameInvite, watchSocialInbox, createArcadeFriendChallenge, acceptArcadeFriendChallenge, declineArcadeFriendChallenge, getArcadeChallengeInbox, listenToRanking
 };
 
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind);else bind();

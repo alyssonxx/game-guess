@@ -195,7 +195,7 @@
           }
         },
         "winnerUid": {
-          ".validate": "!newData.exists() || (newData.isString() && newData.parent().child('players').child(newData.val()).exists() && newData.parent().child('resultVotes').child(newData.parent().child('hostUid').val()).val() === newData.val() && newData.parent().child('guestUid').isString() && newData.parent().child('resultVotes').child(newData.parent().child('guestUid').val()).val() === newData.val())"
+          ".validate": "!newData.exists() || (newData.isString() && newData.parent().child('players').child(newData.val()).exists() && ((newData.parent().child('resultVotes').child(newData.parent().child('hostUid').val()).val() === newData.val() && newData.parent().child('guestUid').isString() && newData.parent().child('resultVotes').child(newData.parent().child('guestUid').val()).val() === newData.val()) || (newData.parent().child('finishReason').val() === 'forfeit' && newData.parent().child('forfeitUid').isString() && newData.parent().child('forfeitUid').val() !== newData.val() && newData.parent().child('players').child(newData.parent().child('forfeitUid').val()).exists()) || (newData.parent().child('finishReason').val() === 'disconnect' && newData.parent().child('disconnectLoserUid').isString() && newData.parent().child('disconnectLoserUid').val() !== newData.val() && newData.parent().child('players').child(newData.parent().child('disconnectLoserUid').val()).exists())))"
         },
         "rankedSeasonId": {
           ".validate": "!newData.exists() || newData.isString()"
@@ -209,7 +209,7 @@
       "$code": {
         ".read": "auth != null",
         ".write": "auth != null && ((!data.exists() && newData.child('hostUid').val() === auth.uid) || data.child('participants').child(auth.uid).exists() || newData.child('participants').child(auth.uid).exists())",
-        ".validate": "!newData.exists() || (newData.child('code').val() === $code && newData.child('protocolVersion').val() === 2 && newData.child('hostUid').isString() && newData.child('game').isString() && (newData.child('maxPlayers').val() === 4 || newData.child('maxPlayers').val() === 8 || newData.child('maxPlayers').val() === 16) && (newData.child('bestOf').val() === 1 || newData.child('bestOf').val() === 3 || newData.child('bestOf').val() === 5) && (!newData.child('visibility').exists() || newData.child('visibility').val() === 'public' || newData.child('visibility').val() === 'private') && newData.child('participants').child(newData.child('hostUid').val()).exists())"
+        ".validate": "!newData.exists() || (newData.child('code').val() === $code && newData.child('protocolVersion').val() === 3 && newData.child('hostUid').isString() && newData.child('game').isString() && (newData.child('maxPlayers').val() === 4 || newData.child('maxPlayers').val() === 8 || newData.child('maxPlayers').val() === 16) && (newData.child('bestOf').val() === 1 || newData.child('bestOf').val() === 3 || newData.child('bestOf').val() === 5) && (!newData.child('visibility').exists() || newData.child('visibility').val() === 'public' || newData.child('visibility').val() === 'private') && newData.child('participants').child(newData.child('hostUid').val()).exists())"
       }
     },
     "publicProfiles": {
@@ -310,6 +310,24 @@
         ".read": "auth != null && (data.child('visibility').val() === 'public' || data.child('uploaderUid').val() === auth.uid || data.child('participants').child(auth.uid).exists())",
         ".write": "auth != null && ((!data.exists() && newData.child('uploaderUid').val() === auth.uid) || data.child('uploaderUid').val() === auth.uid)",
         ".validate": "!newData.exists() || (newData.child('version').val() === 1 && newData.child('id').val() === $replayId && newData.child('uploaderUid').isString() && newData.child('game').isString() && newData.child('visibility').isString() && (newData.child('visibility').val() === 'participants' || newData.child('visibility').val() === 'public' || newData.child('visibility').val() === 'private') && newData.child('createdAt').isNumber() && newData.child('uploadedAt').isNumber() && newData.child('participants').child(newData.child('uploaderUid').val()).exists())"
+      }
+    },
+    "competitiveMatches": {
+      "$seasonId": {
+        ".read": "auth != null",
+        "$code": {
+          ".write": "auth != null && root.child('fightRooms').child($code).child('players').child(auth.uid).exists() && root.child('fightRooms').child($code).child('status').val() === 'finished'",
+          ".validate": "!newData.exists() || (newData.child('version').val() === 1 && newData.child('code').val() === $code && newData.child('seasonId').val() === $seasonId && newData.child('game').isString() && newData.child('winnerUid').val() === root.child('fightRooms').child($code).child('winnerUid').val() && newData.child('players').child(newData.child('winnerUid').val()).exists())"
+        }
+      }
+    },
+    "arcadeTournamentHistory": {
+      "$seasonId": {
+        ".read": "auth != null",
+        "$code": {
+          ".write": "auth != null && root.child('arcadeTournaments').child($code).child('participants').child(auth.uid).exists() && root.child('arcadeTournaments').child($code).child('status').val() === 'finished'",
+          ".validate": "!newData.exists() || (newData.child('code').val() === $code && newData.child('championUid').val() === root.child('arcadeTournaments').child($code).child('championUid').val() && newData.child('game').isString())"
+        }
       }
     }
   }

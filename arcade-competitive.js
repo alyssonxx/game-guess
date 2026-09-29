@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '3.1.0';
+  const VERSION = '3.6.0';
   const $ = id => document.getElementById(id);
   const CORE = () => window.GameGuessCore;
   const FB = () => window.GameGuessFirebase;
@@ -117,7 +117,9 @@
   function renderBracket() {
     const root = $('arcadeTournamentBracket');
     if (!root || !tournament) return;
-    const matches = Object.values(tournament.matches || {}).sort((a,b)=>Number(a.round)-Number(b.round)||Number(a.index)-Number(b.index));
+    const allMatches = Object.values(tournament.matches || {}).sort((a,b)=>Number(a.round)-Number(b.round)||Number(a.index)-Number(b.index));
+    const thirdMatch = allMatches.find(m=>m.isThirdPlace||m.id==='third');
+    const matches = allMatches.filter(m=>!(m.isThirdPlace||m.id==='third'));
     if (!matches.length) {
       root.innerHTML = '<div class="home-ranked-empty">A chave será criada quando o host iniciar o torneio.</div>';
       return;
@@ -140,6 +142,10 @@
         </article>`;
       }
       html += '</div>';
+    }
+    if (thirdMatch) {
+      const done=Boolean(thirdMatch.winnerUid),mine=uid&&(thirdMatch.player1Uid===uid||thirdMatch.player2Uid===uid);
+      html += `<div class="arcade-bracket-round third-place-round"><h4>🥉 TERCEIRO LUGAR</h4><article class="arcade-bracket-match${mine?' mine':''}${done?' done':''}"><div class="arcade-bracket-player${done&&thirdMatch.winnerUid===thirdMatch.player1Uid?' winner':''}"><span>${esc(playerName(thirdMatch.player1Uid))}</span><b>${Number(thirdMatch.score1||0)}</b></div><div class="arcade-bracket-vs">MD${tournament.bestOf} • ${done?'ENCERRADO':'VS'}</div><div class="arcade-bracket-player${done&&thirdMatch.winnerUid===thirdMatch.player2Uid?' winner':''}"><span>${esc(playerName(thirdMatch.player2Uid))}</span><b>${Number(thirdMatch.score2||0)}</b></div>${done?`<small>🥉 ${esc(playerName(thirdMatch.winnerUid))} ficou em 3º</small>`:myMatchAction(thirdMatch)}</article></div>`;
     }
     root.innerHTML = html;
     root.querySelectorAll('[data-open-tournament-match]').forEach(btn => btn.addEventListener('click', () => openTournamentMatch(btn.dataset.openTournamentMatch)));
@@ -167,9 +173,9 @@
     const champion = $('arcadeTournamentChampion');
     if (champion) {
       champion.classList.toggle('hidden', !tournament.championUid);
-      if (tournament.championUid) champion.innerHTML = `🏆 CAMPEÃO<strong>${esc(playerName(tournament.championUid))}</strong>`;
+      if (tournament.championUid) champion.innerHTML = `🏆 CAMPEÃO<strong>${esc(playerName(tournament.championUid))}</strong><small>🥈 ${esc(playerName(tournament.runnerUpUid))}${tournament.thirdPlaceUid?` • 🥉 ${esc(playerName(tournament.thirdPlaceUid))}`:''}</small>`;
     }
-    if(tournament.status==='finished'&&tournament.championUid===user()?.uid&&!tournamentRewardSeen.has(tournament.code)){tournamentRewardSeen.add(tournament.code);FB()?.claimArcadeTournamentReward?.(tournament.code).then(r=>{if(r?.awarded)toast('🏆 Recompensa de torneio',`+300 Arcade Coins • Troféu #${Number(r.claim?.trophies||1)}`,'achievement');renderRewards();}).catch(e=>console.warn('Tournament reward claim:',e));}
+    if(tournament.status==='finished'&&[tournament.championUid,tournament.runnerUpUid,tournament.thirdPlaceUid].includes(user()?.uid)&&!tournamentRewardSeen.has(tournament.code)){tournamentRewardSeen.add(tournament.code);FB()?.claimArcadeTournamentReward?.(tournament.code).then(r=>{if(r?.awarded)toast('🏆 Premiação de torneio',`${r.claim?.label||'Pódio'} • +${Number(r.claim?.coins||0)} Arcade Coins`,'achievement');renderRewards();}).catch(e=>console.warn('Tournament reward claim:',e));}
     const count = participants().length;
     setTournamentStatus(
       tournament.status === 'waiting' ? `Inscrições abertas: ${count}/${tournament.maxPlayers} jogadores.` :
@@ -326,6 +332,8 @@
     const action=owned?(avatarLike?(item.type==='avatar'?'<button type="button" data-open-avatar-editor>USAR NO AVATAR</button>':'<button type="button" disabled>COLECIONADO</button>'):(equipped?'<button type="button" disabled>EQUIPADO</button>':`<button type="button" data-reward-equip="${esc(item.id)}">EQUIPAR</button>`)):(shop?`<button type="button" data-reward-buy="${esc(item.id)}">🪙 ${Number(item.price||0)} AC</button>`:'<button type="button" disabled>🔒 BLOQUEADO</button>');
     return `<article class="arcade-reward-item${owned?' owned':''}${equipped?' equipped':''}"><div class="reward-item-icon">${esc(item.icon||'🎁')}</div><div><small>${esc(rewardTypeLabel(item.type))}</small><b>${esc(item.name)}</b><span>${shop?'Loja Arcade':owned?'Desbloqueado':'Recompensa competitiva'}</span></div>${action}</article>`;
   }
+  function challengeCard(c){const pct=Math.min(100,Math.round((Number(c.value||0)/Math.max(1,Number(c.goal||1)))*100));return `<div class="arcade-challenge-row${c.done?' done':''}${c.claimed?' claimed':''}"><div><b>${esc(c.label)}</b><small>${Math.min(Number(c.value||0),Number(c.goal||0))}/${Number(c.goal||0)} • ${pct}% • 🪙 ${Number(c.coins||0)} AC • 🎫 ${Number(c.xp||0)} XP</small></div><button type="button" data-claim-arcade-challenge="${esc(c.id)}" ${!c.done||c.claimed?'disabled':''}>${c.claimed?'✓ RESGATADO':c.done?'RESGATAR':'EM PROGRESSO'}</button></div>`;}
+  async function renderTimedChallenges(){const d=$('arcadeDailyChallenges'),w=$('arcadeWeeklyChallenges');if(!d&&!w)return;if(!user()){if(d)d.innerHTML='<div class="meta-empty">Faça login.</div>';if(w)w.innerHTML='';return;}try{const board=await FB()?.getArcadeChallengeBoard?.();if(d)d.innerHTML=(board?.daily||[]).map(challengeCard).join('')||'<div class="meta-empty">Sem desafios.</div>';if(w)w.innerHTML=(board?.weekly||[]).map(challengeCard).join('')||'<div class="meta-empty">Sem desafios.</div>';}catch(e){if(d)d.innerHTML=`<div class="meta-empty">${esc(e?.message||'Falha ao carregar desafios.')}</div>`;}}
   function renderRewards(){
     const state=rewardState(),comp=currentCompetitive(),info=FB()?.arcadeRankInfo?.(Number(comp.rp||0),Number(comp.played||0))||{key:'rookie',label:'Recruta',icon:'🎮',next:200},seasonId=String(FB()?.getSeason?.()?.id||'S1').toUpperCase();
     const badge=state.seasonBadges?.[seasonId];
@@ -348,6 +356,7 @@
     if(shop){const items=catalog.filter(i=>i.source==='shop');shop.innerHTML=items.map(i=>cosmeticCard(i,state)).join('');}
     const milestones=$('arcadeRewardMilestones');if(milestones){milestones.innerHTML=(FB()?.arcadeRewardMilestones?.()||[]).map(m=>{const claimed=Boolean(state.milestoneClaims?.[`${seasonId}_${m.key}`]);return `<div class="arcade-reward-milestone${claimed?' done':''}"><span>${claimed?'✅':'⬜'}</span><b>${esc(m.label)}</b><small>+${Number(m.coins||0)} AC</small></div>`;}).join('');}
     const eq=$('arcadeRewardEquipped');if(eq){const parts=['title','frame','banner','effect'].map(type=>{const id=state.equipped?.[type],item=rewardItem(id);return `<span><small>${rewardTypeLabel(type)}</small><b>${item?`${item.icon} ${esc(item.name)}`:'—'}</b></span>`;});eq.innerHTML=parts.join('');}
+    renderTimedChallenges();
   }
   function stopRewardsWatch(){if(rewardsUnsub){try{rewardsUnsub();}catch{}rewardsUnsub=null;}}
   function subscribeRewards(){stopRewardsWatch();if(!FB()?.ready?.()||!user()){renderRewards();return;}const maybe=FB()?.watchArcadeRewards?.(()=>{renderRewards();subscribeHomeRanking();});if(typeof maybe==='function')rewardsUnsub=maybe;else renderRewards();}
@@ -454,6 +463,7 @@
     $('arcadeRewardsBack')?.addEventListener('click', ()=>{stopRewardsWatch();show('kofScreen');});
     $('arcadeRewardInventory')?.addEventListener('click',e=>{const avatar=e.target.closest('[data-open-avatar-editor]'),equip=e.target.closest('[data-reward-equip]');if(avatar)window.GameGuessCompetitiveUI?.openAvatar?.();else if(equip)equipReward(equip.dataset.rewardEquip);});
     $('arcadeRewardShop')?.addEventListener('click',e=>{const avatar=e.target.closest('[data-open-avatar-editor]'),buy=e.target.closest('[data-reward-buy]'),equip=e.target.closest('[data-reward-equip]');if(avatar)window.GameGuessCompetitiveUI?.openAvatar?.();else if(buy)buyReward(buy.dataset.rewardBuy);else if(equip)equipReward(equip.dataset.rewardEquip);});
+    $('arcadeRewardsScreen')?.addEventListener('click',e=>{const claim=e.target.closest('[data-claim-arcade-challenge]');if(!claim)return;claim.disabled=true;FB()?.claimArcadeChallenge?.(claim.dataset.claimArcadeChallenge).then(r=>{if(r?.claimed)toast('Desafio concluído',`+${Number(r.challenge?.coins||0)} AC • +${Number(r.challenge?.xp||0)} XP`,'achievement');renderRewards();}).catch(err=>{toast('Desafio',err?.message||String(err),'error');renderTimedChallenges();});});
 
     $('arcadeReplaysButton')?.addEventListener('click', openReplays);
     $('homeArcadeReplaysButton')?.addEventListener('click', openReplays);
