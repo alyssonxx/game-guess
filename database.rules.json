@@ -269,6 +269,13 @@
           ".validate": "!newData.exists() || (newData.child('seasonId').isString() && newData.child('code').val() === $code && newData.child('createdAt').isNumber())"
         }
       }
+    },
+    "arcadeRewardProfiles": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "!newData.exists() || (newData.child('version').val() === 1 && newData.child('coins').isNumber() && newData.child('coins').val() >= 0 && newData.child('coins').val() <= 9999999 && newData.child('earned').isNumber() && newData.child('earned').val() >= 0 && newData.child('spent').isNumber() && newData.child('spent').val() >= 0 && newData.child('earned').val() >= newData.child('spent').val() && newData.child('coins').val() === newData.child('earned').val() - newData.child('spent').val() && newData.child('revision').isNumber() && newData.child('revision').val() >= 0 && newData.child('updatedAt').isNumber() && newData.child('unlocks').exists() && newData.child('equipped').exists() && newData.child('trophies').child('tournaments').isNumber() && newData.child('trophies').child('tournaments').val() >= 0)"
+      }
     }
   }
 }

@@ -230,7 +230,10 @@
       if (record?.recorded) {
         const sign = Number(record.delta||0) > 0 ? '+' : '';
         const placement = Number(record.placement||0) < Number(record.placementTotal||10) ? ` • classificação ${record.placement}/${record.placementTotal||10}` : '';
-        toast('Arcade Ranked', `${record.divisionIcon||'🎮'} ${record.division||'Recruta'} • ${sign}${Number(record.delta||0)} RP • ${Number(record.rp||0)} RP${placement}`);
+        const rw=record.reward||{},coinText=Number(rw.totalCoins||0)>0?` • 🪙 +${Number(rw.totalCoins||0)} AC`:'';
+        toast('Arcade Ranked', `${record.divisionIcon||'🎮'} ${record.division||'Recruta'} • ${sign}${Number(record.delta||0)} RP • ${Number(record.rp||0)} RP${placement}${coinText}`);
+        if(rw.rankUps?.length){const latest=rw.rankUps[rw.rankUps.length-1],rank=FB()?.arcadeRewardRanks?.().find?.(r=>r.key===latest);if(rank)toast('⬆️ Subiu de rank!', `${rank.icon} ${rank.label} • +${Number(rank.coins||0)} Arcade Coins`,'achievement');}
+        if(rw.unlocked?.length)toast('🎁 Recompensa desbloqueada', `${rw.unlocked.length} novo(s) cosmético(s) disponível(is) em Recompensas.`,'achievement');
       }
     } catch (e) { console.warn('Arcade ranked result:', e); }
     if (room.tournamentCode && room.tournamentMatchId) {

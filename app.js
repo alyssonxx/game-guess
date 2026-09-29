@@ -187,7 +187,7 @@
 
   const DEFAULT_PROFILE = {
     coins:120, highScore:0, gamesPlayed:0, gamesWon:0, bestStreak:0, sound:true,
-    arcadePlayed:0, arcadeWins:0, arcadeLosses:0, arcadeBestStreak:0, arcadeCurrentStreak:0, arcadeRating:1000, arcadeGames:{}, arcadeCompetitive:{version:2,rp:0,played:0,wins:0,losses:0,currentStreak:0,bestStreak:0,revision:0,updatedAt:0,lastMatchCode:'',lastDelta:0,games:{},appliedMatches:{}},
+    arcadePlayed:0, arcadeWins:0, arcadeLosses:0, arcadeBestStreak:0, arcadeCurrentStreak:0, arcadeRating:1000, arcadeGames:{}, arcadeCompetitive:{version:2,rp:0,played:0,wins:0,losses:0,currentStreak:0,bestStreak:0,revision:0,updatedAt:0,lastMatchCode:'',lastDelta:0,games:{},appliedMatches:{}}, arcadeRewards:{version:1,coins:0,earned:0,spent:0,revision:0,updatedAt:0,matchClaims:{},rankClaims:{},milestoneClaims:{},tournamentClaims:{},purchases:{},unlocks:{title_rookie:1,frame_rookie:1},equipped:{title:'title_rookie',frame:'frame_rookie',banner:'',effect:''},seasonBadges:{},trophies:{tournaments:0}},
     achievements:{}, platformWins:{}, modeWins:{}, modeRecords:{survival:0,blitz:0}, recentGameIds:[], tutorialSeen:false
   };
 
@@ -215,6 +215,7 @@
         modeRecords:{...DEFAULT_PROFILE.modeRecords,...(saved.modeRecords||{})},
         arcadeGames:{...DEFAULT_PROFILE.arcadeGames,...(saved.arcadeGames||{})},
         arcadeCompetitive:{...DEFAULT_PROFILE.arcadeCompetitive,...(saved.arcadeCompetitive||{}),games:{...(saved.arcadeCompetitive?.games||{})},appliedMatches:{...(saved.arcadeCompetitive?.appliedMatches||{})}},
+        arcadeRewards:{...DEFAULT_PROFILE.arcadeRewards,...(saved.arcadeRewards||{}),matchClaims:{...(saved.arcadeRewards?.matchClaims||{})},rankClaims:{...(saved.arcadeRewards?.rankClaims||{})},milestoneClaims:{...(saved.arcadeRewards?.milestoneClaims||{})},tournamentClaims:{...(saved.arcadeRewards?.tournamentClaims||{})},purchases:{...(saved.arcadeRewards?.purchases||{})},unlocks:{...DEFAULT_PROFILE.arcadeRewards.unlocks,...(saved.arcadeRewards?.unlocks||{})},equipped:{...DEFAULT_PROFILE.arcadeRewards.equipped,...(saved.arcadeRewards?.equipped||{})},seasonBadges:{...(saved.arcadeRewards?.seasonBadges||{})},trophies:{...DEFAULT_PROFILE.arcadeRewards.trophies,...(saved.arcadeRewards?.trophies||{})}},
         recentGameIds:Array.isArray(saved.recentGameIds)?saved.recentGameIds.slice(0,100):[]
       };
     } catch { return {...DEFAULT_PROFILE}; }

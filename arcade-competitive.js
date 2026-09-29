@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.6.0';
+  const VERSION = '2.7.0';
   const $ = id => document.getElementById(id);
   const CORE = () => window.GameGuessCore;
   const FB = () => window.GameGuessFirebase;
@@ -24,6 +24,8 @@
   let tournamentUnsub = null;
   let rankingUnsub = null;
   let replayUrls = [];
+  let rewardsUnsub = null;
+  const tournamentRewardSeen = new Set();
 
   function user() { return FB()?.getUser?.() || null; }
   function show(id) { CORE()?.showScreen?.(id); }
@@ -166,6 +168,7 @@
       champion.classList.toggle('hidden', !tournament.championUid);
       if (tournament.championUid) champion.innerHTML = `🏆 CAMPEÃO<strong>${esc(playerName(tournament.championUid))}</strong>`;
     }
+    if(tournament.status==='finished'&&tournament.championUid===user()?.uid&&!tournamentRewardSeen.has(tournament.code)){tournamentRewardSeen.add(tournament.code);FB()?.claimArcadeTournamentReward?.(tournament.code).then(r=>{if(r?.awarded)toast('🏆 Recompensa de torneio',`+300 Arcade Coins • Troféu #${Number(r.claim?.trophies||1)}`,'achievement');renderRewards();}).catch(e=>console.warn('Tournament reward claim:',e));}
     const count = participants().length;
     setTournamentStatus(
       tournament.status === 'waiting' ? `Inscrições abertas: ${count}/${tournament.maxPlayers} jogadores.` :
@@ -261,12 +264,15 @@
       const fallbackBest = Object.entries(comp.games||{}).sort((a,b)=>Number(b[1]?.rp||0)-Number(a[1]?.rp||0)||Number(b[1]?.wins||0)-Number(a[1]?.wins||0))[0]?.[0] || '';
       const info = FB()?.arcadeRankInfo?.(Number(comp.rp||0),Number(comp.played||0)) || {label:'Recruta',icon:'🎮',placement:Math.min(10,Number(comp.played||0))};
       const own = mine || { arcadeRp:Number(comp.rp||0), arcadeWins:Number(comp.wins||0), arcadeLosses:Number(comp.losses||0), arcadePlayed:Number(comp.played||0), bestArcadeGame:fallbackBest, arcadeDivision:info.label, arcadeDivisionIcon:info.icon };
+      const rewards=rewardState(),decor=rewards.equipped||{},title=rewardItem(decor.title); side.dataset.frame=decor.frame||'';side.dataset.banner=decor.banner||'';side.dataset.effect=decor.effect||'';
       side.innerHTML = `
         <div class="ranked-mini-stat"><span>Seu RP</span><b>${Number(own.arcadeRp||0)}</b></div>
         <div class="ranked-mini-stat"><span>Divisão</span><b>${esc(own.arcadeDivisionIcon||'🎮')} ${esc(own.arcadeDivision||'Recruta')}</b></div>
         <div class="ranked-mini-stat"><span>Campanha</span><b>${Number(own.arcadeWins||0)}V / ${Number(own.arcadeLosses||0)}D</b></div>
         <div class="ranked-mini-stat"><span>Classificação</span><b>${Math.min(10,Number(own.arcadePlayed||0))}/10</b></div>
-        <div class="ranked-mini-stat"><span>Melhor jogo</span><b>${esc(own.bestArcadeGame?rankGameName(own.bestArcadeGame):'—')}</b></div>`;
+        <div class="ranked-mini-stat"><span>Melhor jogo</span><b>${esc(own.bestArcadeGame?rankGameName(own.bestArcadeGame):'—')}</b></div>
+        <div class="ranked-mini-stat"><span>Arcade Coins</span><b>🪙 ${Number(rewards.coins||0)} AC</b></div>
+        <div class="ranked-mini-stat"><span>Título</span><b>${title?`${title.icon} ${esc(title.name)}`:'—'}</b></div>`;
     };
 
     if (!user()) {
@@ -281,9 +287,9 @@
       return;
     }
     root.innerHTML = `<div class="home-ranked-row head"><span>POS</span><span>JOGADOR</span><span>RP</span><span>V / D</span><span>MELHOR JOGO</span></div>` + rows.slice(0,10).map((r,i)=>`
-      <div class="home-ranked-row${r.uid===me?' me':''}">
+      <div class="home-ranked-row${r.uid===me?' me':''} arcade-reward-decor" data-frame="${esc(r.arcadeRewardFrame||'')}" data-banner="${esc(r.arcadeRewardBanner||'')}" data-effect="${esc(r.arcadeRewardEffect||'')}">
         <b>${i<3?['🥇','🥈','🥉'][i]:`#${i+1}`}</b>
-        <div><b>${esc(r.displayName)}</b><small>${esc(r.arcadeDivisionIcon||'🎮')} ${esc(r.arcadeDivision||'Recruta')} • ${Number(r.arcadePlayed||0)} partidas</small></div>
+        <div><b>${esc(r.displayName)}</b><small>${r.arcadeRewardTitle?`${esc(r.arcadeRewardTitleIcon||'🏷️')} ${esc(r.arcadeRewardTitle)} • `:''}${esc(r.arcadeDivisionIcon||'🎮')} ${esc(r.arcadeDivision||'Recruta')} • ${Number(r.arcadePlayed||0)} partidas</small></div>
         <span class="home-ranked-rp">${Number(r.arcadeRp||0)}</span>
         <span class="home-ranked-vd">${Number(r.arcadeWins||0)}V / ${Number(r.arcadeLosses||0)}D</span>
         <span class="home-ranked-best">${gameIcon(r.bestArcadeGame)} ${esc(rankGameName(r.bestArcadeGame))}</span>
@@ -296,6 +302,44 @@
     const maybe = FB()?.listenToArcadeRanking?.(10, rows => renderHomeRanking(rows));
     if (typeof maybe === 'function') rankingUnsub = maybe;
   }
+
+
+  // ----- Recompensas Arcade -----
+  function rewardState(){ return FB()?.getArcadeRewards?.() || {coins:0,earned:0,spent:0,unlocks:{},equipped:{},seasonBadges:{},trophies:{tournaments:0}}; }
+  function rewardItem(id){ return (FB()?.arcadeRewardCatalog?.()||[]).find(x=>x.id===id); }
+  function rewardTypeLabel(type){ return ({title:'Título',frame:'Moldura',banner:'Banner',effect:'Efeito'})[type]||type; }
+  function currentCompetitive(){
+    const local=CORE()?.getProfile?.()||{},seasonId=String(FB()?.getSeason?.()?.id||'').toUpperCase(),seasonLocal=local.seasonProfile&&String(local.seasonProfile.seasonId||'').toUpperCase()===seasonId?local.seasonProfile:local;
+    return seasonLocal.arcadeCompetitive&&Number(seasonLocal.arcadeCompetitive.version)===2?seasonLocal.arcadeCompetitive:{rp:0,played:0,wins:0,losses:0,currentStreak:0,bestStreak:0,games:{}};
+  }
+  function cosmeticCard(item,state){
+    const owned=Boolean(state.unlocks?.[item.id]),equipped=state.equipped?.[item.type]===item.id,shop=item.source==='shop';
+    const action=owned?(equipped?'<button type="button" disabled>EQUIPADO</button>':`<button type="button" data-reward-equip="${esc(item.id)}">EQUIPAR</button>`):(shop?`<button type="button" data-reward-buy="${esc(item.id)}">🪙 ${Number(item.price||0)} AC</button>`:'<button type="button" disabled>🔒 BLOQUEADO</button>');
+    return `<article class="arcade-reward-item${owned?' owned':''}${equipped?' equipped':''}"><div class="reward-item-icon">${esc(item.icon||'🎁')}</div><div><small>${esc(rewardTypeLabel(item.type))}</small><b>${esc(item.name)}</b><span>${shop?'Loja Arcade':owned?'Desbloqueado':'Recompensa competitiva'}</span></div>${action}</article>`;
+  }
+  function renderRewards(){
+    const state=rewardState(),comp=currentCompetitive(),info=FB()?.arcadeRankInfo?.(Number(comp.rp||0),Number(comp.played||0))||{key:'rookie',label:'Recruta',icon:'🎮',next:200},seasonId=String(FB()?.getSeason?.()?.id||'S1').toUpperCase();
+    const badge=state.seasonBadges?.[seasonId];
+    if($('arcadeRewardCoins'))$('arcadeRewardCoins').textContent=Number(state.coins||0);
+    if($('arcadeRewardEarned'))$('arcadeRewardEarned').textContent=Number(state.earned||0);
+    if($('arcadeRewardRank'))$('arcadeRewardRank').textContent=`${info.icon||'🎮'} ${info.label||'Recruta'} • ${Number(comp.rp||0)} RP`;
+    if($('arcadeRewardSeasonBadge'))$('arcadeRewardSeasonBadge').textContent=badge?`${badge.icon||'🎮'} ${badge.label} • ${seasonId}`:`🎮 Recruta • ${seasonId}`;
+    if($('arcadeRewardTrophies'))$('arcadeRewardTrophies').textContent=Number(state.trophies?.tournaments||0);
+    const next=(FB()?.arcadeRewardRanks?.()||[]).find(r=>Number(r.min)>Number(comp.rp||0));
+    if($('arcadeRewardNext'))$('arcadeRewardNext').textContent=next?`${next.icon} ${next.label}: faltam ${Math.max(0,Number(next.min)-Number(comp.rp||0))} RP • +${next.coins} AC`:'👑 Rank máximo alcançado';
+    const ranks=$('arcadeRewardRankRoadmap');if(ranks){ranks.innerHTML=(FB()?.arcadeRewardRanks?.()||[]).map(r=>{const claimed=Boolean(state.rankClaims?.[`${seasonId}_${r.key}`])||r.key==='rookie',reached=Number(comp.rp||0)>=Number(r.min);return `<article class="arcade-rank-reward${reached?' reached':''}${claimed?' claimed':''}"><div>${r.icon}</div><b>${esc(r.label)}</b><small>${Number(r.min)} RP</small><span>${r.coins?`🪙 +${r.coins} AC`:'Entrada'}</span><em>${claimed?'✓ resgatado':reached?'aguardando sincronização':'bloqueado'}</em></article>`;}).join('');}
+    const gameBadges=$('arcadeRewardGameBadges');if(gameBadges){gameBadges.innerHTML=Object.entries(FIGHT_GAMES).map(([key,g])=>{const gs=comp.games?.[key]||{rp:0,played:0,wins:0,losses:0},gi=FB()?.arcadeRankInfo?.(Number(gs.rp||0),Number(gs.played||0))||{icon:'🎮',label:'Recruta'};return `<article class="arcade-rank-reward reached"><div>${g.icon}</div><b>${esc(g.title)}</b><small>${Number(gs.rp||0)} RP • ${Number(gs.wins||0)}V/${Number(gs.losses||0)}D</small><span>${gi.icon} ${esc(gi.label)}</span><em>${Number(gs.played||0)} partidas</em></article>`;}).join('');}
+    const catalog=FB()?.arcadeRewardCatalog?.()||[],inventory=$('arcadeRewardInventory'),shop=$('arcadeRewardShop');
+    if(inventory){const owned=catalog.filter(i=>state.unlocks?.[i.id]);inventory.innerHTML=owned.length?owned.map(i=>cosmeticCard(i,state)).join(''):'<div class="home-ranked-empty">Nenhum cosmético desbloqueado.</div>';}
+    if(shop){const items=catalog.filter(i=>i.source==='shop');shop.innerHTML=items.map(i=>cosmeticCard(i,state)).join('');}
+    const milestones=$('arcadeRewardMilestones');if(milestones){milestones.innerHTML=(FB()?.arcadeRewardMilestones?.()||[]).map(m=>{const claimed=Boolean(state.milestoneClaims?.[`${seasonId}_${m.key}`]);return `<div class="arcade-reward-milestone${claimed?' done':''}"><span>${claimed?'✅':'⬜'}</span><b>${esc(m.label)}</b><small>+${Number(m.coins||0)} AC</small></div>`;}).join('');}
+    const eq=$('arcadeRewardEquipped');if(eq){const parts=['title','frame','banner','effect'].map(type=>{const id=state.equipped?.[type],item=rewardItem(id);return `<span><small>${rewardTypeLabel(type)}</small><b>${item?`${item.icon} ${esc(item.name)}`:'—'}</b></span>`;});eq.innerHTML=parts.join('');}
+  }
+  function stopRewardsWatch(){if(rewardsUnsub){try{rewardsUnsub();}catch{}rewardsUnsub=null;}}
+  function subscribeRewards(){stopRewardsWatch();if(!FB()?.ready?.()||!user()){renderRewards();return;}const maybe=FB()?.watchArcadeRewards?.(()=>{renderRewards();subscribeHomeRanking();});if(typeof maybe==='function')rewardsUnsub=maybe;else renderRewards();}
+  function openRewards(){if(!ensureLogin('Faça login para abrir suas recompensas Arcade.'))return;show('arcadeRewardsScreen');FB()?.ensureArcadeRewardProfile?.().then(()=>{renderRewards();subscribeRewards();}).catch(e=>toast('Recompensas',e?.message||String(e),'error'));}
+  async function buyReward(id){try{const r=await FB()?.buyArcadeRewardItem?.(id);if(r?.bought)toast('🎁 Compra concluída',`${r.item?.name||'Item'} desbloqueado. Saldo: ${Number(r.state?.coins||0)} AC`,'achievement');else if(r?.reason==='owned')toast('Recompensas','Você já possui esse item.');else if(r?.reason==='coins')toast('Arcade Coins',`Faltam ${Number(r.need||0)} AC para comprar este item.`,'error');renderRewards();}catch(e){toast('Recompensas',e?.message||String(e),'error');}}
+  async function equipReward(id){try{const r=await FB()?.equipArcadeRewardItem?.(id);if(r?.equipped)toast('Cosmético equipado',r.item?.name||'Pronto!','achievement');renderRewards();subscribeHomeRanking();}catch(e){toast('Recompensas',e?.message||String(e),'error');}}
 
   // ----- Replay em vídeo local (IndexedDB) -----
   const REPLAY_DB = 'GameGuessArcadeReplays';
@@ -359,6 +403,12 @@
     $('arcadeTournamentCopy')?.addEventListener('click', copyTournamentCode);
     $('arcadeTournamentLeaveView')?.addEventListener('click', ()=>leaveTournamentView(true));
 
+    $('arcadeRewardsButton')?.addEventListener('click', openRewards);
+    $('homeArcadeRewardsButton')?.addEventListener('click', openRewards);
+    $('arcadeRewardsBack')?.addEventListener('click', ()=>{stopRewardsWatch();show('kofScreen');});
+    $('arcadeRewardInventory')?.addEventListener('click',e=>{const equip=e.target.closest('[data-reward-equip]');if(equip)equipReward(equip.dataset.rewardEquip);});
+    $('arcadeRewardShop')?.addEventListener('click',e=>{const buy=e.target.closest('[data-reward-buy]'),equip=e.target.closest('[data-reward-equip]');if(buy)buyReward(buy.dataset.rewardBuy);else if(equip)equipReward(equip.dataset.rewardEquip);});
+
     $('arcadeReplaysButton')?.addEventListener('click', openReplays);
     $('homeArcadeReplaysButton')?.addEventListener('click', openReplays);
     $('arcadeReplaysBack')?.addEventListener('click', ()=>show('kofScreen'));
@@ -370,13 +420,13 @@
     $('arcadeRankingButton')?.addEventListener('click', openRanked);
     $('homeArcadeRankingButton')?.addEventListener('click', openRanked);
 
-    window.addEventListener('gameguess:authchange', subscribeHomeRanking);
+    window.addEventListener('gameguess:authchange', ()=>{subscribeHomeRanking();subscribeRewards();});
     window.addEventListener('gameguess:arcade-replay-saved', () => { if ($('arcadeReplaysScreen')?.classList.contains('active')) renderReplays(); });
     subscribeHomeRanking();
   }
 
   window.GameGuessArcadeCompetitive = {
-    version:VERSION, openTournament, openTournamentCode, openReplays, renderReplays, subscribeHomeRanking,
+    version:VERSION, openTournament, openTournamentCode, openReplays, openRewards, renderReplays, renderRewards, subscribeHomeRanking,
     onTournamentFinishedRoom(code){ if(tournamentCode && code===tournamentCode) renderTournament(); }
   };
 
